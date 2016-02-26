@@ -77,8 +77,6 @@ import gevent
 
 __version__ = '2.0.0'
 
-MATRIX_ROWSTRING = '%20s\t%12.2f%12.2f%12.2f%12.2f%12.2f'
-CRITERIA_LABELSTRING = '\t\t\t%12s%12s%12s%12s%12s'
 DATE_FORMAT = '%m-%d-%y %H:%M:%S'
 setup_logging()
 _log = logging.getLogger(__name__)
@@ -439,17 +437,15 @@ def ilc_agent(config_path, **kwargs):
     clusters = Clusters()
 
     for cluster_config in cluster_configs:
-        excel_file_name = cluster_config['critieria_file_path']
+        criteria_matrix_filename = cluster_config['criteria_file_path']
         cluster_config_file_name = cluster_config['device_file_path']
         cluster_priority = cluster_config['cluster_priority']
 
-        crit_labels, criteria_arr = extract_criteria(excel_file_name, 'CriteriaMatrix')
+        crit_labels, criteria_arr = extract_criteria(criteria_matrix_filename)
         col_sums = calc_column_sums(criteria_arr)
         _, row_average = normalize_matrix(criteria_arr, col_sums)
 
-        if not (validate_input(criteria_arr, col_sums, 
-                               crit_labels, CRITERIA_LABELSTRING,
-                               MATRIX_ROWSTRING)):
+        if not (validate_input(criteria_arr, col_sums)):
             _log.info('Inconsistent criteria matrix. Check configuration '
                       'in ' + excel_file_name)
             sys.exit()
