@@ -2,6 +2,7 @@ import os
 import json
 import pytest
 from volttrontesting.utils.platformwrapper import PlatformWrapper
+from pytest_bdd import given
 
 def get_rand_port():
     from random import randint
@@ -65,3 +66,5 @@ def volttron_instance1_encrypt(request):
         wrapper.shutdown_platform(True)
     request.addfinalizer(cleanup)
     return wrapper
+
+given('I have an running volttron instance', fixture=volttron_instance1)
