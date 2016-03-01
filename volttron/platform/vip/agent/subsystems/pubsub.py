@@ -96,7 +96,8 @@ class PubSub(SubsystemBase):
         self.peerlist = weakref.ref(peerlist_subsys)
         self._peer_subscriptions = {}
         self._my_subscriptions = {}
-        self.protected_topics = ProtectedPubSubTopics()
+        self.write_protected_topics = ProtectedPubSubTopics()
+        self.read_protected_topics = ProtectedPubSubTopics()
 
         def setup(sender, **kwargs):
             # pylint: disable=unused-argument
@@ -161,6 +162,7 @@ class PubSub(SubsystemBase):
             subscriptions = self._peer_subscriptions[bus]
             assert not subscriptions.pop(prefix)
         for bus, prefix in items:
+            self._check_if_read_protected_topic(prefix)
             self._add_peer_subscription(peer, bus, prefix)
 
     def _peer_sync(self, items):
@@ -177,6 +179,7 @@ class PubSub(SubsystemBase):
         subscribers.add(peer)
 
     def _peer_subscribe(self, prefix, bus=''):
+        self._check_if_read_protected_topic(prefix)
         peer = bytes(self.rpc().context.vip_message.peer)
         for prefix in prefix if isinstance(prefix, list) else [prefix]:
             self._add_peer_subscription(peer, bus, prefix)
@@ -223,7 +226,7 @@ class PubSub(SubsystemBase):
         self._distribute(peer, topic, headers, message, bus)
 
     def _distribute(self, peer, topic, headers, message=None, bus=''):
-        self._check_if_protected_topic(topic)
+        self._check_if_write_protected_topic(topic)
         subscriptions = self._peer_subscriptions[bus]
         subscribers = set()
         for prefix, subscription in subscriptions.iteritems():
@@ -383,17 +386,39 @@ class PubSub(SubsystemBase):
             peer, 'pubsub.publish', topic=topic, headers=headers,
             message=message, bus=bus)
 
-    def _check_if_protected_topic(self, topic):
-        required_caps = self.protected_topics.get(topic)
+    def _check_if_write_protected_topic(self, topic):
+        '''Throws jsonrpc.UNAUTHORIZED if caller is not authorized to publish
+        to topic'''
+        self._check_if_protected_topic(topic, publish=True)
+
+    def _check_if_read_protected_topic(self, topic):
+        '''Throws jsonrpc.UNAUTHORIZED if caller is not authorized to subscribe
+        to topic'''
+        self._check_if_protected_topic(topic, publish=False)
+
+    def _check_if_protected_topic(self, topic, publish):
+        if publish:
+            protected_topics = self.write_protected_topics
+            action = 'publish'
+        else:
+            protected_topics = self.read_protected_topics
+            action = 'subscribe'
+        required_caps = protected_topics.get(topic)
         if required_caps:
             user = str(self.rpc().context.vip_message.user)
             caps = self.rpc().call('auth', 'get_capabilities',
                                    user_id=user).get(timeout=5)
             if not set(required_caps) <= set(caps):
-                msg = ('to publish to topic "{}" requires capabilities {},'
+                msg = ('to {} to topic "{}" requires capabilities {},'
                       ' but capability list {} was'
-                      ' provided').format(topic, required_caps, caps)
+                      ' provided').format(action, topic, required_caps, caps)
                 raise jsonrpc.exception_from_json(jsonrpc.UNAUTHORIZED, msg)
+
+    def set_write_protected_topics(self, topics):
+        self.write_protected_topics = topics
+
+    def set_read_protected_topics(self, topics):
+        self.read_protected_topics = topics
 
 class ProtectedPubSubTopics(object):
     '''Simple class to contain protected pubsub topics'''
