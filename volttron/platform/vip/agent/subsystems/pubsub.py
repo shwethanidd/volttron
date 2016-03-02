@@ -96,8 +96,8 @@ class PubSub(SubsystemBase):
         self.peerlist = weakref.ref(peerlist_subsys)
         self._peer_subscriptions = {}
         self._my_subscriptions = {}
-        self.write_protected_topics = ProtectedPubSubTopics()
-        self.read_protected_topics = ProtectedPubSubTopics()
+        self._write_protected_topics = ProtectedPubSubTopics()
+        self._read_protected_topics = ProtectedPubSubTopics()
 
         def setup(sender, **kwargs):
             # pylint: disable=unused-argument
@@ -162,7 +162,6 @@ class PubSub(SubsystemBase):
             subscriptions = self._peer_subscriptions[bus]
             assert not subscriptions.pop(prefix)
         for bus, prefix in items:
-            self._check_if_read_protected_topic(prefix)
             self._add_peer_subscription(peer, bus, prefix)
 
     def _peer_sync(self, items):
@@ -171,6 +170,8 @@ class PubSub(SubsystemBase):
         self._sync(peer, items)
 
     def _add_peer_subscription(self, peer, bus, prefix):
+        user = str(self.rpc().context.vip_message.user)
+        self._check_if_read_protected_topic(prefix, user)
         subscriptions = self._peer_subscriptions[bus]
         try:
             subscribers = subscriptions[prefix]
@@ -179,7 +180,6 @@ class PubSub(SubsystemBase):
         subscribers.add(peer)
 
     def _peer_subscribe(self, prefix, bus=''):
-        self._check_if_read_protected_topic(prefix)
         peer = bytes(self.rpc().context.vip_message.peer)
         for prefix in prefix if isinstance(prefix, list) else [prefix]:
             self._add_peer_subscription(peer, bus, prefix)
@@ -313,7 +313,7 @@ class PubSub(SubsystemBase):
         '''
         self.add_subscription(peer, prefix, callback, bus)
         return self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
-    
+
     @subscribe.classmethod
     def subscribe(cls, peer, prefix, bus=''):
         def decorate(method):
@@ -386,26 +386,27 @@ class PubSub(SubsystemBase):
             peer, 'pubsub.publish', topic=topic, headers=headers,
             message=message, bus=bus)
 
-    def _check_if_write_protected_topic(self, topic):
-        '''Throws jsonrpc.UNAUTHORIZED if caller is not authorized to publish
+    def _check_if_write_protected_topic(self, topic, user=None):
+        '''Raises jsonrpc.UNAUTHORIZED if caller is not authorized to publish
         to topic'''
-        self._check_if_protected_topic(topic, publish=True)
+        self._check_if_protected_topic(topic, True, user)
 
-    def _check_if_read_protected_topic(self, topic):
-        '''Throws jsonrpc.UNAUTHORIZED if caller is not authorized to subscribe
+    def _check_if_read_protected_topic(self, topic, user=None):
+        '''Raises jsonrpc.UNAUTHORIZED if caller is not authorized to subscribe
         to topic'''
-        self._check_if_protected_topic(topic, publish=False)
+        self._check_if_protected_topic(topic, False, user)
 
-    def _check_if_protected_topic(self, topic, publish):
+    def _check_if_protected_topic(self, topic, publish, user):
+        if user is None:
+            user = str(self.rpc().context.vip_message.user)
         if publish:
-            protected_topics = self.write_protected_topics
+            protected_topics = self._write_protected_topics
             action = 'publish'
         else:
-            protected_topics = self.read_protected_topics
+            protected_topics = self._read_protected_topics
             action = 'subscribe'
         required_caps = protected_topics.get(topic)
         if required_caps:
-            user = str(self.rpc().context.vip_message.user)
             caps = self.rpc().call('auth', 'get_capabilities',
                                    user_id=user).get(timeout=5)
             if not set(required_caps) <= set(caps):
@@ -415,10 +416,10 @@ class PubSub(SubsystemBase):
                 raise jsonrpc.exception_from_json(jsonrpc.UNAUTHORIZED, msg)
 
     def set_write_protected_topics(self, topics):
-        self.write_protected_topics = topics
+        self._write_protected_topics = topics
 
     def set_read_protected_topics(self, topics):
-        self.read_protected_topics = topics
+        self._read_protected_topics = topics
 
 class ProtectedPubSubTopics(object):
     '''Simple class to contain protected pubsub topics'''
