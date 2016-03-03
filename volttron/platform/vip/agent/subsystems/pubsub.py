@@ -157,6 +157,7 @@ class PubSub(SubsystemBase):
                     if not subscribers:
                         remove.append(item)
                 else:
+                    self._check_if_read_protected_topic(prefix)
                     subscribers.add(peer)
         for bus, prefix in remove:
             subscriptions = self._peer_subscriptions[bus]
