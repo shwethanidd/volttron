@@ -8,6 +8,16 @@ import pytest
 from volttron.platform import jsonrpc
 from volttron.platform import keystore
 
+from volttron.platform.vip.agent import Agent, RPC
+
+
+class TestAgent(Agent):
+    @RPC.export
+    @RPC.allow('can_call_foo')
+    def foo(self, x):
+        return x
+
+
 def poll_gevent_sleep(max_seconds, condition=lambda: True):
     '''Sleep until condition is true or max_seconds has passed.'''
     if max_seconds < 0:
@@ -20,7 +30,7 @@ def poll_gevent_sleep(max_seconds, condition=lambda: True):
         if time.time() > time_start + max_seconds:
             return False
 
-def build_agent(platform, identity):
+def build_agent(platform, identity, cls=Agent):
     '''Build an agent, configure its keys and return the agent.'''
     keys = keystore.KeyStore(os.path.join(platform.volttron_home,
                                           identity + '.keys'))
@@ -28,7 +38,8 @@ def build_agent(platform, identity):
     agent = platform.build_agent(identity=identity,
                                   serverkey=platform.publickey,
                                   publickey=keys.public(),
-                                  secretkey=keys.secret())
+                                  secretkey=keys.secret(),
+                                  cls=cls)
     # Make publickey easily accessible for these tests
     agent.publickey = keys.public()
     return agent
@@ -39,15 +50,9 @@ def build_two_test_agents(platform):
     The first agent is the "RPC callee."
     The second agent is the unauthorized "RPC caller."
     '''
-    agent1 = build_agent(platform, 'agent1')
+    agent1 = build_agent(platform, 'agent1', cls=TestAgent)
     gevent.sleep(1)
     agent2 = build_agent(platform, 'agent2')
-
-    agent1.foo = lambda x: x
-    agent1.foo.__name__ = 'foo'
-
-    agent1.vip.rpc.export(method=agent1.foo)
-    agent1.vip.rpc.allow(agent1.foo, 'can_call_foo')
 
     return agent1, agent2
 
