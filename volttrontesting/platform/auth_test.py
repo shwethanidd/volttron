@@ -7,7 +7,6 @@ import pytest
 
 from volttron.platform import jsonrpc
 from volttron.platform import keystore
-
 from volttron.platform.vip.agent import Agent, RPC
 
 
