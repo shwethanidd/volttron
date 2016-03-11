@@ -17,7 +17,7 @@ class PublisherAgent(Agent):
     @Core.receiver('onstart')
     def start(self, sender, **kwargs):
         for line in iter(self._infile.readline, b''):
-            self.vip.pubsub.publish('pubsub', self._topic, message=message)
+            self.vip.pubsub.publish('pubsub', self._topic, message=line)
 
 if  __name__ == '__main__':
     try:
