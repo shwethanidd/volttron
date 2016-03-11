@@ -4,7 +4,7 @@ import json
 import logging
 import gevent
 
-import pubsubconfig
+from pubsubconfig import PubSubConfig
 from volttron.platform.vip.agent import Agent, Core
 from volttron.platform.agent import utils
 
@@ -34,7 +34,7 @@ class SubscriberAgent(Agent):
       
 if  __name__ == '__main__':
     try:
-        args = pubsubconfig.setup()
+        args = PubSubConfig().setup()
 
         agent = SubscriberAgent(args.topic, address=args.vip_address,
             publickey=args.publickey, secretkey=args.secretkey, 
