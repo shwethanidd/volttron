@@ -522,12 +522,8 @@ def do_stats(opts):
         call('stats.' + opts.op)
         _stdout.write('%sabled\n' % ('en' if call('stats.enabled') else 'dis'))
 
-def _get_auth_file(volttron_home):
-    path = os.path.join(volttron_home, 'auth.json')
-    return AuthFile(path)
-
 def list_auth(opts, indices=None):
-    auth_file = _get_auth_file(opts.volttron_home)
+    auth_file = AuthFile()
     entries = auth_file.read_allow_entries()
     print_out = []
     if entries:
@@ -627,7 +623,7 @@ def _ask_for_auth_fields(domain=None, address=None, user_id=None,
 def add_auth(opts):
     responses = _ask_for_auth_fields()
     entry = AuthEntry(**responses)
-    auth_file = _get_auth_file(opts.volttron_home)
+    auth_file = AuthFile()
     try:
         auth_file.add(entry, overwrite=False)
         _stdout.write('added entry {}\n'.format(entry))
@@ -656,7 +652,7 @@ def _ask_yes_no(question, default='yes'):
         _stderr.write("Please respond with 'yes' or 'no'\n")
 
 def remove_auth(opts):
-    auth_file = _get_auth_file(opts.volttron_home)
+    auth_file = AuthFile()
     entry_count = len(auth_file.read_allow_entries())
 
     for i in opts.indices:
@@ -679,7 +675,7 @@ def remove_auth(opts):
         _stderr.write('ERROR: %s\n' % err.msg)
 
 def update_auth(opts):
-    auth_file = _get_auth_file(opts.volttron_home)
+    auth_file = AuthFile()
     entries = auth_file.read_allow_entries()
     try:
         if opts.index < 0:
