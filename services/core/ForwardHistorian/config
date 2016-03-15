@@ -1,5 +1,40 @@
 {
 
     "agentid": "forwarder",
-    "destination-vip": "ipc://@/home/volttron/.volttron/run/vip.socket"    
+    "destination-vip": "ipc://@/home/volttron/.volttron/run/vip.socket",
+    "custom_topic_list": [
+                       "PNNL/SEB/AHU1/all",
+                       "PNNL/SEB/AHU1/VAV100/all",
+                       "PNNL/SEB/AHU1/VAV102/all",
+                       "PNNL/SEB/AHU1/VAV118/all",
+                       "PNNL/SEB/AHU1/VAV119/all",
+                       "PNNL/SEB/AHU1/VAV120/all",]
+                       "PNNL/SEB/AHU1/VAV121/all",
+                       "PNNL/SEB/AHU1/VAV123A/all",
+                       "PNNL/SEB/AHU1/VAV123B/all",
+                       "PNNL/SEB/AHU1/VAV127A/all",
+                       "PNNL/SEB/AHU1/VAV127B/all",
+                       "PNNL/SEB/AHU1/VAV129/all",
+                       "PNNL/SEB/AHU1/VAV131/all",
+                       "PNNL/SEB/AHU1/VAV133/all",
+                       "PNNL/SEB/AHU1/VAV136/all",
+                       "PNNL/SEB/AHU1/VAV142/all",
+                       "PNNL/SEB/AHU1/VAV143/all",
+                       "PNNL/SEB/AHU1/VAV150/all",
+                       "PNNL/SEB/AHU2/all",
+                       "PNNL/SEB/AHU3/all",
+                       "PNNL/SEB/AHU1/VAV104/all",
+                       "PNNL/SEB/AHU1/VAV105/all",
+                       "PNNL/SEB/AHU1/VAV107/all",
+                       "PNNL/SEB/AHU1/VAV108/all",
+                       "PNNL/SEB/AHU1/VAV112/all",
+                       "PNNL/SEB/AHU1/VAV116/all",
+                       "PNNL/SEB/LIGHTING"/all,
+                       "PNNL/ESB/HP1/all",
+                       "PNNL/ESB/HP2/all",
+                       "PNNL/ESB/HP3/all",
+                       "PNNL/ESB/HP4/all",
+                       "PNNL/ESB/HP5/all"
+    ],
+    "services_topic_list": []   
 }
