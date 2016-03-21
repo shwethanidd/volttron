@@ -56,6 +56,8 @@ import sys
 import requests
 import datetime
 import logging
+import json
+from pprint import pprint
 from dateutil.parser import parse
 
 from volttron.platform.agent.utils import jsonapi
@@ -110,6 +112,15 @@ categories = {'temperature': temperature, 'wind': wind,
               'location': location, 'precipitation': precipitation,
               'pressure_humidity': pressure_humidity,
               'time': time_topics, 'cloud_cover': cloud_cover}
+
+# f_date = ["date.epoch", "date.pretty", "date.day", "date.month", "date.year", "date.yday", "date.hour",
+#           "date.min", "date.sec", "date.isdst", "date.monthname", "date.weekday_short", "date.weekday",
+#           "date.ampm", "date.tz_short", "date.tz_long", "period"]
+# f_temperature = ["high", "low"]
+# f_conditions = ["conditions", "qpf_allday", "qpf_day", "qpf_night", "snow_allday", "show_day", "snow_night",
+#                 "maxwind", "avewind", "avehumidity", "maxhumidity", "minhumidity"]
+
+# forecast_categories = {'f_date': f_date, 'f_temperature' : f_temperature, 'f_conditions' : f_conditions}
 
 
 class RequestCounter:
@@ -185,6 +196,7 @@ def weather_service(config_path, **kwargs):
     zip_code = get_config("zip")
     key = get_config('key')
     on_request_only = get_config('on_request_only')
+    fetch_forecast_too = get_config('fetch_forecast_too')
 
     state = ''
     country = ''
@@ -205,30 +217,37 @@ def weather_service(config_path, **kwargs):
         def setup(self, sender, **kwargs):
             '''On start method'''
             self._keep_alive = True
-
+            wait = 0
             self.requestCounter = RequestCounter(max_requests_per_day,
                                                  max_requests_per_minute,
                                                  poll_time)
             # TODO: get this information from configuration file instead
             base = "http://api.wunderground.com/api/" + \
                 (key if not key == '' else settings.KEY)
+            self.forecastBaseUrl = base + "/forecast/q/"
+            
             self.baseUrl = base + "/conditions/q/"
 
             self.requestUrl = self.baseUrl
+            self.forecastUrl = self.forecastBaseUrl
+            
             if(zip_code != ""):
                 self.requestUrl += zip_code + ".json"
+                self.forecastUrl += zip_code + ".json"
             elif self.region != "":
                 self.requestUrl += region + "/" + city + ".json"
+                self.forecastUrl += region + "/" + city  + ".json"
             else:
                 # Error Need to handle this
                 print "No location selected"
+
             self.vip.pubsub.subscribe(peer='pubsub',
                                       prefix=topics.WEATHER_REQUEST,
                                       callback=self.handle_request)
             if not on_request_only:
                 self.weather = self.core.periodic(poll_time,
                                                   self.weather_push,
-                                                  wait=0)
+                                                  wait)
 
         def build_url_with_zipcode(self, zip_code):
             return self.baseUrl + zip_code + ".json"
@@ -246,6 +265,15 @@ def weather_service(config_path, **kwargs):
 
             return weather_dict
 
+        # def build_forecast_dictionary(self, forecast):
+        #     forecast_dict = {}
+        #     for category in forecast_categories.keys():
+        #         forecast_dict[category] = {}
+        #         forecast_elements = forecast_categories[category]
+        #         for element in forecast_elements:
+        #             forecast_dict[category][element] = forecast[element]
+        #     return forecast_dict
+        
         def publish_all(self, observation, topic_prefix="weather", headers={}):
             utcnow = utils.get_aware_utc_now()
             utcnow_string = utils.format_timestamp(utcnow)
@@ -282,13 +310,26 @@ def weather_service(config_path, **kwargs):
             Function called on periodic or request for weather information.
             '''
             _log.debug("Requesting url: "+self.requestUrl)
-            (valid_data, observation) = self.request_data(self.requestUrl)
+            (valid_data, observation) = self.request_data(self.requestUrl, 'current_observation')
             if valid_data:
                 headers = {headers_mod.FROM: agent_id}
                 _log.debug('Headers: %s'.format(headers))
                 self.publish_all(observation, headers=headers)
             else:
                 _log.error("Invalid data, not publishing")
+
+            _log.debug("Requesting forecast url: "+self.forecastUrl)
+            (valid_data, forecast) = self.request_data(self.forecastUrl, 'forecast', 'simpleforecast')
+            if valid_data:
+                pprint(forecast)
+                now = datetime.datetime.now().isoformat()
+                headers = {headers_mod.FROM: agent_id}
+                headers.update({HEADER_NAME_DATE: now})
+                self.vip.pubsub.publish(peer='pubsub',
+                                        topic="forecast",
+                                        message=forecast,
+                                        headers=headers)
+
 
         def handle_request(self, peer, sender, bus, topic, headers, message):
             
@@ -331,17 +372,18 @@ def weather_service(config_path, **kwargs):
                     _log.error('Weather API response was invalid')
                     # TODO: send invalid data error back to requester
 
-        def request_data(self, requestUrl):
+        def request_data(self, requestUrl, *extracted_fields):
             if self.requestCounter.request_available():
                 try:
-                    r = requests.get(self.requestUrl)
+                    r = requests.get(requestUrl)
                     r.raise_for_status()
-                    parsed_json = r.json()
-
-                    observation = parsed_json['current_observation']
-                    observation = convert(observation)
+                    results = r.json()
+                    pprint(results)
+                    for extracted_field in extracted_fields:
+                        results = results[extracted_field]
+                    results = convert(results)
                     valid_data = True
-                    return (valid_data, observation)
+                    return (valid_data, results)
                 except Exception as e:
                     _log.error(e)
                     valid_data = False
