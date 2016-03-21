@@ -196,7 +196,7 @@ def weather_service(config_path, **kwargs):
     zip_code = get_config("zip")
     key = get_config('key')
     on_request_only = get_config('on_request_only')
-    fetch_forecast_too = get_config('fetch_forecast_too')
+    fetch_forecast = get_config('fetch_forecast')
 
     state = ''
     country = ''
@@ -217,6 +217,7 @@ def weather_service(config_path, **kwargs):
         def setup(self, sender, **kwargs):
             '''On start method'''
             self._keep_alive = True
+            self.fetch_forecast = fetch_forecast
             wait = 0
             self.requestCounter = RequestCounter(max_requests_per_day,
                                                  max_requests_per_minute,
@@ -317,18 +318,20 @@ def weather_service(config_path, **kwargs):
                 self.publish_all(observation, headers=headers)
             else:
                 _log.error("Invalid data, not publishing")
+            
+            if self.fetch_forecast:
+                _log.debug("Requesting forecast url: "+self.forecastUrl)
+                (valid_data, forecast) = self.request_data(self.forecastUrl, 'forecast', 'simpleforecast')
+                if valid_data:
+                    pprint(forecast)
+                    now = datetime.datetime.now().isoformat()
+                    headers = {headers_mod.FROM: agent_id}
+                    headers.update({HEADER_NAME_DATE: now})
+                    self.vip.pubsub.publish(peer='pubsub',
+                                            topic="forecast",
+                                            message=forecast,
+                                            headers=headers)
 
-            _log.debug("Requesting forecast url: "+self.forecastUrl)
-            (valid_data, forecast) = self.request_data(self.forecastUrl, 'forecast', 'simpleforecast')
-            if valid_data:
-                pprint(forecast)
-                now = datetime.datetime.now().isoformat()
-                headers = {headers_mod.FROM: agent_id}
-                headers.update({HEADER_NAME_DATE: now})
-                self.vip.pubsub.publish(peer='pubsub',
-                                        topic="forecast",
-                                        message=forecast,
-                                        headers=headers)
 
 
         def handle_request(self, peer, sender, bus, topic, headers, message):
@@ -378,7 +381,6 @@ def weather_service(config_path, **kwargs):
                     r = requests.get(requestUrl)
                     r.raise_for_status()
                     results = r.json()
-                    pprint(results)
                     for extracted_field in extracted_fields:
                         results = results[extracted_field]
                     results = convert(results)
