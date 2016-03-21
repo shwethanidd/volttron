@@ -323,7 +323,7 @@ def weather_service(config_path, **kwargs):
                 _log.debug("Requesting forecast url: "+self.forecastUrl)
                 (valid_data, forecast) = self.request_data(self.forecastUrl, 'forecast', 'simpleforecast')
                 if valid_data:
-                    pprint(forecast)
+                    #pprint(forecast)
                     now = datetime.datetime.now().isoformat()
                     headers = {headers_mod.FROM: agent_id}
                     headers.update({HEADER_NAME_DATE: now})
