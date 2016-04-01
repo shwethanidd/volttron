@@ -27,4 +27,9 @@ module.exports = keyMirror({
     CLEAR_PLATFORM_ERROR: null,
 
     RECEIVE_PLATFORM_TOPIC_DATA: null,
+
+    SCAN_FOR_DEVICES: null,
+    CANCEL_SCANNING: null,
+    LIST_DETECTED_DEVICES: null,
+    CONFIGURE_DEVICE: null,
 });
