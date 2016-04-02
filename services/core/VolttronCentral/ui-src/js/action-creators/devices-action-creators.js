@@ -30,6 +30,12 @@ var devicesActionCreators = {
             device: device
         });
     },
+    configureRegistry: function (device) {
+        dispatcher.dispatch({
+            type: ACTION_TYPES.CONFIGURE_REGISTRY,
+            device: device
+        });
+    },
 };
 
 

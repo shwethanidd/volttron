@@ -7,6 +7,7 @@ var Router = require('react-router');
 var DetectDevices = require('./detect-devices');
 var DevicesFound = require('./devices-found');
 var ConfigureDevice = require('./configure-device');
+var ConfigureRegistry = require('./configure-registry');
 var devicesStore = require('../stores/devices-store');
 
 var Devices = React.createClass({
@@ -40,6 +41,9 @@ var Devices = React.createClass({
                 break;
             case "Configure Device":
                 view_component = (<ConfigureDevice device={this.state.device} action={this.state.action}/>)
+                break;
+            case "Registry Configuration":
+                view_component = (<ConfigureRegistry device={this.state.device} action={this.state.action}/>)
                 break;
         }
         

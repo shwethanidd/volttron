@@ -43,6 +43,12 @@ devicesStore.dispatchToken = dispatcher.register(function (action) {
             _device = action.device;
             devicesStore.emitChange();
             break;
+        case ACTION_TYPES.CONFIGURE_REGISTRY:
+            _action = "configure_registry";
+            _view = "Registry Configuration";
+            _device = action.device;
+            devicesStore.emitChange();
+            break;
     }
 });
 

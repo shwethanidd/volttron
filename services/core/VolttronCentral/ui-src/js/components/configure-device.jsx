@@ -24,19 +24,33 @@ var ConfigureDevice = React.createClass({
     },
     _updateSetting: function (evt) {
         var newVal = evt.target.value;
-        var key = evt.dataset.setting;
+        var key = evt.currentTarget.dataset.setting;
 
         var tmpState = JSON.parse(JSON.stringify(this.state));
-        tmpState.settings[key].value = newVal;
 
-        this.setState(tmpState);
+        var newSettings = tmpState.settings.map(function (item) {
+            if (item.key === key)
+            {
+                item.value = newVal;                
+            }
+
+            return item;
+        });
+
+        this.setState({settings: newSettings});
     },
     _updateRegistryPath: function (evt) {
         this.setState({registry_config: evt.target.value});
     },
+    _uploadRegistryFile: function (evt) {
+
+    },
+    _generateRegistryFile: function (device) {
+        devicesActionCreators.configureRegistry(device);
+    },
     render: function () {        
         
-        var trs = 
+        var attributeRows = 
             this.props.device.map(function (device) {
 
                 return (
@@ -52,7 +66,7 @@ var ConfigureDevice = React.createClass({
             <table>
                 <tbody>
 
-                    { trs }
+                    { attributeRows }
 
                     <tr>
                         <td>Proxy Address</td>
@@ -70,7 +84,7 @@ var ConfigureDevice = React.createClass({
                 </tbody>
             </table>;
 
-        var settingsTrs = 
+        var settingsRows = 
             this.state.settings.map(function (setting) {
 
                 var stateSetting = this.state.settings.find(function (s) {
@@ -93,7 +107,7 @@ var ConfigureDevice = React.createClass({
                 );
             }, this);
 
-        var registryConfig = 
+        var registryConfigRow = 
             <tr>
                 <td>Registry Configuration File</td>
                 <td>
@@ -105,19 +119,21 @@ var ConfigureDevice = React.createClass({
                     />
                 </td>
                 <td><button>Upload</button></td>
-                <td><button>Generate</button></td>
+                <td><button onClick={this._generateRegistryFile.bind(this, this.props.device)}>Generate</button></td>
             </tr>
-        var editTable = 
+
+        var editableAttributes = 
             <table>
                 <tbody>
-                    { settingsTrs }
+                    { settingsRows }
+                    { registryConfigRow }
                 </tbody>
             </table>
 
         return (
             <div>
                 { uneditableAttributes }
-                { editTable }
+                { editableAttributes }
             </div>
         );
     },
