@@ -1031,7 +1031,7 @@ var devicesStore = require('../stores/devices-store');
 
 var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
     getInitialState: function () {
-        return getStateFromStores();
+        return getStateFromStores(this.props.device);
     },
     componentDidMount: function () {
         // platformsStore.addChangeListener(this._onStoresChange);
@@ -1040,21 +1040,109 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
         // platformsStore.removeChangeListener(this._onStoresChange);
     },
     _onStoresChange: function () {
-        this.setState(getStateFromStores());
+        this.setState(getStateFromStores(this.props.device));
+    },
+    _onFilterBoxChange: function (e) {
+        this.setState({ filterValue: e.target.value });
     },
     render: function () {        
         
+        var filterBoxContainer = {};
+
+        var registryRows, registryHeader;
+
+        if (this.state.registryValues.length > 0)
+        {
+            registryRows = this.state.registryValues.map(function (attributesList) {
+
+                var registryCells = attributesList.map(function (item, index) {
+
+                    var itemCell = (index === 0 ? 
+                                        React.createElement("td", null,  item.value) : 
+                                            React.createElement("td", null, React.createElement("input", {type: "text", value:  item.value})));
+
+                    return itemCell;
+                });
+
+                return ( 
+                    React.createElement("tr", null, 
+                        React.createElement("td", null, 
+                            React.createElement("input", {type: "checkbox"})
+                        ), 
+                         registryCells 
+                    )
+                )
+            });
+
+            registryHeader = this.state.registryValues[0].map(function (item) {
+
+                return ( React.createElement("th", null, 
+                            React.createElement("div", {className: "th-inner"}, 
+                                 item.key.replace(/_/g, " ") 
+                            )
+                        ) );
+            });
+        }
+        else
+        {
+            registryHeader = (
+                React.createElement("td", null, "Nothing to report at this time")
+            )
+        }
+
+        var wideDiv = {
+            width: "100%",
+            textAlign: "center"
+        }
+
+        var tableDiv = {
+            width: "100%",
+            height: "80vh",
+            overflow: "auto"
+        }
+            
         return (
             React.createElement("div", null, 
-                "Things to come."
+                React.createElement("div", {className: "filter_box", style: filterBoxContainer}, 
+                    React.createElement("span", {className: "fa fa-search"}), 
+                    React.createElement("input", {
+                        type: "search", 
+                        onChange: this._onFilterBoxChange, 
+                        value:  this.state.filterValue}
+                    )
+                ), 
+                React.createElement("div", {className: "fixed-table-container"}, 
+                    React.createElement("div", {className: "header-background"}), 
+                    React.createElement("div", {className: "fixed-table-container-inner"}, 
+                        React.createElement("table", {className: "registryConfigTable"}, 
+                            React.createElement("thead", null, 
+                                React.createElement("tr", null, 
+                                    React.createElement("th", null, 
+                                        React.createElement("div", {className: "th-inner"}, 
+                                            React.createElement("input", {type: "checkbox"})
+                                        )
+                                    ), 
+                                     registryHeader 
+                                )
+                            ), 
+                            React.createElement("tbody", null, 
+                                 registryRows 
+                            )
+                        )
+                    )
+                ), 
+                React.createElement("div", {style: wideDiv}, 
+                    React.createElement("button", null, "Save")
+                )
             )
         );
     },
 });
 
-function getStateFromStores() {
+function getStateFromStores(device) {
     return {
-        
+        filterValue: "",
+        registryValues: devicesStore.getRegistryValues(device)
     };
 }
 
@@ -3318,6 +3406,203 @@ var _device = null;
 
 devicesStore.getState = function () {
     return { action: _action, view: _view, device: _device };
+};
+
+devicesStore.getRegistryValues = function (device) {
+
+    return [
+        [
+            {"key": "Point_Name", "value": "Heartbeat"},
+            {"key": "Volttron_Point_Name", "value": "Heartbeat"},
+            {"key": "Units", "value": "On/Off"},
+            {"key": "Units_Details", "value": "On/Off"},
+            {"key": "Writable", "value": true},
+            {"key": "Starting_Value", "value": 0},
+            {"key": "Type", "value": "boolean"},
+            {"key": "Notes", "value": "Point for heartbeat toggle"}
+        ],
+        [
+            {"key": "Point_Name", "value": "OutsideAirTemperature1"},
+            {"key": "Volttron_Point_Name", "value": "OutsideAirTemperature1"},
+            {"key": "Units", "value": "F"},
+            {"key": "Units_Details", "value": "-100 to 300"},
+            {"key": "Writable", "value": false},
+            {"key": "Starting_Value", "value": 50},
+            {"key": "Type", "value": "float"},
+            {"key": "Notes", "value": "CO2 Reading 0.00-2000.0 ppm"}
+        ],
+        [
+            {"key": "Point_Name", "value": "SampleWritableFloat1"},
+            {"key": "Volttron_Point_Name", "value": "SampleWritableFloat1"},
+            {"key": "Units", "value": "PPM"},
+            {"key": "Units_Details", "value": "1000.00 (default)"},
+            {"key": "Writable", "value": true},
+            {"key": "Starting_Value", "value": 10},
+            {"key": "Type", "value": "float"},
+            {"key": "Notes", "value": "Setpoint to enable demand control ventilation"}
+        ],
+        [
+            {"key": "Point_Name", "value": "SampleLong1"},
+            {"key": "Volttron_Point_Name", "value": "SampleLong1"},
+            {"key": "Units", "value": "Enumeration"},
+            {"key": "Units_Details", "value": "1 through 13"},
+            {"key": "Writable", "value": false},
+            {"key": "Starting_Value", "value": 50},
+            {"key": "Type", "value": "int"},
+            {"key": "Notes", "value": "Status indicator of service switch"}
+        ],
+        [
+            {"key": "Point_Name", "value": "SampleWritableShort1"},
+            {"key": "Volttron_Point_Name", "value": "SampleWritableShort1"},
+            {"key": "Units", "value": "%"},
+            {"key": "Units_Details", "value": "0.00 to 100.00 (20 default)"},
+            {"key": "Writable", "value": true},
+            {"key": "Starting_Value", "value": 20},
+            {"key": "Type", "value": "int"},
+            {"key": "Notes", "value": "Minimum damper position during the standard mode"}
+        ],
+        [
+            {"key": "Point_Name", "value": "SampleBool1"},
+            {"key": "Volttron_Point_Name", "value": "SampleBool1"},
+            {"key": "Units", "value": "On / Off"},
+            {"key": "Units_Details", "value": "on/off"},
+            {"key": "Writable", "value": false},
+            {"key": "Starting_Value", "value": true},
+            {"key": "Type", "value": "boolean"},
+            {"key": "Notes", "value": "Status indidcator of cooling stage 1"}
+        ],
+        [
+            {"key": "Point_Name", "value": "SampleWritableBool1"},
+            {"key": "Volttron_Point_Name", "value": "SampleWritableBool1"},
+            {"key": "Units", "value": "On / Off"},
+            {"key": "Units_Details", "value": "on/off"},
+            {"key": "Writable", "value": true},
+            {"key": "Starting_Value", "value": true},
+            {"key": "Type", "value": "boolean"},
+            {"key": "Notes", "value": "Status indicator"}
+        ],
+        [
+            {"key": "Point_Name", "value": "OutsideAirTemperature2"},
+            {"key": "Volttron_Point_Name", "value": "OutsideAirTemperature2"},
+            {"key": "Units", "value": "F"},
+            {"key": "Units_Details", "value": "-100 to 300"},
+            {"key": "Writable", "value": false},
+            {"key": "Starting_Value", "value": 50},
+            {"key": "Type", "value": "float"},
+            {"key": "Notes", "value": "CO2 Reading 0.00-2000.0 ppm"}
+        ],
+        [
+            {"key": "Point_Name", "value": "SampleWritableFloat2"},
+            {"key": "Volttron_Point_Name", "value": "SampleWritableFloat2"},
+            {"key": "Units", "value": "PPM"},
+            {"key": "Units_Details", "value": "1000.00 (default)"},
+            {"key": "Writable", "value": true},
+            {"key": "Starting_Value", "value": 10},
+            {"key": "Type", "value": "float"},
+            {"key": "Notes", "value": "Setpoint to enable demand control ventilation"}
+        ],
+        [
+            {"key": "Point_Name", "value": "SampleLong2"},
+            {"key": "Volttron_Point_Name", "value": "SampleLong2"},
+            {"key": "Units", "value": "Enumeration"},
+            {"key": "Units_Details", "value": "1 through 13"},
+            {"key": "Writable", "value": false},
+            {"key": "Starting_Value", "value": 50},
+            {"key": "Type", "value": "int"},
+            {"key": "Notes", "value": "Status indicator of service switch"}
+        ],
+        [
+            {"key": "Point_Name", "value": "SampleWritableShort2"},
+            {"key": "Volttron_Point_Name", "value": "SampleWritableShort2"},
+            {"key": "Units", "value": "%"},
+            {"key": "Units_Details", "value": "0.00 to 100.00 (20 default)"},
+            {"key": "Writable", "value": true},
+            {"key": "Starting_Value", "value": 20},
+            {"key": "Type", "value": "int"},
+            {"key": "Notes", "value": "Minimum damper position during the standard mode"}
+        ],
+        [
+            {"key": "Point_Name", "value": "SampleBool2"},
+            {"key": "Volttron_Point_Name", "value": "SampleBool2"},
+            {"key": "Units", "value": "On / Off"},
+            {"key": "Units_Details", "value": "on/off"},
+            {"key": "Writable", "value": false},
+            {"key": "Starting_Value", "value": true},
+            {"key": "Type", "value": "boolean"},
+            {"key": "Notes", "value": "Status indidcator of cooling stage 1"}
+        ],
+        [
+            {"key": "Point_Name", "value": "SampleWritableBool2"},
+            {"key": "Volttron_Point_Name", "value": "SampleWritableBool2"},
+            {"key": "Units", "value": "On / Off"},
+            {"key": "Units_Details", "value": "on/off"},
+            {"key": "Writable", "value": true},
+            {"key": "Starting_Value", "value": true},
+            {"key": "Type", "value": "boolean"},
+            {"key": "Notes", "value": "Status indicator"}
+        ],
+        [
+            {"key": "Point_Name", "value": "OutsideAirTemperature3"},
+            {"key": "Volttron_Point_Name", "value": "OutsideAirTemperature3"},
+            {"key": "Units", "value": "F"},
+            {"key": "Units_Details", "value": "-100 to 300"},
+            {"key": "Writable", "value": false},
+            {"key": "Starting_Value", "value": 50},
+            {"key": "Type", "value": "float"},
+            {"key": "Notes", "value": "CO2 Reading 0.00-2000.0 ppm"}
+        ],
+        [
+            {"key": "Point_Name", "value": "SampleWritableFloat3"},
+            {"key": "Volttron_Point_Name", "value": "SampleWritableFloat3"},
+            {"key": "Units", "value": "PPM"},
+            {"key": "Units_Details", "value": "1000.00 (default)"},
+            {"key": "Writable", "value": true},
+            {"key": "Starting_Value", "value": 10},
+            {"key": "Type", "value": "float"},
+            {"key": "Notes", "value": "Setpoint to enable demand control ventilation"}
+        ],
+        [
+            {"key": "Point_Name", "value": "SampleLong3"},
+            {"key": "Volttron_Point_Name", "value": "SampleLong3"},
+            {"key": "Units", "value": "Enumeration"},
+            {"key": "Units_Details", "value": "1 through 13"},
+            {"key": "Writable", "value": false},
+            {"key": "Starting_Value", "value": 50},
+            {"key": "Type", "value": "int"},
+            {"key": "Notes", "value": "Status indicator of service switch"}
+        ],
+        [
+            {"key": "Point_Name", "value": "SampleWritableShort3"},
+            {"key": "Volttron_Point_Name", "value": "SampleWritableShort3"},
+            {"key": "Units", "value": "%"},
+            {"key": "Units_Details", "value": "0.00 to 100.00 (20 default)"},
+            {"key": "Writable", "value": true},
+            {"key": "Starting_Value", "value": 20},
+            {"key": "Type", "value": "int"},
+            {"key": "Notes", "value": "Minimum damper position during the standard mode"}
+        ],
+        [
+            {"key": "Point_Name", "value": "SampleBool3"},
+            {"key": "Volttron_Point_Name", "value": "SampleBool3"},
+            {"key": "Units", "value": "On / Off"},
+            {"key": "Units_Details", "value": "on/off"},
+            {"key": "Writable", "value": false},
+            {"key": "Starting_Value", "value": true},
+            {"key": "Type", "value": "boolean"},
+            {"key": "Notes", "value": "Status indidcator of cooling stage 1"}
+        ],
+        [
+            {"key": "Point_Name", "value": "SampleWritableBool3"},
+            {"key": "Volttron_Point_Name", "value": "SampleWritableBool3"},
+            {"key": "Units", "value": "On / Off"},
+            {"key": "Units_Details", "value": "on/off"},
+            {"key": "Writable", "value": true},
+            {"key": "Starting_Value", "value": true},
+            {"key": "Type", "value": "boolean"},
+            {"key": "Notes", "value": "Status indicator"}
+        ]
+    ]
+
 };
 
 devicesStore.dispatchToken = dispatcher.register(function (action) {
