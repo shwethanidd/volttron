@@ -33,4 +33,8 @@ module.exports = keyMirror({
     LIST_DETECTED_DEVICES: null,
     CONFIGURE_DEVICE: null,
     CONFIGURE_REGISTRY: null,
+
+    TOGGLE_TAPTIP: null,
+    HIDE_TAPTIP: null,
+    CLEAR_BUTTON: null,
 });

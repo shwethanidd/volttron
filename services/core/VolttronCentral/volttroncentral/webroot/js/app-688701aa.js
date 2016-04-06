@@ -77,7 +77,7 @@ router.run(function (Handler) {
 });
 
 
-},{"./components/dashboard":15,"./components/devices":19,"./components/login-form":23,"./components/page-not-found":26,"./components/platform":28,"./components/platform-manager":27,"./components/platforms":29,"./stores/authorization-store":41,"react":undefined,"react-router":undefined}],2:[function(require,module,exports){
+},{"./components/dashboard":19,"./components/devices":23,"./components/login-form":27,"./components/page-not-found":30,"./components/platform":32,"./components/platform-manager":31,"./components/platforms":33,"./stores/authorization-store":45,"react":undefined,"react-router":undefined}],2:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -104,7 +104,44 @@ var consoleActionCreators = {
 module.exports = consoleActionCreators;
 
 
-},{"../constants/action-types":32,"../dispatcher":33,"../lib/rpc/exchange":35}],3:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/rpc/exchange":39}],3:[function(require,module,exports){
+'use strict';
+
+var ACTION_TYPES = require('../constants/action-types');
+var dispatcher = require('../dispatcher');
+
+var controlButtonActionCreators = {
+	toggleTaptip: function (name) {
+		dispatcher.dispatch({
+			type: ACTION_TYPES.TOGGLE_TAPTIP,
+			name: name,
+		});
+	},
+	hideTaptip: function (name) {
+		dispatcher.dispatch({
+			type: ACTION_TYPES.HIDE_TAPTIP,
+			name: name,
+		});
+	},
+	clearButton: function (name) {
+		dispatcher.dispatch({
+			type: ACTION_TYPES.CLEAR_BUTTON,
+			name: name,
+		});
+	},
+	buttonCleared: function (name) {
+		dispatcher.dispatch({
+			type: ACTION_TYPES.BUTTON_CLEARED,
+			name: name,
+		});
+	},
+};
+
+
+
+module.exports = controlButtonActionCreators;
+
+},{"../constants/action-types":36,"../dispatcher":37}],4:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -150,7 +187,7 @@ var devicesActionCreators = {
 module.exports = devicesActionCreators;
 
 
-},{"../constants/action-types":32,"../dispatcher":33,"../lib/rpc":36,"../stores/authorization-store":41}],4:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/rpc":40,"../stores/authorization-store":45}],5:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -173,7 +210,7 @@ var modalActionCreators = {
 module.exports = modalActionCreators;
 
 
-},{"../constants/action-types":32,"../dispatcher":33}],5:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37}],6:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -525,7 +562,7 @@ function handle401(error) {
 module.exports = platformActionCreators;
 
 
-},{"../constants/action-types":32,"../dispatcher":33,"../lib/rpc":36,"../stores/authorization-store":41}],6:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/rpc":40,"../stores/authorization-store":45}],7:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -653,7 +690,7 @@ function handle401(error) {
 module.exports = platformManagerActionCreators;
 
 
-},{"../action-creators/platform-action-creators":5,"../constants/action-types":32,"../dispatcher":33,"../lib/rpc":36,"../stores/authorization-store":41}],7:[function(require,module,exports){
+},{"../action-creators/platform-action-creators":6,"../constants/action-types":36,"../dispatcher":37,"../lib/rpc":40,"../stores/authorization-store":45}],8:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -725,7 +762,7 @@ var AgentRow = React.createClass({displayName: "AgentRow",
 module.exports = AgentRow;
 
 
-},{"../action-creators/modal-action-creators":4,"../action-creators/platform-action-creators":5,"./remove-agent-form":31,"react":undefined}],8:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"./remove-agent-form":35,"react":undefined}],9:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -789,7 +826,7 @@ function getStateFromStores(platform, chart) {
 module.exports = Chart;
 
 
-},{"../action-creators/platform-action-creators":5,"../stores/topic-data-store":48,"./line-chart":22,"react":undefined}],9:[function(require,module,exports){
+},{"../action-creators/platform-action-creators":6,"../stores/topic-data-store":53,"./line-chart":26,"react":undefined}],10:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -859,7 +896,7 @@ function getStateFromStores() {
 module.exports = Composer;
 
 
-},{"../action-creators/console-action-creators":2,"../stores/console-store":42,"react":undefined}],10:[function(require,module,exports){
+},{"../action-creators/console-action-creators":2,"../stores/console-store":46,"react":undefined}],11:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1020,7 +1057,7 @@ function getStateFromStores() {
 module.exports = ConfigureDevice;
 
 
-},{"../action-creators/devices-action-creators":3,"../stores/devices-store":43,"react":undefined,"react-router":undefined}],11:[function(require,module,exports){
+},{"../action-creators/devices-action-creators":4,"../stores/devices-store":48,"react":undefined,"react-router":undefined}],12:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1028,10 +1065,23 @@ var Router = require('react-router');
 
 var devicesActionCreators = require('../action-creators/devices-action-creators');
 var devicesStore = require('../stores/devices-store');
+var FilterPointsButton = require('./control_buttons/filterPointsButton');
+var ClearButton = require('./control_buttons/clearButton');
+var controlButtonActionCreators = require('../action-creators/control-button-action-creators');
 
 var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
     getInitialState: function () {
-        return getStateFromStores(this.props.device);
+        var state = {};
+
+        state.registryValues = getPointsFromStore(this.props.device);
+        state.registryHeader = [];
+
+        if (state.registryValues.length > 0)
+        {
+            state.registryHeader = getRegistryHeader(state.registryValues[0]);
+        }
+
+        return state;
     },
     componentDidMount: function () {
         // platformsStore.addChangeListener(this._onStoresChange);
@@ -1040,77 +1090,70 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
         // platformsStore.removeChangeListener(this._onStoresChange);
     },
     _onStoresChange: function () {
-        this.setState(getStateFromStores(this.props.device));
+        this.setState({registryValues: getPointsFromStore(this.props.device) });
     },
-    _onFilterBoxChange: function (e) {
-        this.setState({ filterValue: e.target.value });
+    _onFilterBoxChange: function (filterValue) {
+        this.setState({ registryValues: getFilteredPoints(this.props.device, filterValue) });
+    },
+    _onClearFilter: function () {
+        this.setState({registryValues: getPointsFromStore(this.props.device) }); //TODO: when filtering, set nonmatches to hidden so they're
+                                                                                //still there and we don't lose information in inputs
+                                                                                //then to clear filter, set all to not hidden
+        controlButtonActionCreators.clearButton("filterRegistryPoints");
     },
     render: function () {        
         
-        var filterBoxContainer = {};
+        var filterButton = React.createElement(FilterPointsButton, {name: "filterRegistryPoints", onfilter: this._onFilterBoxChange, clearFilter: this.state.filterValue})
+        var clearButton = React.createElement(ClearButton, {onclear: this._onClearFilter})
 
         var registryRows, registryHeader;
+        
+        registryRows = this.state.registryValues.map(function (attributesList) {
 
-        if (this.state.registryValues.length > 0)
-        {
-            registryRows = this.state.registryValues.map(function (attributesList) {
+            var registryCells = attributesList.map(function (item, index) {
 
-                var registryCells = attributesList.map(function (item, index) {
+                var itemCell = (index === 0 ? 
+                                    React.createElement("td", null,  item.value) : 
+                                        React.createElement("td", null, React.createElement("input", {type: "text", value:  item.value})));
 
-                    var itemCell = (index === 0 ? 
-                                        React.createElement("td", null,  item.value) : 
-                                            React.createElement("td", null, React.createElement("input", {type: "text", value:  item.value})));
+                return itemCell;
+            });
 
-                    return itemCell;
-                });
-
-                return ( 
-                    React.createElement("tr", null, 
-                        React.createElement("td", null, 
-                            React.createElement("input", {type: "checkbox"})
-                        ), 
-                         registryCells 
-                    )
+            return ( 
+                React.createElement("tr", null, 
+                    React.createElement("td", null, 
+                        React.createElement("input", {type: "checkbox"})
+                    ), 
+                     registryCells 
                 )
-            });
-
-            registryHeader = this.state.registryValues[0].map(function (item) {
-
-                return ( React.createElement("th", null, 
-                            React.createElement("div", {className: "th-inner"}, 
-                                 item.key.replace(/_/g, " ") 
-                            )
-                        ) );
-            });
-        }
-        else
-        {
-            registryHeader = (
-                React.createElement("td", null, "Nothing to report at this time")
             )
-        }
+        });
+
+        registryHeader = this.state.registryHeader.map(function (item, index) {
+
+            var headerCell = (index === 0 ?
+                                ( React.createElement("th", null, 
+                                    React.createElement("div", {className: "th-inner"}, 
+                                         item, " ",  filterButton, " ",  clearButton 
+                                    )
+                                )) :
+                                ( React.createElement("th", null, 
+                                    React.createElement("div", {className: "th-inner"}, 
+                                         item 
+                                    )
+                                ) ) )
+
+            return headerCell;
+        });        
 
         var wideDiv = {
             width: "100%",
-            textAlign: "center"
-        }
-
-        var tableDiv = {
-            width: "100%",
-            height: "80vh",
-            overflow: "auto"
+            textAlign: "center",
+            paddingTop: "20px"
         }
             
         return (
             React.createElement("div", null, 
-                React.createElement("div", {className: "filter_box", style: filterBoxContainer}, 
-                    React.createElement("span", {className: "fa fa-search"}), 
-                    React.createElement("input", {
-                        type: "search", 
-                        onChange: this._onFilterBoxChange, 
-                        value:  this.state.filterValue}
-                    )
-                ), 
                 React.createElement("div", {className: "fixed-table-container"}, 
                     React.createElement("div", {className: "header-background"}), 
                     React.createElement("div", {className: "fixed-table-container-inner"}, 
@@ -1139,17 +1182,24 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
     },
 });
 
-function getStateFromStores(device) {
-    return {
-        filterValue: "",
-        registryValues: devicesStore.getRegistryValues(device)
-    };
+function getFilteredPoints(device, filterStr) {
+    return devicesStore.getFilteredRegistryValues(device, filterStr);
+}
+
+function getPointsFromStore(device) {
+    return devicesStore.getRegistryValues(device);
+}
+
+function getRegistryHeader(registryItem) {
+    return registryItem.map(function (item) {
+            return item.key.replace(/_/g, " ");
+        });
 }
 
 module.exports = ConfigureRegistry;
 
 
-},{"../action-creators/devices-action-creators":3,"../stores/devices-store":43,"react":undefined,"react-router":undefined}],12:[function(require,module,exports){
+},{"../action-creators/control-button-action-creators":3,"../action-creators/devices-action-creators":4,"../stores/devices-store":48,"./control_buttons/clearButton":16,"./control_buttons/filterPointsButton":17,"react":undefined,"react-router":undefined}],13:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1187,7 +1237,7 @@ var ConfirmForm = React.createClass({displayName: "ConfirmForm",
 module.exports = ConfirmForm;
 
 
-},{"../action-creators/modal-action-creators":4,"react":undefined}],13:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"react":undefined}],14:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1209,7 +1259,335 @@ var Console = React.createClass({displayName: "Console",
 module.exports = Console;
 
 
-},{"./composer":9,"./conversation":14,"react":undefined}],14:[function(require,module,exports){
+},{"./composer":10,"./conversation":18,"react":undefined}],15:[function(require,module,exports){
+'use strict';
+
+var React = require('react');
+var Router = require('react-router');
+var controlButtonStore = require('../stores/control-button-store');
+var controlButtonActionCreators = require('../action-creators/control-button-action-creators');
+
+
+var ControlButton = React.createClass({displayName: "ControlButton",
+	getInitialState: function () {
+		var state = {};
+
+		state.showTaptip = false;
+		state.showTooltip = false;
+		state.deactivateTooltip = false;
+		state.taptipX = 0;
+		state.taptipY = 0;
+		state.selected = (this.props.selected === true);
+
+		state.tooltipOffsetX = (this.props.hasOwnProperty("tooltip") ? 
+									(this.props.tooltip.hasOwnProperty("xOffset") ? 
+										this.props.tooltip.xOffset : 0) : 0);
+		state.tooltipOffsetY = (this.props.hasOwnProperty("tooltip") ? 
+									(this.props.tooltip.hasOwnProperty("yOffset") ? 
+										this.props.tooltip.yOffset : 0) : 0);
+		state.taptipOffsetX = (this.props.hasOwnProperty("taptip") ? 
+									(this.props.taptip.hasOwnProperty("xOffset") ? 
+										this.props.taptip.xOffset : 0) : 0);
+		state.taptipOffsetY = (this.props.hasOwnProperty("taptip") ? 
+									(this.props.taptip.hasOwnProperty("yOffset") ? 
+										this.props.taptip.yOffset : 0) : 0);
+
+		return state;
+	},
+    componentDidMount: function () {
+        controlButtonStore.addChangeListener(this._onStoresChange);
+
+        window.addEventListener('keydown', this._hideTaptip);
+    },
+    componentWillUnmount: function () {
+        controlButtonStore.removeChangeListener(this._onStoresChange);
+
+        window.removeEventListener('keydown', this._hideTaptip);
+    },
+    componentWillReceiveProps: function (nextProps) {
+    	this.setState({ selected: (nextProps.selected === true) });
+
+    	if (nextProps.selected === true) 
+    	{
+    		this.setState({ showTooltip: false });
+    	}    	
+    },
+    _onStoresChange: function () {
+
+    	var showTaptip = controlButtonStore.getTaptip(this.props.name);
+    	
+    	if (showTaptip !== null)
+    	{
+	    	if (showTaptip !== this.state.showTaptip)
+	    	{
+	    		this.setState({ showTaptip: showTaptip });	
+	    	}
+
+	    	this.setState({ selected: (showTaptip === true) }); 
+
+	    	if (showTaptip === true)
+	    	{
+	    		this.setState({ showTooltip: false });	
+	    	}
+	    }
+    },
+	_showTaptip: function (evt) {
+
+		if (!this.state.showTaptip)
+		{
+			this.setState({taptipX: evt.clientX - this.state.taptipOffsetX});
+			this.setState({taptipY: evt.clientY - this.state.taptipOffsetY});
+		}
+
+		controlButtonActionCreators.toggleTaptip(this.props.name);
+	},
+	_hideTaptip: function (evt) {
+		if (evt.keyCode === 27) 
+		{
+	        controlButtonActionCreators.hideTaptip(this.props.name);
+        }
+	},
+    _showTooltip: function (evt) {
+        this.setState({showTooltip: true});
+        this.setState({tooltipX: evt.clientX - this.state.tooltipOffsetX});
+        this.setState({tooltipY: evt.clientY - this.state.tooltipOffsetY});
+    },
+    _hideTooltip: function () {
+        this.setState({showTooltip: false});
+    },
+    render: function () {
+        
+        var taptip;
+        var tooltip;
+        var clickAction;
+        var selectedStyle;
+
+        var tooltipShow;
+        var tooltipHide;
+
+        if (this.state.selected === true || this.state.showTaptip === true)
+        {
+        	selectedStyle = {
+	        	backgroundColor: "#ccc"
+	        }
+        }
+        else if (this.props.tooltip)
+        {
+        	var tooltipStyle = {
+	            display: (this.state.showTooltip ? "block" : "none"),
+	            position: "absolute",
+	            top: this.state.tooltipY + "px",
+	            left: this.state.tooltipX + "px"
+	        };
+
+	        var toolTipClasses = (this.state.showTooltip ? "tooltip_outer delayed-show-slow" : "tooltip_outer");
+
+	        tooltipShow = this._showTooltip;
+	        tooltipHide = this._hideTooltip;
+
+        	tooltip = (React.createElement("div", {className: toolTipClasses, 
+                        style: tooltipStyle}, 
+                        React.createElement("div", {className: "tooltip_inner"}, 
+                            React.createElement("div", {className: "opaque_inner"}, 
+                                this.props.tooltip.content
+                            )
+                        )
+                    ))
+        }
+        
+
+        if (this.props.taptip)
+        {
+        	var taptipStyle = {
+		        display: (this.state.showTaptip ? "block" : "none"),
+		        position: "absolute",
+		        left: this.state.taptipX + "px",
+		        top: this.state.taptipY + "px"
+		    };
+
+            //TODO: add this to repository
+            if (this.props.taptip.styles)
+            {
+                this.props.taptip.styles.forEach(function (styleToAdd) {
+                    taptipStyle[styleToAdd.key] = styleToAdd.value;
+                });
+            }
+            //end TODO
+
+		    var tapTipClasses = "taptip_outer";
+
+		    taptip = (
+		    	React.createElement("div", {className: tapTipClasses, 
+	                style: taptipStyle}, 
+	                React.createElement("div", {className: "taptip_inner"}, 
+	                    React.createElement("div", {className: "opaque_inner"}, 
+	                        React.createElement("h4", null, this.props.taptip.title), 
+	                        React.createElement("br", null), 
+	                        this.props.taptip.content
+	                    )
+	                )
+	            )
+        	);
+
+        	clickAction = (this.props.taptip.action ? this.props.taptip.action : this._showTaptip);
+        }
+        else if (this.props.clickAction)
+        {
+        	clickAction = this.props.clickAction;
+        }
+
+        return (
+            React.createElement("div", {className: "inlineBlock"}, 
+            	taptip, 
+            	tooltip, 
+                React.createElement("div", {className: "control_button", 
+                    onClick: clickAction, 
+                    onMouseEnter: tooltipShow, 
+                    onMouseLeave: tooltipHide, 
+                    style: selectedStyle}, 
+                    React.createElement("div", {className: "centeredDiv"}, 
+                        this.props.icon
+                    )
+                )
+            )
+        );
+    },
+});
+
+
+
+
+
+
+
+module.exports = ControlButton;
+
+},{"../action-creators/control-button-action-creators":3,"../stores/control-button-store":47,"react":undefined,"react-router":undefined}],16:[function(require,module,exports){
+'use strict';
+
+var React = require('react');
+
+var ControlButton = require('../control-button');
+
+var ClearButton = React.createClass({displayName: "ClearButton",
+    render: function () {
+
+        var taptipX = 60;
+        var taptipY = 120;
+
+        var tooltipX = 20;
+        var tooltipY = 60;
+
+        var clearIcon = (
+            React.createElement("i", {className: "fa fa-ban"})
+        );
+        var clearTooltip = {
+            "content": "Clear Search",
+            "xOffset": tooltipX,
+            "yOffset": tooltipY
+        };
+
+        return (
+            React.createElement(ControlButton, {
+                name: "clearControlButton", 
+                icon: clearIcon, 
+                tooltip: clearTooltip, 
+                clickAction: this.props.onclear})
+        );
+    },
+});
+
+module.exports = ClearButton;
+
+
+},{"../control-button":15,"react":undefined}],17:[function(require,module,exports){
+'use strict';
+
+var React = require('react');
+
+var ControlButton = require('../control-button');
+var controlButtonStore = require('../../stores/control-button-store');
+
+var FilterPointsButton = React.createClass({displayName: "FilterPointsButton",
+    getInitialState: function () {
+        return getStateFromStores();
+    },
+    componentDidMount: function () {
+        controlButtonStore.addChangeListener(this._onStoresChange);
+    },
+    componentWillUnmount: function () {
+        controlButtonStore.removeChangeListener(this._onStoresChange);
+    },
+    _onStoresChange: function () {
+
+        if (controlButtonStore.getClearButton(this.props.name))
+        {
+            this.setState({ filterValue: "" });
+        }
+    },
+    _onFilterBoxChange: function (e) {
+        this.setState({ filterValue: e.target.value });
+        this.props.onfilter(e.target.value);
+    },
+    render: function () {
+
+        var filterBoxContainer = {
+            position: "relative"
+        };
+
+        var taptipX = 60;
+        var taptipY = 120;
+
+        var tooltipX = 20;
+        var tooltipY = 60;
+
+        var filterBox = (
+            React.createElement("div", {style: filterBoxContainer}, 
+                React.createElement("span", {className: "fa fa-search"}), 
+                React.createElement("input", {
+                    type: "search", 
+                    onChange: this._onFilterBoxChange, 
+                    value:  this.state.filterValue}
+                )
+            ) 
+        );
+
+        var filterTaptip = { 
+            "title": "Search Points", 
+            "content": filterBox,
+            "xOffset": taptipX,
+            "yOffset": taptipY,
+            "styles": [{"key": "width", "value": "200px"}]
+        };
+        var filterIcon = (
+            React.createElement("i", {className: "fa fa-search"})
+        );
+        var filterTooltip = {
+            "content": "Search",
+            "xOffset": tooltipX,
+            "yOffset": tooltipY
+        };
+
+        return (
+            React.createElement(ControlButton, {
+                name: "filterControlButton", 
+                taptip: filterTaptip, 
+                tooltip: filterTooltip, 
+                icon: filterIcon})
+        );
+    },
+});
+
+function getStateFromStores() {
+    return {
+        filterValue: ""
+    };
+}
+
+module.exports = FilterPointsButton;
+
+
+},{"../../stores/control-button-store":47,"../control-button":15,"react":undefined}],18:[function(require,module,exports){
 'use strict';
 
 var $ = require('jquery');
@@ -1260,7 +1638,7 @@ function getStateFromStores() {
 module.exports = Conversation;
 
 
-},{"../stores/console-store":42,"./exchange":21,"jquery":undefined,"react":undefined}],15:[function(require,module,exports){
+},{"../stores/console-store":46,"./exchange":25,"jquery":undefined,"react":undefined}],19:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1366,7 +1744,7 @@ function getStateFromStores() {
 module.exports = Dashboard;
 
 
-},{"../action-creators/modal-action-creators":4,"../stores/platforms-store":47,"./chart":8,"./edit-chart-form":20,"react":undefined,"react-router":undefined}],16:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../stores/platforms-store":52,"./chart":9,"./edit-chart-form":24,"react":undefined,"react-router":undefined}],20:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1422,7 +1800,7 @@ function getStateFromStores() {
 module.exports = RegisterPlatformForm;
 
 
-},{"../action-creators/modal-action-creators":4,"../action-creators/platform-manager-action-creators":6,"../stores/platform-registration-store":46,"react":undefined}],17:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../action-creators/platform-manager-action-creators":7,"../stores/platform-registration-store":51,"react":undefined}],21:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1544,7 +1922,7 @@ function getStateFromStores() {
 module.exports = DetectDevices;
 
 
-},{"../action-creators/devices-action-creators":3,"../stores/platforms-store":47,"react":undefined,"react-router":undefined}],18:[function(require,module,exports){
+},{"../action-creators/devices-action-creators":4,"../stores/platforms-store":52,"react":undefined,"react-router":undefined}],22:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1633,7 +2011,7 @@ function getStateFromStores() {
 module.exports = DevicesFound;
 
 
-},{"../action-creators/devices-action-creators":3,"../stores/devices-store":43,"react":undefined,"react-router":undefined}],19:[function(require,module,exports){
+},{"../action-creators/devices-action-creators":4,"../stores/devices-store":48,"react":undefined,"react-router":undefined}],23:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1714,7 +2092,7 @@ function getStateFromStores() {
 module.exports = Devices;
 
 
-},{"../stores/devices-store":43,"./configure-device":10,"./configure-registry":11,"./detect-devices":17,"./devices-found":18,"react":undefined,"react-router":undefined}],20:[function(require,module,exports){
+},{"../stores/devices-store":48,"./configure-device":11,"./configure-registry":12,"./detect-devices":21,"./devices-found":22,"react":undefined,"react-router":undefined}],24:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1871,7 +2249,7 @@ var EditChartForm = React.createClass({displayName: "EditChartForm",
 module.exports = EditChartForm;
 
 
-},{"../action-creators/modal-action-creators":4,"../action-creators/platform-action-creators":5,"react":undefined}],21:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"react":undefined}],25:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1924,7 +2302,7 @@ var Exchange = React.createClass({displayName: "Exchange",
 module.exports = Exchange;
 
 
-},{"react":undefined}],22:[function(require,module,exports){
+},{"react":undefined}],26:[function(require,module,exports){
 'use strict';
 
 var d3 = require('d3');
@@ -2113,7 +2491,7 @@ var LineChart = React.createClass({displayName: "LineChart",
 module.exports = LineChart;
 
 
-},{"d3":undefined,"moment":undefined,"react":undefined}],23:[function(require,module,exports){
+},{"d3":undefined,"moment":undefined,"react":undefined}],27:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2191,7 +2569,7 @@ function getStateFromStores() {
 module.exports = LoginForm;
 
 
-},{"../action-creators/platform-manager-action-creators":6,"../stores/login-form-store":44,"react":undefined,"react-router":undefined}],24:[function(require,module,exports){
+},{"../action-creators/platform-manager-action-creators":7,"../stores/login-form-store":49,"react":undefined,"react-router":undefined}],28:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2218,7 +2596,7 @@ var Modal = React.createClass({displayName: "Modal",
 module.exports = Modal;
 
 
-},{"../action-creators/modal-action-creators":4,"react":undefined}],25:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"react":undefined}],29:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2295,7 +2673,7 @@ function getStateFromStores() {
 module.exports = Navigation;
 
 
-},{"../action-creators/platform-manager-action-creators":6,"../stores/authorization-store":41,"react":undefined,"react-router":undefined}],26:[function(require,module,exports){
+},{"../action-creators/platform-manager-action-creators":7,"../stores/authorization-store":45,"react":undefined,"react-router":undefined}],30:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2313,7 +2691,7 @@ var PageNotFound = React.createClass({displayName: "PageNotFound",
 module.exports = PageNotFound;
 
 
-},{"react":undefined}],27:[function(require,module,exports){
+},{"react":undefined}],31:[function(require,module,exports){
 'use strict';
 
 var $ = require('jquery');
@@ -2422,7 +2800,7 @@ function getStateFromStores() {
 module.exports = PlatformManager;
 
 
-},{"../action-creators/console-action-creators":2,"../action-creators/modal-action-creators":4,"../action-creators/platform-manager-action-creators":6,"../stores/authorization-store":41,"../stores/console-store":42,"../stores/modal-store":45,"./console":13,"./modal":24,"./navigation":25,"jquery":undefined,"react":undefined,"react-router":undefined}],28:[function(require,module,exports){
+},{"../action-creators/console-action-creators":2,"../action-creators/modal-action-creators":5,"../action-creators/platform-manager-action-creators":7,"../stores/authorization-store":45,"../stores/console-store":46,"../stores/modal-store":50,"./console":14,"./modal":28,"./navigation":29,"jquery":undefined,"react":undefined,"react-router":undefined}],32:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2626,7 +3004,7 @@ function getStateFromStores(component) {
 module.exports = Platform;
 
 
-},{"../action-creators/modal-action-creators":4,"../action-creators/platform-action-creators":5,"../stores/platforms-store":47,"./agent-row":7,"./chart":8,"./confirm-form":12,"./edit-chart-form":20,"react":undefined,"react-router":undefined}],29:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"../stores/platforms-store":52,"./agent-row":8,"./chart":9,"./confirm-form":13,"./edit-chart-form":24,"react":undefined,"react-router":undefined}],33:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2741,7 +3119,7 @@ function getStateFromStores() {
 module.exports = Platforms;
 
 
-},{"../action-creators/modal-action-creators":4,"../components/deregister-platform-confirmation":16,"../components/register-platform-form":30,"../stores/platforms-store":47,"react":undefined,"react-router":undefined}],30:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../components/deregister-platform-confirmation":20,"../components/register-platform-form":34,"../stores/platforms-store":52,"react":undefined,"react-router":undefined}],34:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2947,7 +3325,7 @@ function getStateFromStores() {
 module.exports = RegisterPlatformForm;
 
 
-},{"../action-creators/modal-action-creators":4,"../action-creators/platform-manager-action-creators":6,"../stores/platform-registration-store":46,"react":undefined}],31:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../action-creators/platform-manager-action-creators":7,"../stores/platform-registration-store":51,"react":undefined}],35:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -3006,7 +3384,7 @@ var RemoveAgentForm = React.createClass({displayName: "RemoveAgentForm",
 module.exports = RemoveAgentForm;
 
 
-},{"../action-creators/modal-action-creators":4,"../action-creators/platform-action-creators":5,"react":undefined}],32:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"react":undefined}],36:[function(require,module,exports){
 'use strict';
 
 var keyMirror = require('react/lib/keyMirror');
@@ -3042,10 +3420,14 @@ module.exports = keyMirror({
     LIST_DETECTED_DEVICES: null,
     CONFIGURE_DEVICE: null,
     CONFIGURE_REGISTRY: null,
+
+    TOGGLE_TAPTIP: null,
+    HIDE_TAPTIP: null,
+    CLEAR_BUTTON: null,
 });
 
 
-},{"react/lib/keyMirror":undefined}],33:[function(require,module,exports){
+},{"react/lib/keyMirror":undefined}],37:[function(require,module,exports){
 'use strict';
 
 var Dispatcher = require('flux').Dispatcher;
@@ -3065,7 +3447,7 @@ dispatcher.dispatch = function (action) {
 module.exports = dispatcher;
 
 
-},{"../constants/action-types":32,"flux":undefined}],34:[function(require,module,exports){
+},{"../constants/action-types":36,"flux":undefined}],38:[function(require,module,exports){
 'use strict';
 
 function RpcError(error) {
@@ -3080,7 +3462,7 @@ RpcError.prototype.constructor = RpcError;
 module.exports = RpcError;
 
 
-},{}],35:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 'use strict';
 
 var uuid = require('node-uuid');
@@ -3168,7 +3550,7 @@ function RpcExchange(request, redactedParams) {
 module.exports = RpcExchange;
 
 
-},{"../../constants/action-types":32,"../../dispatcher":33,"../xhr":39,"./error":34,"node-uuid":undefined}],36:[function(require,module,exports){
+},{"../../constants/action-types":36,"../../dispatcher":37,"../xhr":43,"./error":38,"node-uuid":undefined}],40:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -3177,7 +3559,7 @@ module.exports = {
 };
 
 
-},{"./error":34,"./exchange":35}],37:[function(require,module,exports){
+},{"./error":38,"./exchange":39}],41:[function(require,module,exports){
 'use strict';
 
 var EventEmitter = require('events').EventEmitter;
@@ -3205,7 +3587,7 @@ Store.prototype.removeChangeListener = function (callback) {
 module.exports = Store;
 
 
-},{"events":undefined}],38:[function(require,module,exports){
+},{"events":undefined}],42:[function(require,module,exports){
 'use strict';
 
 function XhrError(message, response) {
@@ -3219,7 +3601,7 @@ XhrError.prototype.constructor = XhrError;
 module.exports = XhrError;
 
 
-},{}],39:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -3228,7 +3610,7 @@ module.exports = {
 };
 
 
-},{"./error":38,"./request":40}],40:[function(require,module,exports){
+},{"./error":42,"./request":44}],44:[function(require,module,exports){
 'use strict';
 
 var jQuery = require('jquery');
@@ -3259,7 +3641,7 @@ function XhrRequest(opts) {
 module.exports = XhrRequest;
 
 
-},{"./error":38,"bluebird":undefined,"jquery":undefined}],41:[function(require,module,exports){
+},{"./error":42,"bluebird":undefined,"jquery":undefined}],45:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -3297,7 +3679,7 @@ authorizationStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = authorizationStore;
 
 
-},{"../constants/action-types":32,"../dispatcher":33,"../lib/store":37}],42:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41}],46:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -3390,7 +3772,119 @@ consoleStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = consoleStore;
 
 
-},{"../constants/action-types":32,"../dispatcher":33,"../lib/store":37,"../stores/authorization-store":41}],43:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"../stores/authorization-store":45}],47:[function(require,module,exports){
+'use strict';
+
+var ACTION_TYPES = require('../constants/action-types');
+var authorizationStore = require('../stores/authorization-store');
+var dispatcher = require('../dispatcher');
+var Store = require('../lib/store');
+
+
+var _controlButtons = {};
+var _clearButtons = {};
+
+var controlButtonStore = new Store();
+
+
+
+controlButtonStore.getTaptip = function (name) {
+    
+    var showTaptip = null;
+
+    if (_controlButtons.hasOwnProperty([name]))
+    {
+        if (_controlButtons[name].hasOwnProperty("showTaptip"))
+        {
+            showTaptip = _controlButtons[name].showTaptip;
+        }
+    }
+
+    return showTaptip;
+}
+
+controlButtonStore.getClearButton = function (name) {
+    
+    var clearButton = false;
+
+    if (_clearButtons.hasOwnProperty([name]))
+    {
+        delete _clearButtons[name];
+        clearButton = true;
+    }
+
+    return clearButton;
+}
+
+controlButtonStore.dispatchToken = dispatcher.register(function (action) {
+    switch (action.type) {
+
+        case ACTION_TYPES.TOGGLE_TAPTIP:             
+
+            var showTaptip;
+
+            if (_controlButtons.hasOwnProperty(action.name))
+            {
+                _controlButtons[action.name].showTaptip = showTaptip = !_controlButtons[action.name].showTaptip;
+            }
+            else
+            {
+                _controlButtons[action.name] = { "showTaptip": true };
+                showTaptip = true;
+            }
+
+            if (showTaptip === true) 
+            {            
+                //close other taptips    
+                for (var key in _controlButtons)
+                {
+                    if (key !== action.name)
+                    {
+                        _controlButtons[key].showTaptip = false;
+                    }
+                }
+            }
+
+            controlButtonStore.emitChange();
+
+            break;
+
+        case ACTION_TYPES.HIDE_TAPTIP:             
+
+            if (_controlButtons.hasOwnProperty(action.name))
+            {
+                if (_controlButtons[action.name].hasOwnProperty("showTaptip"))
+                {
+                    _controlButtons[action.name].showTaptip = false;
+                    // delete _controlButtons[action.name];   
+                }
+            }
+
+            controlButtonStore.emitChange();
+
+            break;
+
+        case ACTION_TYPES.CLEAR_BUTTON:             
+
+            if (!_clearButtons.hasOwnProperty(action.name))
+            {
+                _clearButtons[action.name] = "";
+            }
+
+            controlButtonStore.emitChange();
+
+            break;
+    } 
+
+    
+    
+});
+
+
+
+module.exports = controlButtonStore;
+
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"../stores/authorization-store":45}],48:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -3404,205 +3898,216 @@ var _action = "get_scan_settings";
 var _view = "Detect Devices";
 var _device = null;
 
+var _registryValues = [
+    [
+        {"key": "Point_Name", "value": "Heartbeat"},
+        {"key": "Volttron_Point_Name", "value": "Heartbeat"},
+        {"key": "Units", "value": "On/Off"},
+        {"key": "Units_Details", "value": "On/Off"},
+        {"key": "Writable", "value": true},
+        {"key": "Starting_Value", "value": 0},
+        {"key": "Type", "value": "boolean"},
+        {"key": "Notes", "value": "Point for heartbeat toggle"}
+    ],
+    [
+        {"key": "Point_Name", "value": "OutsideAirTemperature1"},
+        {"key": "Volttron_Point_Name", "value": "OutsideAirTemperature1"},
+        {"key": "Units", "value": "F"},
+        {"key": "Units_Details", "value": "-100 to 300"},
+        {"key": "Writable", "value": false},
+        {"key": "Starting_Value", "value": 50},
+        {"key": "Type", "value": "float"},
+        {"key": "Notes", "value": "CO2 Reading 0.00-2000.0 ppm"}
+    ],
+    [
+        {"key": "Point_Name", "value": "SampleWritableFloat1"},
+        {"key": "Volttron_Point_Name", "value": "SampleWritableFloat1"},
+        {"key": "Units", "value": "PPM"},
+        {"key": "Units_Details", "value": "1000.00 (default)"},
+        {"key": "Writable", "value": true},
+        {"key": "Starting_Value", "value": 10},
+        {"key": "Type", "value": "float"},
+        {"key": "Notes", "value": "Setpoint to enable demand control ventilation"}
+    ],
+    [
+        {"key": "Point_Name", "value": "SampleLong1"},
+        {"key": "Volttron_Point_Name", "value": "SampleLong1"},
+        {"key": "Units", "value": "Enumeration"},
+        {"key": "Units_Details", "value": "1 through 13"},
+        {"key": "Writable", "value": false},
+        {"key": "Starting_Value", "value": 50},
+        {"key": "Type", "value": "int"},
+        {"key": "Notes", "value": "Status indicator of service switch"}
+    ],
+    [
+        {"key": "Point_Name", "value": "SampleWritableShort1"},
+        {"key": "Volttron_Point_Name", "value": "SampleWritableShort1"},
+        {"key": "Units", "value": "%"},
+        {"key": "Units_Details", "value": "0.00 to 100.00 (20 default)"},
+        {"key": "Writable", "value": true},
+        {"key": "Starting_Value", "value": 20},
+        {"key": "Type", "value": "int"},
+        {"key": "Notes", "value": "Minimum damper position during the standard mode"}
+    ],
+    [
+        {"key": "Point_Name", "value": "SampleBool1"},
+        {"key": "Volttron_Point_Name", "value": "SampleBool1"},
+        {"key": "Units", "value": "On / Off"},
+        {"key": "Units_Details", "value": "on/off"},
+        {"key": "Writable", "value": false},
+        {"key": "Starting_Value", "value": true},
+        {"key": "Type", "value": "boolean"},
+        {"key": "Notes", "value": "Status indidcator of cooling stage 1"}
+    ],
+    [
+        {"key": "Point_Name", "value": "SampleWritableBool1"},
+        {"key": "Volttron_Point_Name", "value": "SampleWritableBool1"},
+        {"key": "Units", "value": "On / Off"},
+        {"key": "Units_Details", "value": "on/off"},
+        {"key": "Writable", "value": true},
+        {"key": "Starting_Value", "value": true},
+        {"key": "Type", "value": "boolean"},
+        {"key": "Notes", "value": "Status indicator"}
+    ],
+    [
+        {"key": "Point_Name", "value": "OutsideAirTemperature2"},
+        {"key": "Volttron_Point_Name", "value": "OutsideAirTemperature2"},
+        {"key": "Units", "value": "F"},
+        {"key": "Units_Details", "value": "-100 to 300"},
+        {"key": "Writable", "value": false},
+        {"key": "Starting_Value", "value": 50},
+        {"key": "Type", "value": "float"},
+        {"key": "Notes", "value": "CO2 Reading 0.00-2000.0 ppm"}
+    ],
+    [
+        {"key": "Point_Name", "value": "SampleWritableFloat2"},
+        {"key": "Volttron_Point_Name", "value": "SampleWritableFloat2"},
+        {"key": "Units", "value": "PPM"},
+        {"key": "Units_Details", "value": "1000.00 (default)"},
+        {"key": "Writable", "value": true},
+        {"key": "Starting_Value", "value": 10},
+        {"key": "Type", "value": "float"},
+        {"key": "Notes", "value": "Setpoint to enable demand control ventilation"}
+    ],
+    [
+        {"key": "Point_Name", "value": "SampleLong2"},
+        {"key": "Volttron_Point_Name", "value": "SampleLong2"},
+        {"key": "Units", "value": "Enumeration"},
+        {"key": "Units_Details", "value": "1 through 13"},
+        {"key": "Writable", "value": false},
+        {"key": "Starting_Value", "value": 50},
+        {"key": "Type", "value": "int"},
+        {"key": "Notes", "value": "Status indicator of service switch"}
+    ],
+    [
+        {"key": "Point_Name", "value": "SampleWritableShort2"},
+        {"key": "Volttron_Point_Name", "value": "SampleWritableShort2"},
+        {"key": "Units", "value": "%"},
+        {"key": "Units_Details", "value": "0.00 to 100.00 (20 default)"},
+        {"key": "Writable", "value": true},
+        {"key": "Starting_Value", "value": 20},
+        {"key": "Type", "value": "int"},
+        {"key": "Notes", "value": "Minimum damper position during the standard mode"}
+    ],
+    [
+        {"key": "Point_Name", "value": "SampleBool2"},
+        {"key": "Volttron_Point_Name", "value": "SampleBool2"},
+        {"key": "Units", "value": "On / Off"},
+        {"key": "Units_Details", "value": "on/off"},
+        {"key": "Writable", "value": false},
+        {"key": "Starting_Value", "value": true},
+        {"key": "Type", "value": "boolean"},
+        {"key": "Notes", "value": "Status indidcator of cooling stage 1"}
+    ],
+    [
+        {"key": "Point_Name", "value": "SampleWritableBool2"},
+        {"key": "Volttron_Point_Name", "value": "SampleWritableBool2"},
+        {"key": "Units", "value": "On / Off"},
+        {"key": "Units_Details", "value": "on/off"},
+        {"key": "Writable", "value": true},
+        {"key": "Starting_Value", "value": true},
+        {"key": "Type", "value": "boolean"},
+        {"key": "Notes", "value": "Status indicator"}
+    ],
+    [
+        {"key": "Point_Name", "value": "OutsideAirTemperature3"},
+        {"key": "Volttron_Point_Name", "value": "OutsideAirTemperature3"},
+        {"key": "Units", "value": "F"},
+        {"key": "Units_Details", "value": "-100 to 300"},
+        {"key": "Writable", "value": false},
+        {"key": "Starting_Value", "value": 50},
+        {"key": "Type", "value": "float"},
+        {"key": "Notes", "value": "CO2 Reading 0.00-2000.0 ppm"}
+    ],
+    [
+        {"key": "Point_Name", "value": "SampleWritableFloat3"},
+        {"key": "Volttron_Point_Name", "value": "SampleWritableFloat3"},
+        {"key": "Units", "value": "PPM"},
+        {"key": "Units_Details", "value": "1000.00 (default)"},
+        {"key": "Writable", "value": true},
+        {"key": "Starting_Value", "value": 10},
+        {"key": "Type", "value": "float"},
+        {"key": "Notes", "value": "Setpoint to enable demand control ventilation"}
+    ],
+    [
+        {"key": "Point_Name", "value": "SampleLong3"},
+        {"key": "Volttron_Point_Name", "value": "SampleLong3"},
+        {"key": "Units", "value": "Enumeration"},
+        {"key": "Units_Details", "value": "1 through 13"},
+        {"key": "Writable", "value": false},
+        {"key": "Starting_Value", "value": 50},
+        {"key": "Type", "value": "int"},
+        {"key": "Notes", "value": "Status indicator of service switch"}
+    ],
+    [
+        {"key": "Point_Name", "value": "SampleWritableShort3"},
+        {"key": "Volttron_Point_Name", "value": "SampleWritableShort3"},
+        {"key": "Units", "value": "%"},
+        {"key": "Units_Details", "value": "0.00 to 100.00 (20 default)"},
+        {"key": "Writable", "value": true},
+        {"key": "Starting_Value", "value": 20},
+        {"key": "Type", "value": "int"},
+        {"key": "Notes", "value": "Minimum damper position during the standard mode"}
+    ],
+    [
+        {"key": "Point_Name", "value": "SampleBool3"},
+        {"key": "Volttron_Point_Name", "value": "SampleBool3"},
+        {"key": "Units", "value": "On / Off"},
+        {"key": "Units_Details", "value": "on/off"},
+        {"key": "Writable", "value": false},
+        {"key": "Starting_Value", "value": true},
+        {"key": "Type", "value": "boolean"},
+        {"key": "Notes", "value": "Status indidcator of cooling stage 1"}
+    ],
+    [
+        {"key": "Point_Name", "value": "SampleWritableBool3"},
+        {"key": "Volttron_Point_Name", "value": "SampleWritableBool3"},
+        {"key": "Units", "value": "On / Off"},
+        {"key": "Units_Details", "value": "on/off"},
+        {"key": "Writable", "value": true},
+        {"key": "Starting_Value", "value": true},
+        {"key": "Type", "value": "boolean"},
+        {"key": "Notes", "value": "Status indicator"}
+    ]
+];
+
 devicesStore.getState = function () {
     return { action: _action, view: _view, device: _device };
 };
 
+devicesStore.getFilteredRegistryValues = function (device, filterStr) {
+
+    return _registryValues.filter(function (item) {
+        var pointName = item.find(function (pair) {
+            return pair.key === "Point_Name";
+        })
+
+        return (pointName ? (pointName.value.trim().toUpperCase().indexOf(filterStr.trim().toUpperCase()) > -1) : false);
+    });
+}
+
 devicesStore.getRegistryValues = function (device) {
-
-    return [
-        [
-            {"key": "Point_Name", "value": "Heartbeat"},
-            {"key": "Volttron_Point_Name", "value": "Heartbeat"},
-            {"key": "Units", "value": "On/Off"},
-            {"key": "Units_Details", "value": "On/Off"},
-            {"key": "Writable", "value": true},
-            {"key": "Starting_Value", "value": 0},
-            {"key": "Type", "value": "boolean"},
-            {"key": "Notes", "value": "Point for heartbeat toggle"}
-        ],
-        [
-            {"key": "Point_Name", "value": "OutsideAirTemperature1"},
-            {"key": "Volttron_Point_Name", "value": "OutsideAirTemperature1"},
-            {"key": "Units", "value": "F"},
-            {"key": "Units_Details", "value": "-100 to 300"},
-            {"key": "Writable", "value": false},
-            {"key": "Starting_Value", "value": 50},
-            {"key": "Type", "value": "float"},
-            {"key": "Notes", "value": "CO2 Reading 0.00-2000.0 ppm"}
-        ],
-        [
-            {"key": "Point_Name", "value": "SampleWritableFloat1"},
-            {"key": "Volttron_Point_Name", "value": "SampleWritableFloat1"},
-            {"key": "Units", "value": "PPM"},
-            {"key": "Units_Details", "value": "1000.00 (default)"},
-            {"key": "Writable", "value": true},
-            {"key": "Starting_Value", "value": 10},
-            {"key": "Type", "value": "float"},
-            {"key": "Notes", "value": "Setpoint to enable demand control ventilation"}
-        ],
-        [
-            {"key": "Point_Name", "value": "SampleLong1"},
-            {"key": "Volttron_Point_Name", "value": "SampleLong1"},
-            {"key": "Units", "value": "Enumeration"},
-            {"key": "Units_Details", "value": "1 through 13"},
-            {"key": "Writable", "value": false},
-            {"key": "Starting_Value", "value": 50},
-            {"key": "Type", "value": "int"},
-            {"key": "Notes", "value": "Status indicator of service switch"}
-        ],
-        [
-            {"key": "Point_Name", "value": "SampleWritableShort1"},
-            {"key": "Volttron_Point_Name", "value": "SampleWritableShort1"},
-            {"key": "Units", "value": "%"},
-            {"key": "Units_Details", "value": "0.00 to 100.00 (20 default)"},
-            {"key": "Writable", "value": true},
-            {"key": "Starting_Value", "value": 20},
-            {"key": "Type", "value": "int"},
-            {"key": "Notes", "value": "Minimum damper position during the standard mode"}
-        ],
-        [
-            {"key": "Point_Name", "value": "SampleBool1"},
-            {"key": "Volttron_Point_Name", "value": "SampleBool1"},
-            {"key": "Units", "value": "On / Off"},
-            {"key": "Units_Details", "value": "on/off"},
-            {"key": "Writable", "value": false},
-            {"key": "Starting_Value", "value": true},
-            {"key": "Type", "value": "boolean"},
-            {"key": "Notes", "value": "Status indidcator of cooling stage 1"}
-        ],
-        [
-            {"key": "Point_Name", "value": "SampleWritableBool1"},
-            {"key": "Volttron_Point_Name", "value": "SampleWritableBool1"},
-            {"key": "Units", "value": "On / Off"},
-            {"key": "Units_Details", "value": "on/off"},
-            {"key": "Writable", "value": true},
-            {"key": "Starting_Value", "value": true},
-            {"key": "Type", "value": "boolean"},
-            {"key": "Notes", "value": "Status indicator"}
-        ],
-        [
-            {"key": "Point_Name", "value": "OutsideAirTemperature2"},
-            {"key": "Volttron_Point_Name", "value": "OutsideAirTemperature2"},
-            {"key": "Units", "value": "F"},
-            {"key": "Units_Details", "value": "-100 to 300"},
-            {"key": "Writable", "value": false},
-            {"key": "Starting_Value", "value": 50},
-            {"key": "Type", "value": "float"},
-            {"key": "Notes", "value": "CO2 Reading 0.00-2000.0 ppm"}
-        ],
-        [
-            {"key": "Point_Name", "value": "SampleWritableFloat2"},
-            {"key": "Volttron_Point_Name", "value": "SampleWritableFloat2"},
-            {"key": "Units", "value": "PPM"},
-            {"key": "Units_Details", "value": "1000.00 (default)"},
-            {"key": "Writable", "value": true},
-            {"key": "Starting_Value", "value": 10},
-            {"key": "Type", "value": "float"},
-            {"key": "Notes", "value": "Setpoint to enable demand control ventilation"}
-        ],
-        [
-            {"key": "Point_Name", "value": "SampleLong2"},
-            {"key": "Volttron_Point_Name", "value": "SampleLong2"},
-            {"key": "Units", "value": "Enumeration"},
-            {"key": "Units_Details", "value": "1 through 13"},
-            {"key": "Writable", "value": false},
-            {"key": "Starting_Value", "value": 50},
-            {"key": "Type", "value": "int"},
-            {"key": "Notes", "value": "Status indicator of service switch"}
-        ],
-        [
-            {"key": "Point_Name", "value": "SampleWritableShort2"},
-            {"key": "Volttron_Point_Name", "value": "SampleWritableShort2"},
-            {"key": "Units", "value": "%"},
-            {"key": "Units_Details", "value": "0.00 to 100.00 (20 default)"},
-            {"key": "Writable", "value": true},
-            {"key": "Starting_Value", "value": 20},
-            {"key": "Type", "value": "int"},
-            {"key": "Notes", "value": "Minimum damper position during the standard mode"}
-        ],
-        [
-            {"key": "Point_Name", "value": "SampleBool2"},
-            {"key": "Volttron_Point_Name", "value": "SampleBool2"},
-            {"key": "Units", "value": "On / Off"},
-            {"key": "Units_Details", "value": "on/off"},
-            {"key": "Writable", "value": false},
-            {"key": "Starting_Value", "value": true},
-            {"key": "Type", "value": "boolean"},
-            {"key": "Notes", "value": "Status indidcator of cooling stage 1"}
-        ],
-        [
-            {"key": "Point_Name", "value": "SampleWritableBool2"},
-            {"key": "Volttron_Point_Name", "value": "SampleWritableBool2"},
-            {"key": "Units", "value": "On / Off"},
-            {"key": "Units_Details", "value": "on/off"},
-            {"key": "Writable", "value": true},
-            {"key": "Starting_Value", "value": true},
-            {"key": "Type", "value": "boolean"},
-            {"key": "Notes", "value": "Status indicator"}
-        ],
-        [
-            {"key": "Point_Name", "value": "OutsideAirTemperature3"},
-            {"key": "Volttron_Point_Name", "value": "OutsideAirTemperature3"},
-            {"key": "Units", "value": "F"},
-            {"key": "Units_Details", "value": "-100 to 300"},
-            {"key": "Writable", "value": false},
-            {"key": "Starting_Value", "value": 50},
-            {"key": "Type", "value": "float"},
-            {"key": "Notes", "value": "CO2 Reading 0.00-2000.0 ppm"}
-        ],
-        [
-            {"key": "Point_Name", "value": "SampleWritableFloat3"},
-            {"key": "Volttron_Point_Name", "value": "SampleWritableFloat3"},
-            {"key": "Units", "value": "PPM"},
-            {"key": "Units_Details", "value": "1000.00 (default)"},
-            {"key": "Writable", "value": true},
-            {"key": "Starting_Value", "value": 10},
-            {"key": "Type", "value": "float"},
-            {"key": "Notes", "value": "Setpoint to enable demand control ventilation"}
-        ],
-        [
-            {"key": "Point_Name", "value": "SampleLong3"},
-            {"key": "Volttron_Point_Name", "value": "SampleLong3"},
-            {"key": "Units", "value": "Enumeration"},
-            {"key": "Units_Details", "value": "1 through 13"},
-            {"key": "Writable", "value": false},
-            {"key": "Starting_Value", "value": 50},
-            {"key": "Type", "value": "int"},
-            {"key": "Notes", "value": "Status indicator of service switch"}
-        ],
-        [
-            {"key": "Point_Name", "value": "SampleWritableShort3"},
-            {"key": "Volttron_Point_Name", "value": "SampleWritableShort3"},
-            {"key": "Units", "value": "%"},
-            {"key": "Units_Details", "value": "0.00 to 100.00 (20 default)"},
-            {"key": "Writable", "value": true},
-            {"key": "Starting_Value", "value": 20},
-            {"key": "Type", "value": "int"},
-            {"key": "Notes", "value": "Minimum damper position during the standard mode"}
-        ],
-        [
-            {"key": "Point_Name", "value": "SampleBool3"},
-            {"key": "Volttron_Point_Name", "value": "SampleBool3"},
-            {"key": "Units", "value": "On / Off"},
-            {"key": "Units_Details", "value": "on/off"},
-            {"key": "Writable", "value": false},
-            {"key": "Starting_Value", "value": true},
-            {"key": "Type", "value": "boolean"},
-            {"key": "Notes", "value": "Status indidcator of cooling stage 1"}
-        ],
-        [
-            {"key": "Point_Name", "value": "SampleWritableBool3"},
-            {"key": "Volttron_Point_Name", "value": "SampleWritableBool3"},
-            {"key": "Units", "value": "On / Off"},
-            {"key": "Units_Details", "value": "on/off"},
-            {"key": "Writable", "value": true},
-            {"key": "Starting_Value", "value": true},
-            {"key": "Type", "value": "boolean"},
-            {"key": "Notes", "value": "Status indicator"}
-        ]
-    ]
-
+    return _registryValues;
 };
 
 devicesStore.dispatchToken = dispatcher.register(function (action) {
@@ -3645,7 +4150,7 @@ devicesStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = devicesStore;
 
 
-},{"../constants/action-types":32,"../dispatcher":33,"../lib/store":37,"../stores/authorization-store":41}],44:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"../stores/authorization-store":45}],49:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -3680,7 +4185,7 @@ loginFormStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = loginFormStore;
 
 
-},{"../constants/action-types":32,"../dispatcher":33,"../lib/store":37,"./authorization-store":41}],45:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"./authorization-store":45}],50:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -3713,7 +4218,7 @@ modalStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = modalStore;
 
 
-},{"../constants/action-types":32,"../dispatcher":33,"../lib/store":37}],46:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41}],51:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -3759,7 +4264,7 @@ platformRegistrationStore.dispatchToken = dispatcher.register(function (action) 
 module.exports = platformRegistrationStore;
 
 
-},{"../constants/action-types":32,"../dispatcher":33,"../lib/store":37,"./authorization-store":41}],47:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"./authorization-store":45}],52:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -3828,7 +4333,7 @@ platformsStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = platformsStore;
 
 
-},{"../constants/action-types":32,"../dispatcher":33,"../lib/store":37,"../stores/authorization-store":41}],48:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"../stores/authorization-store":45}],53:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -3868,4 +4373,4 @@ topicDataStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = topicDataStore;
 
 
-},{"../constants/action-types":32,"../dispatcher":33,"../lib/store":37,"./authorization-store":41}]},{},[1]);
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"./authorization-store":45}]},{},[1]);

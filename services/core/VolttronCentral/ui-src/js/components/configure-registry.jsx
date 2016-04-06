@@ -5,10 +5,23 @@ var Router = require('react-router');
 
 var devicesActionCreators = require('../action-creators/devices-action-creators');
 var devicesStore = require('../stores/devices-store');
+var FilterPointsButton = require('./control_buttons/filterPointsButton');
+var ClearButton = require('./control_buttons/clearButton');
+var controlButtonActionCreators = require('../action-creators/control-button-action-creators');
 
 var ConfigureRegistry = React.createClass({
     getInitialState: function () {
-        return getStateFromStores(this.props.device);
+        var state = {};
+
+        state.registryValues = getPointsFromStore(this.props.device);
+        state.registryHeader = [];
+
+        if (state.registryValues.length > 0)
+        {
+            state.registryHeader = getRegistryHeader(state.registryValues[0]);
+        }
+
+        return state;
     },
     componentDidMount: function () {
         // platformsStore.addChangeListener(this._onStoresChange);
@@ -17,77 +30,70 @@ var ConfigureRegistry = React.createClass({
         // platformsStore.removeChangeListener(this._onStoresChange);
     },
     _onStoresChange: function () {
-        this.setState(getStateFromStores(this.props.device));
+        this.setState({registryValues: getPointsFromStore(this.props.device) });
     },
-    _onFilterBoxChange: function (e) {
-        this.setState({ filterValue: e.target.value });
+    _onFilterBoxChange: function (filterValue) {
+        this.setState({ registryValues: getFilteredPoints(this.props.device, filterValue) });
+    },
+    _onClearFilter: function () {
+        this.setState({registryValues: getPointsFromStore(this.props.device) }); //TODO: when filtering, set nonmatches to hidden so they're
+                                                                                //still there and we don't lose information in inputs
+                                                                                //then to clear filter, set all to not hidden
+        controlButtonActionCreators.clearButton("filterRegistryPoints");
     },
     render: function () {        
         
-        var filterBoxContainer = {};
+        var filterButton = <FilterPointsButton name="filterRegistryPoints" onfilter={this._onFilterBoxChange} clearFilter={this.state.filterValue}/>
+        var clearButton = <ClearButton onclear={this._onClearFilter}/>
 
         var registryRows, registryHeader;
+        
+        registryRows = this.state.registryValues.map(function (attributesList) {
 
-        if (this.state.registryValues.length > 0)
-        {
-            registryRows = this.state.registryValues.map(function (attributesList) {
+            var registryCells = attributesList.map(function (item, index) {
 
-                var registryCells = attributesList.map(function (item, index) {
+                var itemCell = (index === 0 ? 
+                                    <td>{ item.value }</td> : 
+                                        <td><input type="text" value={ item.value }/></td>);
 
-                    var itemCell = (index === 0 ? 
-                                        <td>{ item.value }</td> : 
-                                            <td><input type="text" value={ item.value }/></td>);
-
-                    return itemCell;
-                });
-
-                return ( 
-                    <tr>
-                        <td>
-                            <input type="checkbox"/>
-                        </td>
-                        { registryCells }
-                    </tr>
-                )
+                return itemCell;
             });
 
-            registryHeader = this.state.registryValues[0].map(function (item) {
-
-                return ( <th>
-                            <div className="th-inner">
-                                { item.key.replace(/_/g, " ") }
-                            </div>
-                        </th> );
-            });
-        }
-        else
-        {
-            registryHeader = (
-                <td>Nothing to report at this time</td>
+            return ( 
+                <tr>
+                    <td>
+                        <input type="checkbox"/>
+                    </td>
+                    { registryCells }
+                </tr>
             )
-        }
+        });
+
+        registryHeader = this.state.registryHeader.map(function (item, index) {
+
+            var headerCell = (index === 0 ?
+                                ( <th>
+                                    <div className="th-inner">
+                                        { item } { filterButton } { clearButton }
+                                    </div>
+                                </th>) :
+                                ( <th>
+                                    <div className="th-inner">
+                                        { item }
+                                    </div>
+                                </th> ) )
+
+            return headerCell;
+        });        
 
         var wideDiv = {
             width: "100%",
-            textAlign: "center"
-        }
-
-        var tableDiv = {
-            width: "100%",
-            height: "80vh",
-            overflow: "auto"
+            textAlign: "center",
+            paddingTop: "20px"
         }
             
         return (
-            <div>
-                <div className="filter_box" style={filterBoxContainer}>
-                    <span className="fa fa-search"></span>
-                    <input
-                        type="search"
-                        onChange={this._onFilterBoxChange}
-                        value={ this.state.filterValue }
-                    />
-                </div> 
+            <div>                
                 <div className="fixed-table-container"> 
                     <div className="header-background"></div>      
                     <div className="fixed-table-container-inner">    
@@ -116,11 +122,18 @@ var ConfigureRegistry = React.createClass({
     },
 });
 
-function getStateFromStores(device) {
-    return {
-        filterValue: "",
-        registryValues: devicesStore.getRegistryValues(device)
-    };
+function getFilteredPoints(device, filterStr) {
+    return devicesStore.getFilteredRegistryValues(device, filterStr);
+}
+
+function getPointsFromStore(device) {
+    return devicesStore.getRegistryValues(device);
+}
+
+function getRegistryHeader(registryItem) {
+    return registryItem.map(function (item) {
+            return item.key.replace(/_/g, " ");
+        });
 }
 
 module.exports = ConfigureRegistry;
