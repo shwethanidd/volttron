@@ -662,6 +662,14 @@ br + .form__control-help {
   content: "\f254";
 }
 
+.fa-plus:before {
+    content: "\f067";
+}
+
+.fa-minus:before {
+    content: "\f068";
+}
+
 /*.tooltip_show {
     display: "block";
 }
@@ -737,6 +745,9 @@ br + .form__control-help {
 
 .centeredDiv {
     text-align: center;
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 .status-good {
@@ -1907,3 +1918,4 @@ Interactive Layer
 .filter_box {
     margin: 15px 5px 15px 40px;
 }
+

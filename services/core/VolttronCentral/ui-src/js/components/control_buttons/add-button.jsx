@@ -13,11 +13,8 @@ var AddButton = React.createClass({
         var tooltipX = 20;
         var tooltipY = 60;
 
-        var addIcon = (
-            <div>
-                <span>+</span>
-            </div>
-        );
+        var addIcon = <i className="fa fa-plus"></i>;
+
         var addTooltip = {
             "content": "Add New Point",
             "xOffset": tooltipX,

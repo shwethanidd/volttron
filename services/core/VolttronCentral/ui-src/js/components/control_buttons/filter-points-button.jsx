@@ -53,15 +53,32 @@ var FilterPointsButton = React.createClass({
         var tooltipX = 20;
         var tooltipY = 60;
 
+        var inputStyle = {
+            width: "100%",
+            marginLeft: "10px",
+            fontWeight: "normal"
+        }
+
+        var divWidth = {
+            width: "85%"
+        }
+
         var filterBox = (
             <div style={filterBoxContainer}>
                 <ClearButton onclear={this._onClearFilter}/>
-                <span className="fa fa-search"></span>
-                <input
-                    type="search"
-                    onChange={this._onFilterBoxChange}
-                    value={ this.state.filterValue }
-                />
+                <div className="inlineBlock">
+                    <div className="inlineBlock">
+                        <span className="fa fa-search"></span>
+                    </div>
+                    <div className="inlineBlock" style={divWidth}>
+                        <input
+                            type="search"
+                            style={inputStyle}
+                            onChange={this._onFilterBoxChange}
+                            value={ this.state.filterValue }
+                        />
+                    </div>
+                </div>
             </div> 
         );
 

@@ -1078,13 +1078,23 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
 
         state.registryValues = getPointsFromStore(this.props.device);
         state.registryHeader = [];
+        state.columnNames = [];
+        state.pointNames = [];
 
         if (state.registryValues.length > 0)
         {
             state.registryHeader = getRegistryHeader(state.registryValues[0]);
+            state.columnNames = state.registryValues[0].map(function (columns) {
+                return columns.key;
+            });
+
+            state.pointNames = state.registryValues.map(function (points) {
+                return points[0].value;
+            });
         }
 
         state.pointsToDelete = [];
+        state.allSelected = false;
 
         return state;
     },
@@ -1093,6 +1103,10 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
     },
     componentWillUnmount: function () {
         // platformsStore.removeChangeListener(this._onStoresChange);
+    },
+    componentDidUpdate: function () {
+        var containerDiv = document.getElementsByClassName("fixed-table-container-inner")[0];
+        containerDiv.scrollTop = containerDiv.scrollHeight;
     },
     _onStoresChange: function () {
         this.setState({registryValues: getPointsFromStore(this.props.device) });
@@ -1107,6 +1121,23 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
     },
     _onAddPoint: function () {
 
+        var pointNames = this.state.pointNames;
+
+        pointNames.push("");
+
+        this.setState({ pointNames: pointNames });
+
+        var registryValues = this.state.registryValues;
+
+        var pointValues = [];
+
+        this.state.columnNames.map(function (column) {
+            pointValues.push({ "key" : column, "value": "" });
+        });
+
+        registryValues.push(pointValues);
+
+        this.setState({ registryValues: registryValues });
     },
     _onRemovePoints: function () {
 
@@ -1123,7 +1154,7 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
             })
         );
     },
-    _removePoitns: function () {
+    _removePoints: function () {
 
     },
     _selectForDelete: function (attributesList) {
@@ -1138,11 +1169,18 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
         }
         else
         {
-            pointsToDelete = pointsToDelete.splice(index, 1);
+            pointsToDelete.splice(index, 1);
         }
 
         this.setState({ pointsToDelete: pointsToDelete });
 
+    },
+    _selectAll: function () {
+        var allSelected = !this.state.allSelected;
+
+        this.setState({ allSelected: allSelected });
+
+        this.setState({ pointsToDelete : (allSelected ? this.state.pointNames.slice() : []) }); 
     },
     render: function () {        
         
@@ -1165,7 +1203,7 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
 
             var registryCells = attributesList.map(function (item, index) {
 
-                var itemCell = (index === 0 ? 
+                var itemCell = (index === 0 && item.value !== "" ? 
                                     React.createElement("td", null,  item.value) : 
                                         React.createElement("td", null, React.createElement("input", {type: "text", value:  item.value})));
 
@@ -1218,7 +1256,9 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
                                 React.createElement("tr", null, 
                                     React.createElement("th", null, 
                                         React.createElement("div", {className: "th-inner"}, 
-                                            React.createElement("input", {type: "checkbox"})
+                                            React.createElement("input", {type: "checkbox", 
+                                                onChange: this._selectAll, 
+                                                checked: this.state.allSelected})
                                         )
                                     ), 
                                      registryHeader 
@@ -1251,6 +1291,7 @@ function getRegistryHeader(registryItem) {
             return item.key.replace(/_/g, " ");
         });
 }
+
 
 module.exports = ConfigureRegistry;
 
@@ -1534,11 +1575,8 @@ var AddButton = React.createClass({displayName: "AddButton",
         var tooltipX = 20;
         var tooltipY = 60;
 
-        var addIcon = (
-            React.createElement("div", null, 
-                React.createElement("span", null, "+")
-            )
-        );
+        var addIcon = React.createElement("i", {className: "fa fa-plus"});
+
         var addTooltip = {
             "content": "Add New Point",
             "xOffset": tooltipX,
@@ -1652,14 +1690,31 @@ var FilterPointsButton = React.createClass({displayName: "FilterPointsButton",
         var tooltipX = 20;
         var tooltipY = 60;
 
+        var inputStyle = {
+            width: "100%",
+            marginLeft: "10px",
+            fontWeight: "normal"
+        }
+
+        var divWidth = {
+            width: "85%"
+        }
+
         var filterBox = (
             React.createElement("div", {style: filterBoxContainer}, 
                 React.createElement(ClearButton, {onclear: this._onClearFilter}), 
-                React.createElement("span", {className: "fa fa-search"}), 
-                React.createElement("input", {
-                    type: "search", 
-                    onChange: this._onFilterBoxChange, 
-                    value:  this.state.filterValue}
+                React.createElement("div", {className: "inlineBlock"}, 
+                    React.createElement("div", {className: "inlineBlock"}, 
+                        React.createElement("span", {className: "fa fa-search"})
+                    ), 
+                    React.createElement("div", {className: "inlineBlock", style: divWidth}, 
+                        React.createElement("input", {
+                            type: "search", 
+                            style: inputStyle, 
+                            onChange: this._onFilterBoxChange, 
+                            value:  this.state.filterValue}
+                        )
+                    )
                 )
             ) 
         );
@@ -1720,11 +1775,8 @@ var RemoveButton = React.createClass({displayName: "RemoveButton",
         var tooltipX = 20;
         var tooltipY = 60;
 
-        var removeIcon = (
-            React.createElement("div", null, 
-                React.createElement("span", null, "-")
-            )
-        );
+        var removeIcon = React.createElement("i", {className: "fa fa-minus"});
+
         var removeTooltip = {
             "content": "Remove Points",
             "xOffset": tooltipX,
@@ -3939,7 +3991,7 @@ var Store = require('../lib/store');
 
 
 var _controlButtons = {};
-var _clearButtons = {};
+// var _clearButtons = {};
 
 var controlButtonStore = new Store();
 
@@ -3960,18 +4012,18 @@ controlButtonStore.getTaptip = function (name) {
     return showTaptip;
 }
 
-controlButtonStore.getClearButton = function (name) {
+// controlButtonStore.getClearButton = function (name) {
     
-    var clearButton = false;
+//     var clearButton = false;
 
-    if (_clearButtons.hasOwnProperty([name]))
-    {
-        delete _clearButtons[name];
-        clearButton = true;
-    }
+//     if (_clearButtons.hasOwnProperty([name]))
+//     {
+//         delete _clearButtons[name];
+//         clearButton = true;
+//     }
 
-    return clearButton;
-}
+//     return clearButton;
+// }
 
 controlButtonStore.dispatchToken = dispatcher.register(function (action) {
     switch (action.type) {
@@ -4021,16 +4073,16 @@ controlButtonStore.dispatchToken = dispatcher.register(function (action) {
 
             break;
 
-        case ACTION_TYPES.CLEAR_BUTTON:             
+        // case ACTION_TYPES.CLEAR_BUTTON:             
 
-            if (!_clearButtons.hasOwnProperty(action.name))
-            {
-                _clearButtons[action.name] = "";
-            }
+        //     if (!_clearButtons.hasOwnProperty(action.name))
+        //     {
+        //         _clearButtons[action.name] = "";
+        //     }
 
-            controlButtonStore.emitChange();
+        //     controlButtonStore.emitChange();
 
-            break;
+        //     break;
     } 
 
     

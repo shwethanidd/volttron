@@ -18,13 +18,23 @@ var ConfigureRegistry = React.createClass({
 
         state.registryValues = getPointsFromStore(this.props.device);
         state.registryHeader = [];
+        state.columnNames = [];
+        state.pointNames = [];
 
         if (state.registryValues.length > 0)
         {
             state.registryHeader = getRegistryHeader(state.registryValues[0]);
+            state.columnNames = state.registryValues[0].map(function (columns) {
+                return columns.key;
+            });
+
+            state.pointNames = state.registryValues.map(function (points) {
+                return points[0].value;
+            });
         }
 
         state.pointsToDelete = [];
+        state.allSelected = false;
 
         return state;
     },
@@ -33,6 +43,10 @@ var ConfigureRegistry = React.createClass({
     },
     componentWillUnmount: function () {
         // platformsStore.removeChangeListener(this._onStoresChange);
+    },
+    componentDidUpdate: function () {
+        var containerDiv = document.getElementsByClassName("fixed-table-container-inner")[0];
+        containerDiv.scrollTop = containerDiv.scrollHeight;
     },
     _onStoresChange: function () {
         this.setState({registryValues: getPointsFromStore(this.props.device) });
@@ -47,6 +61,23 @@ var ConfigureRegistry = React.createClass({
     },
     _onAddPoint: function () {
 
+        var pointNames = this.state.pointNames;
+
+        pointNames.push("");
+
+        this.setState({ pointNames: pointNames });
+
+        var registryValues = this.state.registryValues;
+
+        var pointValues = [];
+
+        this.state.columnNames.map(function (column) {
+            pointValues.push({ "key" : column, "value": "" });
+        });
+
+        registryValues.push(pointValues);
+
+        this.setState({ registryValues: registryValues });
     },
     _onRemovePoints: function () {
 
@@ -63,7 +94,7 @@ var ConfigureRegistry = React.createClass({
             ></ConfirmForm>
         );
     },
-    _removePoitns: function () {
+    _removePoints: function () {
 
     },
     _selectForDelete: function (attributesList) {
@@ -78,11 +109,18 @@ var ConfigureRegistry = React.createClass({
         }
         else
         {
-            pointsToDelete = pointsToDelete.splice(index, 1);
+            pointsToDelete.splice(index, 1);
         }
 
         this.setState({ pointsToDelete: pointsToDelete });
 
+    },
+    _selectAll: function () {
+        var allSelected = !this.state.allSelected;
+
+        this.setState({ allSelected: allSelected });
+
+        this.setState({ pointsToDelete : (allSelected ? this.state.pointNames.slice() : []) }); 
     },
     render: function () {        
         
@@ -105,7 +143,7 @@ var ConfigureRegistry = React.createClass({
 
             var registryCells = attributesList.map(function (item, index) {
 
-                var itemCell = (index === 0 ? 
+                var itemCell = (index === 0 && item.value !== "" ? 
                                     <td>{ item.value }</td> : 
                                         <td><input type="text" value={ item.value }/></td>);
 
@@ -158,7 +196,9 @@ var ConfigureRegistry = React.createClass({
                                 <tr>
                                     <th>
                                         <div className="th-inner">
-                                            <input type="checkbox"/>
+                                            <input type="checkbox"
+                                                onChange={this._selectAll}
+                                                checked={this.state.allSelected}/>
                                         </div>
                                     </th>
                                     { registryHeader }
@@ -191,5 +231,6 @@ function getRegistryHeader(registryItem) {
             return item.key.replace(/_/g, " ");
         });
 }
+
 
 module.exports = ConfigureRegistry;

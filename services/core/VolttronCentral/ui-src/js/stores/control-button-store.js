@@ -7,7 +7,7 @@ var Store = require('../lib/store');
 
 
 var _controlButtons = {};
-var _clearButtons = {};
+// var _clearButtons = {};
 
 var controlButtonStore = new Store();
 
@@ -28,18 +28,18 @@ controlButtonStore.getTaptip = function (name) {
     return showTaptip;
 }
 
-controlButtonStore.getClearButton = function (name) {
+// controlButtonStore.getClearButton = function (name) {
     
-    var clearButton = false;
+//     var clearButton = false;
 
-    if (_clearButtons.hasOwnProperty([name]))
-    {
-        delete _clearButtons[name];
-        clearButton = true;
-    }
+//     if (_clearButtons.hasOwnProperty([name]))
+//     {
+//         delete _clearButtons[name];
+//         clearButton = true;
+//     }
 
-    return clearButton;
-}
+//     return clearButton;
+// }
 
 controlButtonStore.dispatchToken = dispatcher.register(function (action) {
     switch (action.type) {
@@ -89,16 +89,16 @@ controlButtonStore.dispatchToken = dispatcher.register(function (action) {
 
             break;
 
-        case ACTION_TYPES.CLEAR_BUTTON:             
+        // case ACTION_TYPES.CLEAR_BUTTON:             
 
-            if (!_clearButtons.hasOwnProperty(action.name))
-            {
-                _clearButtons[action.name] = "";
-            }
+        //     if (!_clearButtons.hasOwnProperty(action.name))
+        //     {
+        //         _clearButtons[action.name] = "";
+        //     }
 
-            controlButtonStore.emitChange();
+        //     controlButtonStore.emitChange();
 
-            break;
+        //     break;
     } 
 
     
