@@ -77,7 +77,7 @@ router.run(function (Handler) {
 });
 
 
-},{"./components/dashboard":19,"./components/devices":23,"./components/login-form":27,"./components/page-not-found":30,"./components/platform":32,"./components/platform-manager":31,"./components/platforms":33,"./stores/authorization-store":45,"react":undefined,"react-router":undefined}],2:[function(require,module,exports){
+},{"./components/dashboard":21,"./components/devices":25,"./components/login-form":29,"./components/page-not-found":32,"./components/platform":34,"./components/platform-manager":33,"./components/platforms":35,"./stores/authorization-store":47,"react":undefined,"react-router":undefined}],2:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -104,7 +104,7 @@ var consoleActionCreators = {
 module.exports = consoleActionCreators;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/rpc/exchange":39}],3:[function(require,module,exports){
+},{"../constants/action-types":38,"../dispatcher":39,"../lib/rpc/exchange":41}],3:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -141,7 +141,7 @@ var controlButtonActionCreators = {
 
 module.exports = controlButtonActionCreators;
 
-},{"../constants/action-types":36,"../dispatcher":37}],4:[function(require,module,exports){
+},{"../constants/action-types":38,"../dispatcher":39}],4:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -187,7 +187,7 @@ var devicesActionCreators = {
 module.exports = devicesActionCreators;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/rpc":40,"../stores/authorization-store":45}],5:[function(require,module,exports){
+},{"../constants/action-types":38,"../dispatcher":39,"../lib/rpc":42,"../stores/authorization-store":47}],5:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -210,7 +210,7 @@ var modalActionCreators = {
 module.exports = modalActionCreators;
 
 
-},{"../constants/action-types":36,"../dispatcher":37}],6:[function(require,module,exports){
+},{"../constants/action-types":38,"../dispatcher":39}],6:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -562,7 +562,7 @@ function handle401(error) {
 module.exports = platformActionCreators;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/rpc":40,"../stores/authorization-store":45}],7:[function(require,module,exports){
+},{"../constants/action-types":38,"../dispatcher":39,"../lib/rpc":42,"../stores/authorization-store":47}],7:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -690,7 +690,7 @@ function handle401(error) {
 module.exports = platformManagerActionCreators;
 
 
-},{"../action-creators/platform-action-creators":6,"../constants/action-types":36,"../dispatcher":37,"../lib/rpc":40,"../stores/authorization-store":45}],8:[function(require,module,exports){
+},{"../action-creators/platform-action-creators":6,"../constants/action-types":38,"../dispatcher":39,"../lib/rpc":42,"../stores/authorization-store":47}],8:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -762,7 +762,7 @@ var AgentRow = React.createClass({displayName: "AgentRow",
 module.exports = AgentRow;
 
 
-},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"./remove-agent-form":35,"react":undefined}],9:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"./remove-agent-form":37,"react":undefined}],9:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -826,7 +826,7 @@ function getStateFromStores(platform, chart) {
 module.exports = Chart;
 
 
-},{"../action-creators/platform-action-creators":6,"../stores/topic-data-store":53,"./line-chart":26,"react":undefined}],10:[function(require,module,exports){
+},{"../action-creators/platform-action-creators":6,"../stores/topic-data-store":55,"./line-chart":28,"react":undefined}],10:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -896,7 +896,7 @@ function getStateFromStores() {
 module.exports = Composer;
 
 
-},{"../action-creators/console-action-creators":2,"../stores/console-store":46,"react":undefined}],11:[function(require,module,exports){
+},{"../action-creators/console-action-creators":2,"../stores/console-store":48,"react":undefined}],11:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1057,7 +1057,7 @@ function getStateFromStores() {
 module.exports = ConfigureDevice;
 
 
-},{"../action-creators/devices-action-creators":4,"../stores/devices-store":48,"react":undefined,"react-router":undefined}],12:[function(require,module,exports){
+},{"../action-creators/devices-action-creators":4,"../stores/devices-store":50,"react":undefined,"react-router":undefined}],12:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1065,9 +1065,12 @@ var Router = require('react-router');
 
 var devicesActionCreators = require('../action-creators/devices-action-creators');
 var devicesStore = require('../stores/devices-store');
-var FilterPointsButton = require('./control_buttons/filterPointsButton');
-var ClearButton = require('./control_buttons/clearButton');
-var controlButtonActionCreators = require('../action-creators/control-button-action-creators');
+var FilterPointsButton = require('./control_buttons/filter-points-button');
+var AddPointButton = require('./control_buttons/add-button');
+var RemovePointsButton = require('./control_buttons/remove-button');
+
+var ConfirmForm = require('./confirm-form');
+var modalActionCreators = require('../action-creators/modal-action-creators');
 
 var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
     getInitialState: function () {
@@ -1080,6 +1083,8 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
         {
             state.registryHeader = getRegistryHeader(state.registryValues[0]);
         }
+
+        state.pointsToDelete = [];
 
         return state;
     },
@@ -1099,13 +1104,61 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
         this.setState({registryValues: getPointsFromStore(this.props.device) }); //TODO: when filtering, set nonmatches to hidden so they're
                                                                                 //still there and we don't lose information in inputs
                                                                                 //then to clear filter, set all to not hidden
-        controlButtonActionCreators.clearButton("filterRegistryPoints");
+    },
+    _onAddPoint: function () {
+
+    },
+    _onRemovePoints: function () {
+
+        var promptText = (this.state.pointsToDelete.length > 0 ? 
+                            "Are you sure you want to delete these points? " + this.state.pointsToDelete.join(", ") :
+                                "Select points to delete.");
+        
+        modalActionCreators.openModal(
+            React.createElement(ConfirmForm, {
+                promptTitle: "Remove Points", 
+                promptText:  promptText, 
+                confirmText: "Delete", 
+                onConfirm: this._removePoints
+            })
+        );
+    },
+    _removePoitns: function () {
+
+    },
+    _selectForDelete: function (attributesList) {
+        
+        var pointsToDelete = this.state.pointsToDelete;
+
+        var index = pointsToDelete.indexOf(attributesList[0].value);
+
+        if (index < 0)
+        {
+            pointsToDelete.push(attributesList[0].value);
+        }
+        else
+        {
+            pointsToDelete = pointsToDelete.splice(index, 1);
+        }
+
+        this.setState({ pointsToDelete: pointsToDelete });
+
     },
     render: function () {        
         
-        var filterButton = React.createElement(FilterPointsButton, {name: "filterRegistryPoints", onfilter: this._onFilterBoxChange, clearFilter: this.state.filterValue})
-        var clearButton = React.createElement(ClearButton, {onclear: this._onClearFilter})
+        var filterButton = React.createElement(FilterPointsButton, {
+                                name: "filterRegistryPoints", 
+                                onfilter: this._onFilterBoxChange, 
+                                onclear: this._onClearFilter})
 
+        var addButton = React.createElement(AddPointButton, {
+                                name: "addRegistryPoint", 
+                                onadd: this._onAddPoint})
+
+        var removeButton = React.createElement(RemovePointsButton, {
+                                name: "removeRegistryPoints", 
+                                onremove: this._onRemovePoints})
+        
         var registryRows, registryHeader;
         
         registryRows = this.state.registryValues.map(function (attributesList) {
@@ -1122,19 +1175,22 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
             return ( 
                 React.createElement("tr", null, 
                     React.createElement("td", null, 
-                        React.createElement("input", {type: "checkbox"})
+                        React.createElement("input", {type: "checkbox", 
+                            onChange: this._selectForDelete.bind(this, attributesList), 
+                            checked: this.state.pointsToDelete.indexOf(attributesList[0].value) > -1}
+                        )
                     ), 
                      registryCells 
                 )
             )
-        });
+        }, this);
 
         registryHeader = this.state.registryHeader.map(function (item, index) {
 
             var headerCell = (index === 0 ?
                                 ( React.createElement("th", null, 
                                     React.createElement("div", {className: "th-inner"}, 
-                                         item, " ",  filterButton, " ",  clearButton 
+                                         item, " ",  filterButton, " ",  addButton, " ",  removeButton 
                                     )
                                 )) :
                                 ( React.createElement("th", null, 
@@ -1199,7 +1255,7 @@ function getRegistryHeader(registryItem) {
 module.exports = ConfigureRegistry;
 
 
-},{"../action-creators/control-button-action-creators":3,"../action-creators/devices-action-creators":4,"../stores/devices-store":48,"./control_buttons/clearButton":16,"./control_buttons/filterPointsButton":17,"react":undefined,"react-router":undefined}],13:[function(require,module,exports){
+},{"../action-creators/devices-action-creators":4,"../action-creators/modal-action-creators":5,"../stores/devices-store":50,"./confirm-form":13,"./control_buttons/add-button":16,"./control_buttons/filter-points-button":18,"./control_buttons/remove-button":19,"react":undefined,"react-router":undefined}],13:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1259,7 +1315,7 @@ var Console = React.createClass({displayName: "Console",
 module.exports = Console;
 
 
-},{"./composer":10,"./conversation":18,"react":undefined}],15:[function(require,module,exports){
+},{"./composer":10,"./conversation":20,"react":undefined}],15:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1322,8 +1378,8 @@ var ControlButton = React.createClass({displayName: "ControlButton",
 	    	{
 	    		this.setState({ showTaptip: showTaptip });	
 	    	}
-
-	    	this.setState({ selected: (showTaptip === true) }); 
+            
+            this.setState({ selected: (showTaptip === true) }); 
 
 	    	if (showTaptip === true)
 	    	{
@@ -1365,7 +1421,7 @@ var ControlButton = React.createClass({displayName: "ControlButton",
         var tooltipShow;
         var tooltipHide;
 
-        if (this.state.selected === true || this.state.showTaptip === true)
+        if (this.props.staySelected || this.state.selected === true || this.state.showTaptip === true)
         {
         	selectedStyle = {
 	        	backgroundColor: "#ccc"
@@ -1462,7 +1518,47 @@ var ControlButton = React.createClass({displayName: "ControlButton",
 
 module.exports = ControlButton;
 
-},{"../action-creators/control-button-action-creators":3,"../stores/control-button-store":47,"react":undefined,"react-router":undefined}],16:[function(require,module,exports){
+},{"../action-creators/control-button-action-creators":3,"../stores/control-button-store":49,"react":undefined,"react-router":undefined}],16:[function(require,module,exports){
+'use strict';
+
+var React = require('react');
+
+var ControlButton = require('../control-button');
+
+var AddButton = React.createClass({displayName: "AddButton",
+    render: function () {
+
+        var taptipX = 60;
+        var taptipY = 120;
+
+        var tooltipX = 20;
+        var tooltipY = 60;
+
+        var addIcon = (
+            React.createElement("div", null, 
+                React.createElement("span", null, "+")
+            )
+        );
+        var addTooltip = {
+            "content": "Add New Point",
+            "xOffset": tooltipX,
+            "yOffset": tooltipY
+        };
+
+        return (
+            React.createElement(ControlButton, {
+                name: "addControlButton", 
+                icon: addIcon, 
+                tooltip: addTooltip, 
+                clickAction: this.props.onadd})
+        );
+    },
+});
+
+module.exports = AddButton;
+
+
+},{"../control-button":15,"react":undefined}],17:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1500,34 +1596,49 @@ var ClearButton = React.createClass({displayName: "ClearButton",
 module.exports = ClearButton;
 
 
-},{"../control-button":15,"react":undefined}],17:[function(require,module,exports){
+},{"../control-button":15,"react":undefined}],18:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
 
 var ControlButton = require('../control-button');
-var controlButtonStore = require('../../stores/control-button-store');
+// var controlButtonStore = require('../../stores/control-button-store');
+var ClearButton = require('./clear-button');
 
 var FilterPointsButton = React.createClass({displayName: "FilterPointsButton",
     getInitialState: function () {
         return getStateFromStores();
     },
-    componentDidMount: function () {
-        controlButtonStore.addChangeListener(this._onStoresChange);
-    },
-    componentWillUnmount: function () {
-        controlButtonStore.removeChangeListener(this._onStoresChange);
-    },
-    _onStoresChange: function () {
+    // componentDidMount: function () {
+    //     controlButtonStore.addChangeListener(this._onStoresChange);
+    // },
+    // componentWillUnmount: function () {
+    //     controlButtonStore.removeChangeListener(this._onStoresChange);
+    // },
+    // _onStoresChange: function () {
 
-        if (controlButtonStore.getClearButton(this.props.name))
+    //     if (controlButtonStore.getClearButton(this.props.name))
+    //     {
+    //         this.setState({ filterValue: "" });
+    //     }
+    // },
+    _onFilterBoxChange: function (e) {
+        var filterValue = e.target.value;
+
+        this.setState({ filterValue: filterValue });
+
+        if (filterValue !== "")
         {
-            this.setState({ filterValue: "" });
+            this.props.onfilter(e.target.value);
+        }
+        else
+        {
+            this.props.onclear();
         }
     },
-    _onFilterBoxChange: function (e) {
-        this.setState({ filterValue: e.target.value });
-        this.props.onfilter(e.target.value);
+    _onClearFilter: function (e) {
+        this.setState({ filterValue: "" });
+        this.props.onclear();
     },
     render: function () {
 
@@ -1543,6 +1654,7 @@ var FilterPointsButton = React.createClass({displayName: "FilterPointsButton",
 
         var filterBox = (
             React.createElement("div", {style: filterBoxContainer}, 
+                React.createElement(ClearButton, {onclear: this._onClearFilter}), 
                 React.createElement("span", {className: "fa fa-search"}), 
                 React.createElement("input", {
                     type: "search", 
@@ -1559,20 +1671,25 @@ var FilterPointsButton = React.createClass({displayName: "FilterPointsButton",
             "yOffset": taptipY,
             "styles": [{"key": "width", "value": "200px"}]
         };
+        
         var filterIcon = (
             React.createElement("i", {className: "fa fa-search"})
         );
+        
         var filterTooltip = {
             "content": "Search",
             "xOffset": tooltipX,
             "yOffset": tooltipY
         };
 
+        var holdSelect = this.state.filterValue !== "";
+
         return (
             React.createElement(ControlButton, {
                 name: "filterControlButton", 
                 taptip: filterTaptip, 
                 tooltip: filterTooltip, 
+                staySelected: holdSelect, 
                 icon: filterIcon})
         );
     },
@@ -1587,7 +1704,47 @@ function getStateFromStores() {
 module.exports = FilterPointsButton;
 
 
-},{"../../stores/control-button-store":47,"../control-button":15,"react":undefined}],18:[function(require,module,exports){
+},{"../control-button":15,"./clear-button":17,"react":undefined}],19:[function(require,module,exports){
+'use strict';
+
+var React = require('react');
+
+var ControlButton = require('../control-button');
+
+var RemoveButton = React.createClass({displayName: "RemoveButton",
+    render: function () {
+
+        var taptipX = 60;
+        var taptipY = 120;
+
+        var tooltipX = 20;
+        var tooltipY = 60;
+
+        var removeIcon = (
+            React.createElement("div", null, 
+                React.createElement("span", null, "-")
+            )
+        );
+        var removeTooltip = {
+            "content": "Remove Points",
+            "xOffset": tooltipX,
+            "yOffset": tooltipY
+        };
+
+        return (
+            React.createElement(ControlButton, {
+                name: "removeControlButton", 
+                icon: removeIcon, 
+                tooltip: removeTooltip, 
+                clickAction: this.props.onremove})
+        );
+    },
+});
+
+module.exports = RemoveButton;
+
+
+},{"../control-button":15,"react":undefined}],20:[function(require,module,exports){
 'use strict';
 
 var $ = require('jquery');
@@ -1638,7 +1795,7 @@ function getStateFromStores() {
 module.exports = Conversation;
 
 
-},{"../stores/console-store":46,"./exchange":25,"jquery":undefined,"react":undefined}],19:[function(require,module,exports){
+},{"../stores/console-store":48,"./exchange":27,"jquery":undefined,"react":undefined}],21:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1744,7 +1901,7 @@ function getStateFromStores() {
 module.exports = Dashboard;
 
 
-},{"../action-creators/modal-action-creators":5,"../stores/platforms-store":52,"./chart":9,"./edit-chart-form":24,"react":undefined,"react-router":undefined}],20:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../stores/platforms-store":54,"./chart":9,"./edit-chart-form":26,"react":undefined,"react-router":undefined}],22:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1800,7 +1957,7 @@ function getStateFromStores() {
 module.exports = RegisterPlatformForm;
 
 
-},{"../action-creators/modal-action-creators":5,"../action-creators/platform-manager-action-creators":7,"../stores/platform-registration-store":51,"react":undefined}],21:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../action-creators/platform-manager-action-creators":7,"../stores/platform-registration-store":53,"react":undefined}],23:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1922,7 +2079,7 @@ function getStateFromStores() {
 module.exports = DetectDevices;
 
 
-},{"../action-creators/devices-action-creators":4,"../stores/platforms-store":52,"react":undefined,"react-router":undefined}],22:[function(require,module,exports){
+},{"../action-creators/devices-action-creators":4,"../stores/platforms-store":54,"react":undefined,"react-router":undefined}],24:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2011,7 +2168,7 @@ function getStateFromStores() {
 module.exports = DevicesFound;
 
 
-},{"../action-creators/devices-action-creators":4,"../stores/devices-store":48,"react":undefined,"react-router":undefined}],23:[function(require,module,exports){
+},{"../action-creators/devices-action-creators":4,"../stores/devices-store":50,"react":undefined,"react-router":undefined}],25:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2092,7 +2249,7 @@ function getStateFromStores() {
 module.exports = Devices;
 
 
-},{"../stores/devices-store":48,"./configure-device":11,"./configure-registry":12,"./detect-devices":21,"./devices-found":22,"react":undefined,"react-router":undefined}],24:[function(require,module,exports){
+},{"../stores/devices-store":50,"./configure-device":11,"./configure-registry":12,"./detect-devices":23,"./devices-found":24,"react":undefined,"react-router":undefined}],26:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2249,7 +2406,7 @@ var EditChartForm = React.createClass({displayName: "EditChartForm",
 module.exports = EditChartForm;
 
 
-},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"react":undefined}],25:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"react":undefined}],27:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2302,7 +2459,7 @@ var Exchange = React.createClass({displayName: "Exchange",
 module.exports = Exchange;
 
 
-},{"react":undefined}],26:[function(require,module,exports){
+},{"react":undefined}],28:[function(require,module,exports){
 'use strict';
 
 var d3 = require('d3');
@@ -2491,7 +2648,7 @@ var LineChart = React.createClass({displayName: "LineChart",
 module.exports = LineChart;
 
 
-},{"d3":undefined,"moment":undefined,"react":undefined}],27:[function(require,module,exports){
+},{"d3":undefined,"moment":undefined,"react":undefined}],29:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2569,7 +2726,7 @@ function getStateFromStores() {
 module.exports = LoginForm;
 
 
-},{"../action-creators/platform-manager-action-creators":7,"../stores/login-form-store":49,"react":undefined,"react-router":undefined}],28:[function(require,module,exports){
+},{"../action-creators/platform-manager-action-creators":7,"../stores/login-form-store":51,"react":undefined,"react-router":undefined}],30:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2596,7 +2753,7 @@ var Modal = React.createClass({displayName: "Modal",
 module.exports = Modal;
 
 
-},{"../action-creators/modal-action-creators":5,"react":undefined}],29:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"react":undefined}],31:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2673,7 +2830,7 @@ function getStateFromStores() {
 module.exports = Navigation;
 
 
-},{"../action-creators/platform-manager-action-creators":7,"../stores/authorization-store":45,"react":undefined,"react-router":undefined}],30:[function(require,module,exports){
+},{"../action-creators/platform-manager-action-creators":7,"../stores/authorization-store":47,"react":undefined,"react-router":undefined}],32:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2691,7 +2848,7 @@ var PageNotFound = React.createClass({displayName: "PageNotFound",
 module.exports = PageNotFound;
 
 
-},{"react":undefined}],31:[function(require,module,exports){
+},{"react":undefined}],33:[function(require,module,exports){
 'use strict';
 
 var $ = require('jquery');
@@ -2800,7 +2957,7 @@ function getStateFromStores() {
 module.exports = PlatformManager;
 
 
-},{"../action-creators/console-action-creators":2,"../action-creators/modal-action-creators":5,"../action-creators/platform-manager-action-creators":7,"../stores/authorization-store":45,"../stores/console-store":46,"../stores/modal-store":50,"./console":14,"./modal":28,"./navigation":29,"jquery":undefined,"react":undefined,"react-router":undefined}],32:[function(require,module,exports){
+},{"../action-creators/console-action-creators":2,"../action-creators/modal-action-creators":5,"../action-creators/platform-manager-action-creators":7,"../stores/authorization-store":47,"../stores/console-store":48,"../stores/modal-store":52,"./console":14,"./modal":30,"./navigation":31,"jquery":undefined,"react":undefined,"react-router":undefined}],34:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -3004,7 +3161,7 @@ function getStateFromStores(component) {
 module.exports = Platform;
 
 
-},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"../stores/platforms-store":52,"./agent-row":8,"./chart":9,"./confirm-form":13,"./edit-chart-form":24,"react":undefined,"react-router":undefined}],33:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"../stores/platforms-store":54,"./agent-row":8,"./chart":9,"./confirm-form":13,"./edit-chart-form":26,"react":undefined,"react-router":undefined}],35:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -3119,7 +3276,7 @@ function getStateFromStores() {
 module.exports = Platforms;
 
 
-},{"../action-creators/modal-action-creators":5,"../components/deregister-platform-confirmation":20,"../components/register-platform-form":34,"../stores/platforms-store":52,"react":undefined,"react-router":undefined}],34:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../components/deregister-platform-confirmation":22,"../components/register-platform-form":36,"../stores/platforms-store":54,"react":undefined,"react-router":undefined}],36:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -3325,7 +3482,7 @@ function getStateFromStores() {
 module.exports = RegisterPlatformForm;
 
 
-},{"../action-creators/modal-action-creators":5,"../action-creators/platform-manager-action-creators":7,"../stores/platform-registration-store":51,"react":undefined}],35:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../action-creators/platform-manager-action-creators":7,"../stores/platform-registration-store":53,"react":undefined}],37:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -3384,7 +3541,7 @@ var RemoveAgentForm = React.createClass({displayName: "RemoveAgentForm",
 module.exports = RemoveAgentForm;
 
 
-},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"react":undefined}],36:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"react":undefined}],38:[function(require,module,exports){
 'use strict';
 
 var keyMirror = require('react/lib/keyMirror');
@@ -3427,7 +3584,7 @@ module.exports = keyMirror({
 });
 
 
-},{"react/lib/keyMirror":undefined}],37:[function(require,module,exports){
+},{"react/lib/keyMirror":undefined}],39:[function(require,module,exports){
 'use strict';
 
 var Dispatcher = require('flux').Dispatcher;
@@ -3447,7 +3604,7 @@ dispatcher.dispatch = function (action) {
 module.exports = dispatcher;
 
 
-},{"../constants/action-types":36,"flux":undefined}],38:[function(require,module,exports){
+},{"../constants/action-types":38,"flux":undefined}],40:[function(require,module,exports){
 'use strict';
 
 function RpcError(error) {
@@ -3462,7 +3619,7 @@ RpcError.prototype.constructor = RpcError;
 module.exports = RpcError;
 
 
-},{}],39:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 'use strict';
 
 var uuid = require('node-uuid');
@@ -3550,7 +3707,7 @@ function RpcExchange(request, redactedParams) {
 module.exports = RpcExchange;
 
 
-},{"../../constants/action-types":36,"../../dispatcher":37,"../xhr":43,"./error":38,"node-uuid":undefined}],40:[function(require,module,exports){
+},{"../../constants/action-types":38,"../../dispatcher":39,"../xhr":45,"./error":40,"node-uuid":undefined}],42:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -3559,7 +3716,7 @@ module.exports = {
 };
 
 
-},{"./error":38,"./exchange":39}],41:[function(require,module,exports){
+},{"./error":40,"./exchange":41}],43:[function(require,module,exports){
 'use strict';
 
 var EventEmitter = require('events').EventEmitter;
@@ -3587,7 +3744,7 @@ Store.prototype.removeChangeListener = function (callback) {
 module.exports = Store;
 
 
-},{"events":undefined}],42:[function(require,module,exports){
+},{"events":undefined}],44:[function(require,module,exports){
 'use strict';
 
 function XhrError(message, response) {
@@ -3601,7 +3758,7 @@ XhrError.prototype.constructor = XhrError;
 module.exports = XhrError;
 
 
-},{}],43:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -3610,7 +3767,7 @@ module.exports = {
 };
 
 
-},{"./error":42,"./request":44}],44:[function(require,module,exports){
+},{"./error":44,"./request":46}],46:[function(require,module,exports){
 'use strict';
 
 var jQuery = require('jquery');
@@ -3641,7 +3798,7 @@ function XhrRequest(opts) {
 module.exports = XhrRequest;
 
 
-},{"./error":42,"bluebird":undefined,"jquery":undefined}],45:[function(require,module,exports){
+},{"./error":44,"bluebird":undefined,"jquery":undefined}],47:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -3679,7 +3836,7 @@ authorizationStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = authorizationStore;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41}],46:[function(require,module,exports){
+},{"../constants/action-types":38,"../dispatcher":39,"../lib/store":43}],48:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -3772,7 +3929,7 @@ consoleStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = consoleStore;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"../stores/authorization-store":45}],47:[function(require,module,exports){
+},{"../constants/action-types":38,"../dispatcher":39,"../lib/store":43,"../stores/authorization-store":47}],49:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -3884,7 +4041,7 @@ controlButtonStore.dispatchToken = dispatcher.register(function (action) {
 
 module.exports = controlButtonStore;
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"../stores/authorization-store":45}],48:[function(require,module,exports){
+},{"../constants/action-types":38,"../dispatcher":39,"../lib/store":43,"../stores/authorization-store":47}],50:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4150,7 +4307,7 @@ devicesStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = devicesStore;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"../stores/authorization-store":45}],49:[function(require,module,exports){
+},{"../constants/action-types":38,"../dispatcher":39,"../lib/store":43,"../stores/authorization-store":47}],51:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4185,7 +4342,7 @@ loginFormStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = loginFormStore;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"./authorization-store":45}],50:[function(require,module,exports){
+},{"../constants/action-types":38,"../dispatcher":39,"../lib/store":43,"./authorization-store":47}],52:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4218,7 +4375,7 @@ modalStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = modalStore;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41}],51:[function(require,module,exports){
+},{"../constants/action-types":38,"../dispatcher":39,"../lib/store":43}],53:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4264,7 +4421,7 @@ platformRegistrationStore.dispatchToken = dispatcher.register(function (action) 
 module.exports = platformRegistrationStore;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"./authorization-store":45}],52:[function(require,module,exports){
+},{"../constants/action-types":38,"../dispatcher":39,"../lib/store":43,"./authorization-store":47}],54:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4333,7 +4490,7 @@ platformsStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = platformsStore;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"../stores/authorization-store":45}],53:[function(require,module,exports){
+},{"../constants/action-types":38,"../dispatcher":39,"../lib/store":43,"../stores/authorization-store":47}],55:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4373,4 +4530,4 @@ topicDataStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = topicDataStore;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"./authorization-store":45}]},{},[1]);
+},{"../constants/action-types":38,"../dispatcher":39,"../lib/store":43,"./authorization-store":47}]},{},[1]);

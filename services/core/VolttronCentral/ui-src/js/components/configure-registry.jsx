@@ -5,9 +5,12 @@ var Router = require('react-router');
 
 var devicesActionCreators = require('../action-creators/devices-action-creators');
 var devicesStore = require('../stores/devices-store');
-var FilterPointsButton = require('./control_buttons/filterPointsButton');
-var ClearButton = require('./control_buttons/clearButton');
-var controlButtonActionCreators = require('../action-creators/control-button-action-creators');
+var FilterPointsButton = require('./control_buttons/filter-points-button');
+var AddPointButton = require('./control_buttons/add-button');
+var RemovePointsButton = require('./control_buttons/remove-button');
+
+var ConfirmForm = require('./confirm-form');
+var modalActionCreators = require('../action-creators/modal-action-creators');
 
 var ConfigureRegistry = React.createClass({
     getInitialState: function () {
@@ -20,6 +23,8 @@ var ConfigureRegistry = React.createClass({
         {
             state.registryHeader = getRegistryHeader(state.registryValues[0]);
         }
+
+        state.pointsToDelete = [];
 
         return state;
     },
@@ -39,13 +44,61 @@ var ConfigureRegistry = React.createClass({
         this.setState({registryValues: getPointsFromStore(this.props.device) }); //TODO: when filtering, set nonmatches to hidden so they're
                                                                                 //still there and we don't lose information in inputs
                                                                                 //then to clear filter, set all to not hidden
-        controlButtonActionCreators.clearButton("filterRegistryPoints");
+    },
+    _onAddPoint: function () {
+
+    },
+    _onRemovePoints: function () {
+
+        var promptText = (this.state.pointsToDelete.length > 0 ? 
+                            "Are you sure you want to delete these points? " + this.state.pointsToDelete.join(", ") :
+                                "Select points to delete.");
+        
+        modalActionCreators.openModal(
+            <ConfirmForm
+                promptTitle="Remove Points"
+                promptText={ promptText }
+                confirmText="Delete"
+                onConfirm={this._removePoints}
+            ></ConfirmForm>
+        );
+    },
+    _removePoitns: function () {
+
+    },
+    _selectForDelete: function (attributesList) {
+        
+        var pointsToDelete = this.state.pointsToDelete;
+
+        var index = pointsToDelete.indexOf(attributesList[0].value);
+
+        if (index < 0)
+        {
+            pointsToDelete.push(attributesList[0].value);
+        }
+        else
+        {
+            pointsToDelete = pointsToDelete.splice(index, 1);
+        }
+
+        this.setState({ pointsToDelete: pointsToDelete });
+
     },
     render: function () {        
         
-        var filterButton = <FilterPointsButton name="filterRegistryPoints" onfilter={this._onFilterBoxChange} clearFilter={this.state.filterValue}/>
-        var clearButton = <ClearButton onclear={this._onClearFilter}/>
+        var filterButton = <FilterPointsButton 
+                                name="filterRegistryPoints" 
+                                onfilter={this._onFilterBoxChange} 
+                                onclear={this._onClearFilter}/>
 
+        var addButton = <AddPointButton 
+                                name="addRegistryPoint" 
+                                onadd={this._onAddPoint}/>
+
+        var removeButton = <RemovePointsButton 
+                                name="removeRegistryPoints" 
+                                onremove={this._onRemovePoints}/>
+        
         var registryRows, registryHeader;
         
         registryRows = this.state.registryValues.map(function (attributesList) {
@@ -62,19 +115,22 @@ var ConfigureRegistry = React.createClass({
             return ( 
                 <tr>
                     <td>
-                        <input type="checkbox"/>
+                        <input type="checkbox"
+                            onChange={this._selectForDelete.bind(this, attributesList)}
+                            checked={this.state.pointsToDelete.indexOf(attributesList[0].value) > -1}>
+                        </input>
                     </td>
                     { registryCells }
                 </tr>
             )
-        });
+        }, this);
 
         registryHeader = this.state.registryHeader.map(function (item, index) {
 
             var headerCell = (index === 0 ?
                                 ( <th>
                                     <div className="th-inner">
-                                        { item } { filterButton } { clearButton }
+                                        { item } { filterButton } { addButton } { removeButton }
                                     </div>
                                 </th>) :
                                 ( <th>

@@ -60,8 +60,8 @@ var ControlButton = React.createClass({
 	    	{
 	    		this.setState({ showTaptip: showTaptip });	
 	    	}
-
-	    	this.setState({ selected: (showTaptip === true) }); 
+            
+            this.setState({ selected: (showTaptip === true) }); 
 
 	    	if (showTaptip === true)
 	    	{
@@ -103,7 +103,7 @@ var ControlButton = React.createClass({
         var tooltipShow;
         var tooltipHide;
 
-        if (this.state.selected === true || this.state.showTaptip === true)
+        if (this.props.staySelected || this.state.selected === true || this.state.showTaptip === true)
         {
         	selectedStyle = {
 	        	backgroundColor: "#ccc"
