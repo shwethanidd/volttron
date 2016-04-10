@@ -12,7 +12,7 @@ var RemovePointsButton = require('./control_buttons/remove-button');
 var ConfirmForm = require('./confirm-form');
 var modalActionCreators = require('../action-creators/modal-action-creators');
 
-var ConfigureRegistry = React.createClass({
+var ConfigureRegistry = React.createClass({    
     getInitialState: function () {
         var state = {};
 
@@ -36,6 +36,8 @@ var ConfigureRegistry = React.createClass({
         state.pointsToDelete = [];
         state.allSelected = false;
 
+        this.scrollToBottom = false;
+
         return state;
     },
     componentDidMount: function () {
@@ -45,8 +47,14 @@ var ConfigureRegistry = React.createClass({
         // platformsStore.removeChangeListener(this._onStoresChange);
     },
     componentDidUpdate: function () {
-        var containerDiv = document.getElementsByClassName("fixed-table-container-inner")[0];
-        containerDiv.scrollTop = containerDiv.scrollHeight;
+
+        if (this.scrollToBottom)
+        {
+            var containerDiv = document.getElementsByClassName("fixed-table-container-inner")[0];
+            containerDiv.scrollTop = containerDiv.scrollHeight;
+
+            this.scrollToBottom = false;
+        }
     },
     _onStoresChange: function () {
         this.setState({registryValues: getPointsFromStore(this.props.device) });
@@ -78,6 +86,8 @@ var ConfigureRegistry = React.createClass({
         registryValues.push(pointValues);
 
         this.setState({ registryValues: registryValues });
+
+        this.scrollToBottom = true;
     },
     _onRemovePoints: function () {
 
@@ -90,12 +100,59 @@ var ConfigureRegistry = React.createClass({
                 promptTitle="Remove Points"
                 promptText={ promptText }
                 confirmText="Delete"
-                onConfirm={this._removePoints}
+                onConfirm={this._removePoints.bind(this, this.state.pointsToDelete)}
             ></ConfirmForm>
         );
     },
-    _removePoints: function () {
+    _removePoints: function (pointsToDelete) {
+        console.log("removing " + pointsToDelete.join(", "));
 
+        var registryValues = this.state.registryValues.slice();
+        var pointsList = this.state.pointsToDelete.slice();
+        var namesList = this.state.pointNames.slice();
+
+        pointsToDelete.forEach(function (pointToDelete) {
+
+            var index = -1;
+            var pointValue = "";
+
+            registryValues.some(function (vals, i) {
+                var pointMatched = (vals[0].value ===  pointToDelete);
+
+                if (pointMatched)
+                {
+                    index = i;
+                    pointValue = vals[0].value;
+                }
+
+                return pointMatched;
+            })
+
+            if (index > -1)
+            {
+                registryValues.splice(index, 1);
+                
+                index = pointsList.indexOf(pointValue);
+
+                if (index > -1)
+                {
+                    pointsList.splice(index, 1);
+                }
+
+                index = namesList.indexOf(pointValue);
+
+                if (index > -1)
+                {
+                    namesList.splice(index, 1);
+                }
+            }
+        });
+
+        this.setState({ registryValues: registryValues });
+        this.setState({ pointsToDelete: pointsList });
+        this.setState({ pointNames: namesList });
+
+        modalActionCreators.closeModal();
     },
     _selectForDelete: function (attributesList) {
         
