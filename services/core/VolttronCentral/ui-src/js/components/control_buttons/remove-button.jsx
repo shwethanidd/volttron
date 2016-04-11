@@ -16,7 +16,7 @@ var RemoveButton = React.createClass({
         var removeIcon = <i className="fa fa-minus"></i>;
 
         var removeTooltip = {
-            "content": "Remove Points",
+            "content": this.props.tooltipMsg,
             "xOffset": tooltipX,
             "yOffset": tooltipY
         };

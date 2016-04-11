@@ -16,7 +16,7 @@ var AddButton = React.createClass({
         var addIcon = <i className="fa fa-plus"></i>;
 
         var addTooltip = {
-            "content": "Add New Point",
+            "content": this.props.tooltipMsg,
             "xOffset": tooltipX,
             "yOffset": tooltipY
         };

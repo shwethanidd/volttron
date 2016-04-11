@@ -1066,8 +1066,8 @@ var Router = require('react-router');
 var devicesActionCreators = require('../action-creators/devices-action-creators');
 var devicesStore = require('../stores/devices-store');
 var FilterPointsButton = require('./control_buttons/filter-points-button');
-var AddPointButton = require('./control_buttons/add-button');
-var RemovePointsButton = require('./control_buttons/remove-button');
+var AddButton = require('./control_buttons/add-button');
+var RemoveButton = require('./control_buttons/remove-button');
 
 var ConfirmForm = require('./confirm-form');
 var modalActionCreators = require('../action-creators/modal-action-creators');
@@ -1115,6 +1115,22 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
 
             this.scrollToBottom = false;
         }
+
+        var fixedHeader = document.getElementsByClassName("header-background")[0];
+
+        if (fixedHeader)
+        {
+            var fixedInner = document.getElementsByClassName("fixed-table-container-inner")[0];
+
+            if (fixedInner)
+            {
+                var registryTable = document.getElementsByClassName("registryConfigTable")[0];
+
+                fixedHeader.style.width = registryTable.clientWidth + "px";
+                fixedInner.style.width = registryTable.clientWidth + "px";
+            }
+        }
+
     },
     _onStoresChange: function () {
         this.setState({registryValues: getPointsFromStore(this.props.device) });
@@ -1239,6 +1255,98 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
 
         this.setState({ pointsToDelete : (allSelected ? this.state.pointNames.slice() : []) }); 
     },
+    _onAddColumn: function (columnFrom) {
+
+        console.log(columnFrom);
+
+        var registryHeader = this.state.registryHeader.slice();
+        var registryValues = this.state.registryValues.slice();
+        var columnNames = this.state.columnNames.slice();
+
+        var index = registryHeader.indexOf(columnFrom);
+
+        if (index > -1)
+        {
+            registryHeader.splice(index + 1, 0, registryHeader[index] + "2");
+
+            this.setState({ registryHeader: registryHeader });
+
+            columnNames.splice(index + 1, 0, columnFrom + "2");
+
+            this.setState({ columnNames: columnNames });
+
+            var newRegistryValues = registryValues.map(function (values) {
+
+                values.splice(index + 1, 0, { "key": columnFrom.replace(/ /g, "_") + "2", "value": "" });
+                var newValues = values;
+
+                return newValues;
+            });
+
+            this.setState({ registryValues: newRegistryValues });
+        }
+    },
+    _onRemoveColumn: function (column) {
+
+        var promptText = ("Are you sure you want to delete the column, " + column + "?");
+        
+        modalActionCreators.openModal(
+            React.createElement(ConfirmForm, {
+                promptTitle: "Remove Column", 
+                promptText:  promptText, 
+                confirmText: "Delete", 
+                onConfirm: this._removeColumn.bind(this, column)
+            })
+        );
+        
+    },
+    _removeColumn: function (columnToDelete) {
+        console.log("deleting " + columnToDelete);
+
+        var registryHeader = this.state.registryHeader.slice();
+        var registryValues = this.state.registryValues.slice();
+        var columnNames = this.state.columnNames.slice();
+
+        var index = columnNames.indexOf(columnToDelete.replace(/ /g, "_"));
+
+        if (index > -1)
+        {
+            columnNames.splice(index, 1);
+        }
+
+        index = registryHeader.indexOf(columnToDelete);
+
+        if (index > -1)
+        {
+            registryHeader.splice(index, 1);
+
+            registryValues.forEach(function (values) {
+
+                var itemFound = values.find(function (item, i) {
+
+                    var matched = (item.key === columnToDelete.replace(/ /g, "_"));
+
+                    if (matched)
+                    {
+                        index = i;
+                    }
+
+                    return matched;
+                });
+
+                if (itemFound)
+                {
+                    values.splice(index, 1);
+                }
+            });
+
+            this.setState({ columnNames: columnNames });
+            this.setState({ registryValues: registryValues });
+            this.setState({ registryHeader: registryHeader });
+
+            modalActionCreators.closeModal();
+        }
+    },
     render: function () {        
         
         var filterButton = React.createElement(FilterPointsButton, {
@@ -1246,13 +1354,15 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
                                 onfilter: this._onFilterBoxChange, 
                                 onclear: this._onClearFilter})
 
-        var addButton = React.createElement(AddPointButton, {
+        var addPointButton = React.createElement(AddButton, {
                                 name: "addRegistryPoint", 
+                                tooltipMsg: "Add New Point", 
                                 onadd: this._onAddPoint})
 
-        var removeButton = React.createElement(RemovePointsButton, {
+        var removePointsButton = React.createElement(RemoveButton, {
                                 name: "removeRegistryPoints", 
-                                onremove: this._onRemovePoints})
+                                tooltipMsg: "Remove Points", 
+                                onremove: this._onRemovePoints})        
         
         var registryRows, registryHeader;
         
@@ -1280,22 +1390,39 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
             )
         }, this);
 
+        var wideCell = {
+            width: "100%"
+        }
+
         registryHeader = this.state.registryHeader.map(function (item, index) {
+
+            var addColumnButton = React.createElement(AddButton, {
+                                name: "addPointColumn", 
+                                tooltipMsg: "Add New Column", 
+                                onadd: this._onAddColumn.bind(this, item)})
+
+
+            var removeColumnButton = React.createElement(RemoveButton, {
+                                name: "removePointColumn", 
+                                tooltipMsg: "Remove Column", 
+                                onremove: this._onRemoveColumn.bind(this, item)})  
 
             var headerCell = (index === 0 ?
                                 ( React.createElement("th", null, 
                                     React.createElement("div", {className: "th-inner"}, 
-                                         item, " ",  filterButton, " ",  addButton, " ",  removeButton 
+                                         item, " ",  filterButton, " ",  addPointButton, " ",  removePointsButton 
                                     )
                                 )) :
                                 ( React.createElement("th", null, 
-                                    React.createElement("div", {className: "th-inner"}, 
-                                         item 
+                                    React.createElement("div", {className: "th-inner", style: wideCell}, 
+                                         item, 
+                                         addColumnButton, 
+                                         removeColumnButton 
                                     )
                                 ) ) )
 
             return headerCell;
-        });        
+        }, this);        
 
         var wideDiv = {
             width: "100%",
@@ -1635,7 +1762,7 @@ var AddButton = React.createClass({displayName: "AddButton",
         var addIcon = React.createElement("i", {className: "fa fa-plus"});
 
         var addTooltip = {
-            "content": "Add New Point",
+            "content": this.props.tooltipMsg,
             "xOffset": tooltipX,
             "yOffset": tooltipY
         };
@@ -1835,7 +1962,7 @@ var RemoveButton = React.createClass({displayName: "RemoveButton",
         var removeIcon = React.createElement("i", {className: "fa fa-minus"});
 
         var removeTooltip = {
-            "content": "Remove Points",
+            "content": this.props.tooltipMsg,
             "xOffset": tooltipX,
             "yOffset": tooltipY
         };

@@ -1883,6 +1883,7 @@ Interactive Layer
     /* above is decorative or flexible */
     position: relative; /* could be absolute or relative */
     padding-top: 30px; /* height of header */
+    overflow-x: auto;
 }
 
 .fixed-table-container-inner {
