@@ -670,6 +670,18 @@ br + .form__control-help {
     content: "\f068";
 }
 
+.fa-clone:before {
+    content: "\f24d";
+}
+
+.fa-bars:before {
+    content: "\f0c9";
+}
+
+.fa-edit:before {
+    content: "\f044";
+}
+
 /*.tooltip_show {
     display: "block";
 }

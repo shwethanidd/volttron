@@ -8,6 +8,7 @@ var devicesStore = require('../stores/devices-store');
 var FilterPointsButton = require('./control_buttons/filter-points-button');
 var AddButton = require('./control_buttons/add-button');
 var RemoveButton = require('./control_buttons/remove-button');
+var EditColumnButton = require('./control_buttons/edit-columns-button');
 
 var ConfirmForm = require('./confirm-form');
 var modalActionCreators = require('../action-creators/modal-action-creators');
@@ -37,11 +38,17 @@ var ConfigureRegistry = React.createClass({
         state.allSelected = false;
 
         this.scrollToBottom = false;
+        this.resizeTable = false;
 
         return state;
     },
     componentDidMount: function () {
         // platformsStore.addChangeListener(this._onStoresChange);
+
+        this.containerDiv = document.getElementsByClassName("fixed-table-container-inner")[0];
+        this.fixedHeader = document.getElementsByClassName("header-background")[0];
+        this.fixedInner = document.getElementsByClassName("fixed-table-container-inner")[0];
+        this.registryTable = document.getElementsByClassName("registryConfigTable")[0];
     },
     componentWillUnmount: function () {
         // platformsStore.removeChangeListener(this._onStoresChange);
@@ -50,25 +57,17 @@ var ConfigureRegistry = React.createClass({
 
         if (this.scrollToBottom)
         {
-            var containerDiv = document.getElementsByClassName("fixed-table-container-inner")[0];
-            containerDiv.scrollTop = containerDiv.scrollHeight;
+            this.containerDiv.scrollTop = this.containerDiv.scrollHeight;
 
             this.scrollToBottom = false;
         }
 
-        var fixedHeader = document.getElementsByClassName("header-background")[0];
-
-        if (fixedHeader)
+        if (this.resizeTable)
         {
-            var fixedInner = document.getElementsByClassName("fixed-table-container-inner")[0];
+            this.fixedHeader.style.width = this.registryTable.clientWidth + "px";
+            this.fixedInner.style.width = this.registryTable.clientWidth + "px";
 
-            if (fixedInner)
-            {
-                var registryTable = document.getElementsByClassName("registryConfigTable")[0];
-
-                fixedHeader.style.width = registryTable.clientWidth + "px";
-                fixedInner.style.width = registryTable.clientWidth + "px";
-            }
+            this.resizeTable = false;
         }
 
     },
@@ -223,6 +222,8 @@ var ConfigureRegistry = React.createClass({
                 return newValues;
             });
 
+            this.resizeTable = true;
+
             this.setState({ registryValues: newRegistryValues });
         }
     },
@@ -280,6 +281,8 @@ var ConfigureRegistry = React.createClass({
                 }
             });
 
+            this.resizeTable = true;
+
             this.setState({ columnNames: columnNames });
             this.setState({ registryValues: registryValues });
             this.setState({ registryHeader: registryHeader });
@@ -287,10 +290,23 @@ var ConfigureRegistry = React.createClass({
             modalActionCreators.closeModal();
         }
     },
+    _updateCell: function (e) {
+
+        var currentTarget = e.currentTarget;
+        var newRegistryValues = this.state.registryValues.slice();
+
+        var indexOuter = currentTarget.dataset.outerIndex;
+        var indexInner = currentTarget.dataset.innerIndex;
+
+        newRegistryValues[indexOuter][indexInner].value = currentTarget.value;
+
+        this.setState({ registryValues: newRegistryValues });
+    },
     render: function () {        
         
         var filterButton = <FilterPointsButton 
                                 name="filterRegistryPoints" 
+                                tooltipMsg="Filter Points"
                                 onfilter={this._onFilterBoxChange} 
                                 onclear={this._onClearFilter}/>
 
@@ -306,16 +322,22 @@ var ConfigureRegistry = React.createClass({
         
         var registryRows, registryHeader;
         
-        registryRows = this.state.registryValues.map(function (attributesList) {
+        registryRows = this.state.registryValues.map(function (attributesList, indexOuter) {
 
-            var registryCells = attributesList.map(function (item, index) {
+            var registryCells = attributesList.map(function (item, indexInner) {
 
-                var itemCell = (index === 0 && item.value !== "" ? 
+                var itemCell = (indexInner === 0 && item.value !== "" ? 
                                     <td>{ item.value }</td> : 
-                                        <td><input type="text" value={ item.value }/></td>);
+                                        <td><input 
+                                                type="text"
+                                                data-outer-index={indexOuter}
+                                                data-inner-index={indexInner}
+                                                onChange={this._updateCell} 
+                                                value={ this.state.registryValues[indexOuter][indexInner].value }/>
+                                        </td>);
 
                 return itemCell;
-            });
+            }, this);
 
             return ( 
                 <tr>
@@ -345,7 +367,14 @@ var ConfigureRegistry = React.createClass({
             var removeColumnButton = <RemoveButton 
                                 name="removePointColumn" 
                                 tooltipMsg="Remove Column"
-                                onremove={this._onRemoveColumn.bind(this, item)}/>  
+                                onremove={this._onRemoveColumn.bind(this, item)}/> 
+
+            var editColumnButton = <EditColumnButton 
+                                name={"searchPointColumns" + index}
+                                column={index} 
+                                tooltipMsg="Edit Column"
+                                onfilter={this._onFilterBoxChange} 
+                                onclear={this._onClearFilter}/>
 
             var headerCell = (index === 0 ?
                                 ( <th>
@@ -356,6 +385,7 @@ var ConfigureRegistry = React.createClass({
                                 ( <th>
                                     <div className="th-inner" style={wideCell}>
                                         { item }
+                                        { editColumnButton }
                                         { addColumnButton } 
                                         { removeColumnButton }
                                     </div>
