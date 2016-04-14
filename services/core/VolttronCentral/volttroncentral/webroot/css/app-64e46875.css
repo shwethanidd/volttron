@@ -682,6 +682,14 @@ br + .form__control-help {
     content: "\f044";
 }
 
+.fa-step-forward:before {
+    content: "\f051";
+}
+
+.fa-pencil:before {
+    content: "\f040";
+}
+
 /*.tooltip_show {
     display: "block";
 }

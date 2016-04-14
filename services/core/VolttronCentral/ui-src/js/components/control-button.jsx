@@ -103,6 +103,11 @@ var ControlButton = React.createClass({
         var tooltipShow;
         var tooltipHide;
 
+        var buttonIcon = (this.props.icon ? this.props.icon :
+                            (this.props.fontAwesomeIcon ? 
+                                (<i className={"fa fa-" + this.props.fontAwesomeIcon}></i>) : 
+                                    (<div className={this.props.buttonClass}><span>{this.props.unicodeIcon}</span></div>) ) );
+
         if (this.props.staySelected || this.state.selected === true || this.state.showTaptip === true)
         {
         	selectedStyle = {
@@ -184,7 +189,7 @@ var ControlButton = React.createClass({
                     onMouseLeave={tooltipHide}
                     style={selectedStyle}>
                     <div className="centeredDiv">
-                        {this.props.icon}
+                        {buttonIcon}
                     </div>
                 </div>                  
             </div>

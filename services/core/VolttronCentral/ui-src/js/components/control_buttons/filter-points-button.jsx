@@ -4,7 +4,6 @@ var React = require('react');
 
 var ControlButton = require('../control-button');
 // var controlButtonStore = require('../../stores/control-button-store');
-var ClearButton = require('./clear-button');
 
 var FilterPointsButton = React.createClass({
     getInitialState: function () {
@@ -63,9 +62,16 @@ var FilterPointsButton = React.createClass({
             width: "85%"
         }
 
+        var clearTooltip = {
+            content: "Clear Search"
+        }
+        
         var filterBox = (
             <div style={filterBoxContainer}>
-                <ClearButton onclear={this._onClearFilter}/>
+                <ControlButton 
+                    fontAwesomeIcon="ban"
+                    tooltip={clearTooltip}
+                    clickAction={this._onClearFilter}/>
                 <div className="inlineBlock">
                     <div className="inlineBlock">
                         <span className="fa fa-search"></span>

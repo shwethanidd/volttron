@@ -10,6 +10,16 @@ var ConfirmForm = React.createClass({
         this.props.onConfirm();
     },
     render: function () {
+
+        var confirmButton;
+
+        if (this.props.confirmText)
+        {
+            confirmButton = (<button className="button">{this.props.confirmText}</button>);
+        }
+
+        var cancelText = (this.props.cancelText ? this.props.cancelText : "Cancel");
+
         return (
             <form className="confirmation-form" onSubmit={this._onSubmit}>
                 <h1>{this.props.promptTitle}</h1>
@@ -23,9 +33,9 @@ var ConfirmForm = React.createClass({
                         onClick={this._onCancelClick}
                         autoFocus
                     >
-                        Cancel
+                        {cancelText}
                     </button>
-                    <button className="button">{this.props.confirmText}</button>
+                    {confirmButton}
                 </div>
             </form>
         );

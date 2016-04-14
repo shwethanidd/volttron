@@ -6,8 +6,7 @@ var Router = require('react-router');
 var devicesActionCreators = require('../action-creators/devices-action-creators');
 var devicesStore = require('../stores/devices-store');
 var FilterPointsButton = require('./control_buttons/filter-points-button');
-var AddButton = require('./control_buttons/add-button');
-var RemoveButton = require('./control_buttons/remove-button');
+var ControlButton = require('./control-button');
 var EditColumnButton = require('./control_buttons/edit-columns-button');
 
 var ConfirmForm = require('./confirm-form');
@@ -36,6 +35,10 @@ var ConfigureRegistry = React.createClass({
 
         state.pointsToDelete = [];
         state.allSelected = false;
+
+        state.selectedCells = [];
+        state.selectedCellRow = null;
+        state.selectedColumn = null;
 
         this.scrollToBottom = false;
         this.resizeTable = false;
@@ -68,6 +71,15 @@ var ConfigureRegistry = React.createClass({
             this.fixedInner.style.width = this.registryTable.clientWidth + "px";
 
             this.resizeTable = false;
+        }
+
+        if (this.state.selectedCellRow)
+        {
+            var focusedCell = document.getElementsByClassName("focusedCell")[0];
+            if (focusedCell)
+            {
+                focusedCell.focus();
+            }
         }
 
     },
@@ -106,16 +118,27 @@ var ConfigureRegistry = React.createClass({
     },
     _onRemovePoints: function () {
 
-        var promptText = (this.state.pointsToDelete.length > 0 ? 
-                            "Are you sure you want to delete these points? " + this.state.pointsToDelete.join(", ") :
-                                "Select points to delete.");
+        var promptText, confirmText, confirmAction, cancelText;
+
+        if (this.state.pointsToDelete.length > 0)
+        {
+            promptText = "Are you sure you want to delete these points? " + this.state.pointsToDelete.join(", ");
+            confirmText = "Delete";
+            confirmAction = this._removePoints.bind(this, this.state.pointsToDelete);
+        }  
+        else
+        {
+            promptText = "Select points to delete.";
+            cancelText = "OK";
+        }
         
         modalActionCreators.openModal(
             <ConfirmForm
                 promptTitle="Remove Points"
                 promptText={ promptText }
-                confirmText="Delete"
-                onConfirm={this._removePoints.bind(this, this.state.pointsToDelete)}
+                confirmText={ confirmText }
+                onConfirm={ confirmAction }
+                cancelText={ cancelText }
             ></ConfirmForm>
         );
     },
@@ -295,12 +318,84 @@ var ConfigureRegistry = React.createClass({
         var currentTarget = e.currentTarget;
         var newRegistryValues = this.state.registryValues.slice();
 
-        var indexOuter = currentTarget.dataset.outerIndex;
-        var indexInner = currentTarget.dataset.innerIndex;
+        var rowIndex = currentTarget.dataset.rowIndex;
+        var columnIndex = currentTarget.dataset.columnIndex;
 
-        newRegistryValues[indexOuter][indexInner].value = currentTarget.value;
+        newRegistryValues[rowIndex][columnIndex].value = currentTarget.value;
 
         this.setState({ registryValues: newRegistryValues });
+    },
+    _onFindNext: function (findValue, column) {
+
+        var registryValues = this.state.registryValues.slice();
+        
+        if (this.state.selectedCells.length === 0)
+        {
+            var selectedCells = [];
+
+            this.setState({ registryValues: registryValues.map(function (values, row) {
+
+                    //searching i-th column in each row, and if the cell contains the target value, select it
+                    values[column].selected = (values[column].value.toUpperCase().indexOf(findValue.toUpperCase()) > -1);
+
+                    if (values[column].selected)
+                    {
+                        selectedCells.push(row);
+                    }
+
+                    return values;
+                })
+            });
+
+            if (selectedCells.length > 0)
+            {
+                this.setState({ selectedCells: selectedCells });
+                this.setState({ selectedColumn: column });
+
+                //set focus to the first selected cell
+                this.setState({ selectedCellRow: selectedCells[0]})
+            }
+        }
+        else
+        {
+            //we've already found the selected cells, so we need to advance focus to the next one
+            if (this.state.selectedCells.length > 1)
+            {
+                var selectedCellRow;
+
+                //this is the row with current focus
+                var rowIndex = this.state.selectedCells.indexOf(this.state.selectedCellRow);
+
+                //either set focus to the next one in the selected cells list
+                if (rowIndex < this.state.selectedCells.length - 1)
+                {
+                    selectedCellRow = this.state.selectedCells[++rowIndex];
+                }
+                else //or if we're at the end of the list, go back to the first one
+                {
+                    selectedCellRow = this.state.selectedCells[0];
+                }
+
+                this.setState({ selectedCellRow: selectedCellRow})
+            }
+        }
+    },
+    _onReplaceNext: function () {
+
+    },
+    _onReplaceAll: function () {
+
+    },
+    _onClearFind: function (index) {
+        var registryValues = this.state.registryValues.slice();
+
+        this.setState({ registryValues: registryValues.map(function (values) {
+
+                values[index].selected = false;
+
+                return values;
+            })
+        });
     },
     render: function () {        
         
@@ -310,30 +405,46 @@ var ConfigureRegistry = React.createClass({
                                 onfilter={this._onFilterBoxChange} 
                                 onclear={this._onClearFilter}/>
 
-        var addPointButton = <AddButton 
-                                name="addRegistryPoint" 
-                                tooltipMsg="Add New Point"
-                                onadd={this._onAddPoint}/>
+        var addPointTooltip = {
+            content: "Add New Point"
+        }
 
-        var removePointsButton = <RemoveButton 
+        var addPointButton = <ControlButton 
+                                name="addRegistryPoint" 
+                                tooltip={addPointTooltip}
+                                fontAwesomeIcon="plus"
+                                clickAction={this._onAddPoint}/>
+
+
+        var removePointTooltip = {
+            content: "Remove Points"
+        }
+
+        var removePointsButton = <ControlButton
                                 name="removeRegistryPoints" 
-                                tooltipMsg="Remove Points"
-                                onremove={this._onRemovePoints}/>        
+                                fontAwesomeIcon="minus"
+                                tooltip={removePointTooltip}
+                                clickAction={this._onRemovePoints}/>        
         
         var registryRows, registryHeader;
         
-        registryRows = this.state.registryValues.map(function (attributesList, indexOuter) {
+        registryRows = this.state.registryValues.map(function (attributesList, rowIndex) {
 
-            var registryCells = attributesList.map(function (item, indexInner) {
+            var registryCells = attributesList.map(function (item, columnIndex) {
 
-                var itemCell = (indexInner === 0 && item.value !== "" ? 
+                var selectedStyle = (item.selected ? {backgroundColor: "#CCCCCC"} : {});
+                var focusedCell = (this.state.selectedColumn === columnIndex && this.state.selectedCellRow === rowIndex ? "focusedCell" : "");
+
+                var itemCell = (columnIndex === 0 && item.value !== "" ? 
                                     <td>{ item.value }</td> : 
                                         <td><input 
                                                 type="text"
-                                                data-outer-index={indexOuter}
-                                                data-inner-index={indexInner}
+                                                className={focusedCell}
+                                                style={selectedStyle}
+                                                data-row-index={rowIndex}
+                                                data-column-index={columnIndex}
                                                 onChange={this._updateCell} 
-                                                value={ this.state.registryValues[indexOuter][indexInner].value }/>
+                                                value={ this.state.registryValues[rowIndex][columnIndex].value }/>
                                         </td>);
 
                 return itemCell;
@@ -358,23 +469,36 @@ var ConfigureRegistry = React.createClass({
 
         registryHeader = this.state.registryHeader.map(function (item, index) {
 
-            var addColumnButton = <AddButton 
+            var addColumnTooltip = {
+                content: "Add New Column"
+            }
+
+            var addColumnButton = <ControlButton 
                                 name="addPointColumn" 
-                                tooltipMsg="Add New Column"
-                                onadd={this._onAddColumn.bind(this, item)}/>
+                                tooltip={addColumnTooltip}
+                                fontAwesomeIcon="plus"
+                                clickAction={this._onAddColumn.bind(this, item)}/>
 
 
-            var removeColumnButton = <RemoveButton 
+            var removeColumnTooltip = {
+                content: "Remove Column"
+            }
+
+            var removeColumnButton = <ControlButton 
                                 name="removePointColumn" 
-                                tooltipMsg="Remove Column"
-                                onremove={this._onRemoveColumn.bind(this, item)}/> 
+                                fontAwesomeIcon="minus"
+                                tooltip={removeColumnTooltip}
+                                clickAction={this._onRemoveColumn.bind(this, item)}/> 
 
             var editColumnButton = <EditColumnButton 
                                 name={"searchPointColumns" + index}
                                 column={index} 
                                 tooltipMsg="Edit Column"
+                                findnext={this._onFindNext}
+                                replacenext={this._onReplaceNext}
+                                replaceall={this._onReplaceAll}
                                 onfilter={this._onFilterBoxChange} 
-                                onclear={this._onClearFilter}/>
+                                onclear={this._onClearFind}/>
 
             var headerCell = (index === 0 ?
                                 ( <th>

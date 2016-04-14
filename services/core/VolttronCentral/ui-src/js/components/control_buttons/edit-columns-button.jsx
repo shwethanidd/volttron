@@ -4,7 +4,6 @@ var React = require('react');
 
 var ControlButton = require('../control-button');
 // var controlButtonStore = require('../../stores/control-button-store');
-var ClearButton = require('./clear-button');
 
 var EditColumnButton = React.createClass({
     getInitialState: function () {
@@ -26,7 +25,7 @@ var EditColumnButton = React.createClass({
     _onFindBoxChange: function (e) {
         var findValue = e.target.value;
 
-        this.setState({ findValue: findValue });
+        this.setState({ findValue: findValue });        
 
         // if (filterValue !== "")
         // {
@@ -51,9 +50,43 @@ var EditColumnButton = React.createClass({
         //     this.props.onclear();
         // }
     },
+    _findNext: function () {
+
+        if (this.state.findValue === "")
+        {
+            this.props.onclear(this.props.column);
+        }
+        else
+        {
+            this.props.findnext(this.state.findValue, this.props.column);
+        }
+    },
     _onClearEdit: function (e) {
-        // this.setState({ filterValue: "" });
-        // this.props.onclear();
+        this.props.onclear(this.props.column);
+
+        this.setState({ findValue: "" });
+    },
+    _replaceNext: function () {
+
+        // if (this.state.findValue === "")
+        // {
+        //     this.props.onclear(this.props.column);
+        // }
+        // else
+        // {
+        //     this.props.replacenext(this.state.findValue, this.props.column);
+        // }
+    },
+    _replaceAll: function () {
+
+        // if (this.state.findValue === "")
+        // {
+        //     this.props.onclear(this.props.column);
+        // }
+        // else
+        // {
+        //     this.props.replacenext(this.props.column);
+        // }
     },
     render: function () {
 
@@ -77,9 +110,28 @@ var EditColumnButton = React.createClass({
             width: "85%"
         }
 
+        var clearTooltip = {
+            content: "Clear Search"
+        }
+
+        var forwardTooltip = {
+            content: "Find Next"
+        }
+
+        var replaceTooltip = {
+            content: "Replace Next"
+        }
+
+        var replaceAllTooltip = {
+            content: "Replace All"
+        }
+
         var editBox = (
             <div style={editBoxContainer}>
-                <ClearButton onclear={this._onClearEdit}/>
+                <ControlButton 
+                    fontAwesomeIcon="ban"
+                    tooltip={clearTooltip}
+                    clickAction={this._onClearEdit}/>
                 <div>
                     <div className="inlineBlock">
                         Find in Column
@@ -91,6 +143,10 @@ var EditColumnButton = React.createClass({
                             onChange={this._onFindBoxChange}
                             value={ this.state.findValue }
                         />
+                        <ControlButton 
+                            fontAwesomeIcon="step-forward"
+                            tooltip={forwardTooltip}
+                            clickAction={this._findNext}/>
                     </div>
                 </div>
                 <div>
@@ -104,6 +160,14 @@ var EditColumnButton = React.createClass({
                             onChange={this._onReplaceBoxChange}
                             value={ this.state.replaceValue }
                         />
+                        <ControlButton 
+                            fontAwesomeIcon="pencil"
+                            tooltip={replaceTooltip}
+                            clickAction={this._replaceNext}/>
+                        <ControlButton 
+                            fontAwesomeIcon="edit"
+                            tooltip={replaceAllTooltip}
+                            clickAction={this._replaceAll}/>
                     </div>
                 </div>
             </div> 
@@ -116,10 +180,6 @@ var EditColumnButton = React.createClass({
             "yOffset": taptipY,
             "styles": [{"key": "width", "value": "200px"}]
         };
-        
-        var editIcon = (
-            <i className="fa fa-edit"></i>
-        );
         
         var editTooltip = {
             "content": this.props.tooltipMsg,
@@ -134,7 +194,7 @@ var EditColumnButton = React.createClass({
                 name={"editControlButton" + columnIndex}
                 taptip={editTaptip} 
                 tooltip={editTooltip}
-                icon={editIcon}></ControlButton>
+                fontAwesomeIcon="pencil"/>
         );
     },
 });

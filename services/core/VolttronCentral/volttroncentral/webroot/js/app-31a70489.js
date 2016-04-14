@@ -77,7 +77,7 @@ router.run(function (Handler) {
 });
 
 
-},{"./components/dashboard":22,"./components/devices":26,"./components/login-form":30,"./components/page-not-found":33,"./components/platform":35,"./components/platform-manager":34,"./components/platforms":36,"./stores/authorization-store":48,"react":undefined,"react-router":undefined}],2:[function(require,module,exports){
+},{"./components/dashboard":19,"./components/devices":23,"./components/login-form":27,"./components/page-not-found":30,"./components/platform":32,"./components/platform-manager":31,"./components/platforms":33,"./stores/authorization-store":45,"react":undefined,"react-router":undefined}],2:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -104,7 +104,7 @@ var consoleActionCreators = {
 module.exports = consoleActionCreators;
 
 
-},{"../constants/action-types":39,"../dispatcher":40,"../lib/rpc/exchange":42}],3:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/rpc/exchange":39}],3:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -141,7 +141,7 @@ var controlButtonActionCreators = {
 
 module.exports = controlButtonActionCreators;
 
-},{"../constants/action-types":39,"../dispatcher":40}],4:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37}],4:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -187,7 +187,7 @@ var devicesActionCreators = {
 module.exports = devicesActionCreators;
 
 
-},{"../constants/action-types":39,"../dispatcher":40,"../lib/rpc":43,"../stores/authorization-store":48}],5:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/rpc":40,"../stores/authorization-store":45}],5:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -210,7 +210,7 @@ var modalActionCreators = {
 module.exports = modalActionCreators;
 
 
-},{"../constants/action-types":39,"../dispatcher":40}],6:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37}],6:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -562,7 +562,7 @@ function handle401(error) {
 module.exports = platformActionCreators;
 
 
-},{"../constants/action-types":39,"../dispatcher":40,"../lib/rpc":43,"../stores/authorization-store":48}],7:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/rpc":40,"../stores/authorization-store":45}],7:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -690,7 +690,7 @@ function handle401(error) {
 module.exports = platformManagerActionCreators;
 
 
-},{"../action-creators/platform-action-creators":6,"../constants/action-types":39,"../dispatcher":40,"../lib/rpc":43,"../stores/authorization-store":48}],8:[function(require,module,exports){
+},{"../action-creators/platform-action-creators":6,"../constants/action-types":36,"../dispatcher":37,"../lib/rpc":40,"../stores/authorization-store":45}],8:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -762,7 +762,7 @@ var AgentRow = React.createClass({displayName: "AgentRow",
 module.exports = AgentRow;
 
 
-},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"./remove-agent-form":38,"react":undefined}],9:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"./remove-agent-form":35,"react":undefined}],9:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -826,7 +826,7 @@ function getStateFromStores(platform, chart) {
 module.exports = Chart;
 
 
-},{"../action-creators/platform-action-creators":6,"../stores/topic-data-store":56,"./line-chart":29,"react":undefined}],10:[function(require,module,exports){
+},{"../action-creators/platform-action-creators":6,"../stores/topic-data-store":53,"./line-chart":26,"react":undefined}],10:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -896,7 +896,7 @@ function getStateFromStores() {
 module.exports = Composer;
 
 
-},{"../action-creators/console-action-creators":2,"../stores/console-store":49,"react":undefined}],11:[function(require,module,exports){
+},{"../action-creators/console-action-creators":2,"../stores/console-store":46,"react":undefined}],11:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1057,7 +1057,7 @@ function getStateFromStores() {
 module.exports = ConfigureDevice;
 
 
-},{"../action-creators/devices-action-creators":4,"../stores/devices-store":51,"react":undefined,"react-router":undefined}],12:[function(require,module,exports){
+},{"../action-creators/devices-action-creators":4,"../stores/devices-store":48,"react":undefined,"react-router":undefined}],12:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1066,8 +1066,7 @@ var Router = require('react-router');
 var devicesActionCreators = require('../action-creators/devices-action-creators');
 var devicesStore = require('../stores/devices-store');
 var FilterPointsButton = require('./control_buttons/filter-points-button');
-var AddButton = require('./control_buttons/add-button');
-var RemoveButton = require('./control_buttons/remove-button');
+var ControlButton = require('./control-button');
 var EditColumnButton = require('./control_buttons/edit-columns-button');
 
 var ConfirmForm = require('./confirm-form');
@@ -1096,6 +1095,10 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
 
         state.pointsToDelete = [];
         state.allSelected = false;
+
+        state.selectedCells = [];
+        state.selectedCellRow = null;
+        state.selectedColumn = null;
 
         this.scrollToBottom = false;
         this.resizeTable = false;
@@ -1128,6 +1131,15 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
             this.fixedInner.style.width = this.registryTable.clientWidth + "px";
 
             this.resizeTable = false;
+        }
+
+        if (this.state.selectedCellRow)
+        {
+            var focusedCell = document.getElementsByClassName("focusedCell")[0];
+            if (focusedCell)
+            {
+                focusedCell.focus();
+            }
         }
 
     },
@@ -1166,16 +1178,27 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
     },
     _onRemovePoints: function () {
 
-        var promptText = (this.state.pointsToDelete.length > 0 ? 
-                            "Are you sure you want to delete these points? " + this.state.pointsToDelete.join(", ") :
-                                "Select points to delete.");
+        var promptText, confirmText, confirmAction, cancelText;
+
+        if (this.state.pointsToDelete.length > 0)
+        {
+            promptText = "Are you sure you want to delete these points? " + this.state.pointsToDelete.join(", ");
+            confirmText = "Delete";
+            confirmAction = this._removePoints.bind(this, this.state.pointsToDelete);
+        }  
+        else
+        {
+            promptText = "Select points to delete.";
+            cancelText = "OK";
+        }
         
         modalActionCreators.openModal(
             React.createElement(ConfirmForm, {
                 promptTitle: "Remove Points", 
                 promptText:  promptText, 
-                confirmText: "Delete", 
-                onConfirm: this._removePoints.bind(this, this.state.pointsToDelete)
+                confirmText:  confirmText, 
+                onConfirm:  confirmAction, 
+                cancelText:  cancelText 
             })
         );
     },
@@ -1355,12 +1378,84 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
         var currentTarget = e.currentTarget;
         var newRegistryValues = this.state.registryValues.slice();
 
-        var indexOuter = currentTarget.dataset.outerIndex;
-        var indexInner = currentTarget.dataset.innerIndex;
+        var rowIndex = currentTarget.dataset.rowIndex;
+        var columnIndex = currentTarget.dataset.columnIndex;
 
-        newRegistryValues[indexOuter][indexInner].value = currentTarget.value;
+        newRegistryValues[rowIndex][columnIndex].value = currentTarget.value;
 
         this.setState({ registryValues: newRegistryValues });
+    },
+    _onFindNext: function (findValue, column) {
+
+        var registryValues = this.state.registryValues.slice();
+        
+        if (this.state.selectedCells.length === 0)
+        {
+            var selectedCells = [];
+
+            this.setState({ registryValues: registryValues.map(function (values, row) {
+
+                    //searching i-th column in each row, and if the cell contains the target value, select it
+                    values[column].selected = (values[column].value.toUpperCase().indexOf(findValue.toUpperCase()) > -1);
+
+                    if (values[column].selected)
+                    {
+                        selectedCells.push(row);
+                    }
+
+                    return values;
+                })
+            });
+
+            if (selectedCells.length > 0)
+            {
+                this.setState({ selectedCells: selectedCells });
+                this.setState({ selectedColumn: column });
+
+                //set focus to the first selected cell
+                this.setState({ selectedCellRow: selectedCells[0]})
+            }
+        }
+        else
+        {
+            //we've already found the selected cells, so we need to advance focus to the next one
+            if (this.state.selectedCells.length > 1)
+            {
+                var selectedCellRow;
+
+                //this is the row with current focus
+                var rowIndex = this.state.selectedCells.indexOf(this.state.selectedCellRow);
+
+                //either set focus to the next one in the selected cells list
+                if (rowIndex < this.state.selectedCells.length - 1)
+                {
+                    selectedCellRow = this.state.selectedCells[++rowIndex];
+                }
+                else //or if we're at the end of the list, go back to the first one
+                {
+                    selectedCellRow = this.state.selectedCells[0];
+                }
+
+                this.setState({ selectedCellRow: selectedCellRow})
+            }
+        }
+    },
+    _onReplaceNext: function () {
+
+    },
+    _onReplaceAll: function () {
+
+    },
+    _onClearFind: function (index) {
+        var registryValues = this.state.registryValues.slice();
+
+        this.setState({ registryValues: registryValues.map(function (values) {
+
+                values[index].selected = false;
+
+                return values;
+            })
+        });
     },
     render: function () {        
         
@@ -1370,30 +1465,46 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
                                 onfilter: this._onFilterBoxChange, 
                                 onclear: this._onClearFilter})
 
-        var addPointButton = React.createElement(AddButton, {
-                                name: "addRegistryPoint", 
-                                tooltipMsg: "Add New Point", 
-                                onadd: this._onAddPoint})
+        var addPointTooltip = {
+            content: "Add New Point"
+        }
 
-        var removePointsButton = React.createElement(RemoveButton, {
+        var addPointButton = React.createElement(ControlButton, {
+                                name: "addRegistryPoint", 
+                                tooltip: addPointTooltip, 
+                                fontAwesomeIcon: "plus", 
+                                clickAction: this._onAddPoint})
+
+
+        var removePointTooltip = {
+            content: "Remove Points"
+        }
+
+        var removePointsButton = React.createElement(ControlButton, {
                                 name: "removeRegistryPoints", 
-                                tooltipMsg: "Remove Points", 
-                                onremove: this._onRemovePoints})        
+                                fontAwesomeIcon: "minus", 
+                                tooltip: removePointTooltip, 
+                                clickAction: this._onRemovePoints})        
         
         var registryRows, registryHeader;
         
-        registryRows = this.state.registryValues.map(function (attributesList, indexOuter) {
+        registryRows = this.state.registryValues.map(function (attributesList, rowIndex) {
 
-            var registryCells = attributesList.map(function (item, indexInner) {
+            var registryCells = attributesList.map(function (item, columnIndex) {
 
-                var itemCell = (indexInner === 0 && item.value !== "" ? 
+                var selectedStyle = (item.selected ? {backgroundColor: "#CCCCCC"} : {});
+                var focusedCell = (this.state.selectedColumn === columnIndex && this.state.selectedCellRow === rowIndex ? "focusedCell" : "");
+
+                var itemCell = (columnIndex === 0 && item.value !== "" ? 
                                     React.createElement("td", null,  item.value) : 
                                         React.createElement("td", null, React.createElement("input", {
                                                 type: "text", 
-                                                "data-outer-index": indexOuter, 
-                                                "data-inner-index": indexInner, 
+                                                className: focusedCell, 
+                                                style: selectedStyle, 
+                                                "data-row-index": rowIndex, 
+                                                "data-column-index": columnIndex, 
                                                 onChange: this._updateCell, 
-                                                value:  this.state.registryValues[indexOuter][indexInner].value})
+                                                value:  this.state.registryValues[rowIndex][columnIndex].value})
                                         ));
 
                 return itemCell;
@@ -1418,23 +1529,36 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
 
         registryHeader = this.state.registryHeader.map(function (item, index) {
 
-            var addColumnButton = React.createElement(AddButton, {
+            var addColumnTooltip = {
+                content: "Add New Column"
+            }
+
+            var addColumnButton = React.createElement(ControlButton, {
                                 name: "addPointColumn", 
-                                tooltipMsg: "Add New Column", 
-                                onadd: this._onAddColumn.bind(this, item)})
+                                tooltip: addColumnTooltip, 
+                                fontAwesomeIcon: "plus", 
+                                clickAction: this._onAddColumn.bind(this, item)})
 
 
-            var removeColumnButton = React.createElement(RemoveButton, {
+            var removeColumnTooltip = {
+                content: "Remove Column"
+            }
+
+            var removeColumnButton = React.createElement(ControlButton, {
                                 name: "removePointColumn", 
-                                tooltipMsg: "Remove Column", 
-                                onremove: this._onRemoveColumn.bind(this, item)}) 
+                                fontAwesomeIcon: "minus", 
+                                tooltip: removeColumnTooltip, 
+                                clickAction: this._onRemoveColumn.bind(this, item)}) 
 
             var editColumnButton = React.createElement(EditColumnButton, {
                                 name: "searchPointColumns" + index, 
                                 column: index, 
                                 tooltipMsg: "Edit Column", 
+                                findnext: this._onFindNext, 
+                                replacenext: this._onReplaceNext, 
+                                replaceall: this._onReplaceAll, 
                                 onfilter: this._onFilterBoxChange, 
-                                onclear: this._onClearFilter})
+                                onclear: this._onClearFind})
 
             var headerCell = (index === 0 ?
                                 ( React.createElement("th", null, 
@@ -1510,7 +1634,7 @@ function getRegistryHeader(registryItem) {
 module.exports = ConfigureRegistry;
 
 
-},{"../action-creators/devices-action-creators":4,"../action-creators/modal-action-creators":5,"../stores/devices-store":51,"./confirm-form":13,"./control_buttons/add-button":16,"./control_buttons/edit-columns-button":18,"./control_buttons/filter-points-button":19,"./control_buttons/remove-button":20,"react":undefined,"react-router":undefined}],13:[function(require,module,exports){
+},{"../action-creators/devices-action-creators":4,"../action-creators/modal-action-creators":5,"../stores/devices-store":48,"./confirm-form":13,"./control-button":15,"./control_buttons/edit-columns-button":16,"./control_buttons/filter-points-button":17,"react":undefined,"react-router":undefined}],13:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1523,6 +1647,16 @@ var ConfirmForm = React.createClass({displayName: "ConfirmForm",
         this.props.onConfirm();
     },
     render: function () {
+
+        var confirmButton;
+
+        if (this.props.confirmText)
+        {
+            confirmButton = (React.createElement("button", {className: "button"}, this.props.confirmText));
+        }
+
+        var cancelText = (this.props.cancelText ? this.props.cancelText : "Cancel");
+
         return (
             React.createElement("form", {className: "confirmation-form", onSubmit: this._onSubmit}, 
                 React.createElement("h1", null, this.props.promptTitle), 
@@ -1536,9 +1670,9 @@ var ConfirmForm = React.createClass({displayName: "ConfirmForm",
                         onClick: this._onCancelClick, 
                         autoFocus: true
                     }, 
-                        "Cancel"
+                        cancelText
                     ), 
-                    React.createElement("button", {className: "button"}, this.props.confirmText)
+                    confirmButton
                 )
             )
         );
@@ -1570,7 +1704,7 @@ var Console = React.createClass({displayName: "Console",
 module.exports = Console;
 
 
-},{"./composer":10,"./conversation":21,"react":undefined}],15:[function(require,module,exports){
+},{"./composer":10,"./conversation":18,"react":undefined}],15:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1676,6 +1810,11 @@ var ControlButton = React.createClass({displayName: "ControlButton",
         var tooltipShow;
         var tooltipHide;
 
+        var buttonIcon = (this.props.icon ? this.props.icon :
+                            (this.props.fontAwesomeIcon ? 
+                                (React.createElement("i", {className: "fa fa-" + this.props.fontAwesomeIcon})) : 
+                                    (React.createElement("div", {className: this.props.buttonClass}, React.createElement("span", null, this.props.unicodeIcon))) ) );
+
         if (this.props.staySelected || this.state.selected === true || this.state.showTaptip === true)
         {
         	selectedStyle = {
@@ -1757,7 +1896,7 @@ var ControlButton = React.createClass({displayName: "ControlButton",
                     onMouseLeave: tooltipHide, 
                     style: selectedStyle}, 
                     React.createElement("div", {className: "centeredDiv"}, 
-                        this.props.icon
+                        buttonIcon
                     )
                 )
             )
@@ -1773,89 +1912,13 @@ var ControlButton = React.createClass({displayName: "ControlButton",
 
 module.exports = ControlButton;
 
-},{"../action-creators/control-button-action-creators":3,"../stores/control-button-store":50,"react":undefined,"react-router":undefined}],16:[function(require,module,exports){
-'use strict';
-
-var React = require('react');
-
-var ControlButton = require('../control-button');
-
-var AddButton = React.createClass({displayName: "AddButton",
-    render: function () {
-
-        var taptipX = 60;
-        var taptipY = 120;
-
-        var tooltipX = 20;
-        var tooltipY = 60;
-
-        var addIcon = React.createElement("i", {className: "fa fa-plus"});
-
-        var addTooltip = {
-            "content": this.props.tooltipMsg,
-            "xOffset": tooltipX,
-            "yOffset": tooltipY
-        };
-
-        return (
-            React.createElement(ControlButton, {
-                name: "addControlButton", 
-                icon: addIcon, 
-                tooltip: addTooltip, 
-                clickAction: this.props.onadd})
-        );
-    },
-});
-
-module.exports = AddButton;
-
-
-},{"../control-button":15,"react":undefined}],17:[function(require,module,exports){
-'use strict';
-
-var React = require('react');
-
-var ControlButton = require('../control-button');
-
-var ClearButton = React.createClass({displayName: "ClearButton",
-    render: function () {
-
-        var taptipX = 60;
-        var taptipY = 120;
-
-        var tooltipX = 20;
-        var tooltipY = 60;
-
-        var clearIcon = (
-            React.createElement("i", {className: "fa fa-ban"})
-        );
-        var clearTooltip = {
-            "content": "Clear Search",
-            "xOffset": tooltipX,
-            "yOffset": tooltipY
-        };
-
-        return (
-            React.createElement(ControlButton, {
-                name: "clearControlButton", 
-                icon: clearIcon, 
-                tooltip: clearTooltip, 
-                clickAction: this.props.onclear})
-        );
-    },
-});
-
-module.exports = ClearButton;
-
-
-},{"../control-button":15,"react":undefined}],18:[function(require,module,exports){
+},{"../action-creators/control-button-action-creators":3,"../stores/control-button-store":47,"react":undefined,"react-router":undefined}],16:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
 
 var ControlButton = require('../control-button');
 // var controlButtonStore = require('../../stores/control-button-store');
-var ClearButton = require('./clear-button');
 
 var EditColumnButton = React.createClass({displayName: "EditColumnButton",
     getInitialState: function () {
@@ -1877,7 +1940,7 @@ var EditColumnButton = React.createClass({displayName: "EditColumnButton",
     _onFindBoxChange: function (e) {
         var findValue = e.target.value;
 
-        this.setState({ findValue: findValue });
+        this.setState({ findValue: findValue });        
 
         // if (filterValue !== "")
         // {
@@ -1902,9 +1965,43 @@ var EditColumnButton = React.createClass({displayName: "EditColumnButton",
         //     this.props.onclear();
         // }
     },
+    _findNext: function () {
+
+        if (this.state.findValue === "")
+        {
+            this.props.onclear(this.props.column);
+        }
+        else
+        {
+            this.props.findnext(this.state.findValue, this.props.column);
+        }
+    },
     _onClearEdit: function (e) {
-        // this.setState({ filterValue: "" });
-        // this.props.onclear();
+        this.props.onclear(this.props.column);
+
+        this.setState({ findValue: "" });
+    },
+    _replaceNext: function () {
+
+        // if (this.state.findValue === "")
+        // {
+        //     this.props.onclear(this.props.column);
+        // }
+        // else
+        // {
+        //     this.props.replacenext(this.state.findValue, this.props.column);
+        // }
+    },
+    _replaceAll: function () {
+
+        // if (this.state.findValue === "")
+        // {
+        //     this.props.onclear(this.props.column);
+        // }
+        // else
+        // {
+        //     this.props.replacenext(this.props.column);
+        // }
     },
     render: function () {
 
@@ -1928,9 +2025,28 @@ var EditColumnButton = React.createClass({displayName: "EditColumnButton",
             width: "85%"
         }
 
+        var clearTooltip = {
+            content: "Clear Search"
+        }
+
+        var forwardTooltip = {
+            content: "Find Next"
+        }
+
+        var replaceTooltip = {
+            content: "Replace Next"
+        }
+
+        var replaceAllTooltip = {
+            content: "Replace All"
+        }
+
         var editBox = (
             React.createElement("div", {style: editBoxContainer}, 
-                React.createElement(ClearButton, {onclear: this._onClearEdit}), 
+                React.createElement(ControlButton, {
+                    fontAwesomeIcon: "ban", 
+                    tooltip: clearTooltip, 
+                    clickAction: this._onClearEdit}), 
                 React.createElement("div", null, 
                     React.createElement("div", {className: "inlineBlock"}, 
                         "Find in Column"
@@ -1941,7 +2057,11 @@ var EditColumnButton = React.createClass({displayName: "EditColumnButton",
                             style: inputStyle, 
                             onChange: this._onFindBoxChange, 
                             value:  this.state.findValue}
-                        )
+                        ), 
+                        React.createElement(ControlButton, {
+                            fontAwesomeIcon: "step-forward", 
+                            tooltip: forwardTooltip, 
+                            clickAction: this._findNext})
                     )
                 ), 
                 React.createElement("div", null, 
@@ -1954,7 +2074,15 @@ var EditColumnButton = React.createClass({displayName: "EditColumnButton",
                             style: inputStyle, 
                             onChange: this._onReplaceBoxChange, 
                             value:  this.state.replaceValue}
-                        )
+                        ), 
+                        React.createElement(ControlButton, {
+                            fontAwesomeIcon: "pencil", 
+                            tooltip: replaceTooltip, 
+                            clickAction: this._replaceNext}), 
+                        React.createElement(ControlButton, {
+                            fontAwesomeIcon: "edit", 
+                            tooltip: replaceAllTooltip, 
+                            clickAction: this._replaceAll})
                     )
                 )
             ) 
@@ -1967,10 +2095,6 @@ var EditColumnButton = React.createClass({displayName: "EditColumnButton",
             "yOffset": taptipY,
             "styles": [{"key": "width", "value": "200px"}]
         };
-        
-        var editIcon = (
-            React.createElement("i", {className: "fa fa-edit"})
-        );
         
         var editTooltip = {
             "content": this.props.tooltipMsg,
@@ -1985,7 +2109,7 @@ var EditColumnButton = React.createClass({displayName: "EditColumnButton",
                 name: "editControlButton" + columnIndex, 
                 taptip: editTaptip, 
                 tooltip: editTooltip, 
-                icon: editIcon})
+                fontAwesomeIcon: "pencil"})
         );
     },
 });
@@ -2000,14 +2124,13 @@ function getStateFromStores() {
 module.exports = EditColumnButton;
 
 
-},{"../control-button":15,"./clear-button":17,"react":undefined}],19:[function(require,module,exports){
+},{"../control-button":15,"react":undefined}],17:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
 
 var ControlButton = require('../control-button');
 // var controlButtonStore = require('../../stores/control-button-store');
-var ClearButton = require('./clear-button');
 
 var FilterPointsButton = React.createClass({displayName: "FilterPointsButton",
     getInitialState: function () {
@@ -2066,9 +2189,16 @@ var FilterPointsButton = React.createClass({displayName: "FilterPointsButton",
             width: "85%"
         }
 
+        var clearTooltip = {
+            content: "Clear Search"
+        }
+        
         var filterBox = (
             React.createElement("div", {style: filterBoxContainer}, 
-                React.createElement(ClearButton, {onclear: this._onClearFilter}), 
+                React.createElement(ControlButton, {
+                    fontAwesomeIcon: "ban", 
+                    tooltip: clearTooltip, 
+                    clickAction: this._onClearFilter}), 
                 React.createElement("div", {className: "inlineBlock"}, 
                     React.createElement("div", {className: "inlineBlock"}, 
                         React.createElement("span", {className: "fa fa-search"})
@@ -2125,44 +2255,7 @@ function getStateFromStores() {
 module.exports = FilterPointsButton;
 
 
-},{"../control-button":15,"./clear-button":17,"react":undefined}],20:[function(require,module,exports){
-'use strict';
-
-var React = require('react');
-
-var ControlButton = require('../control-button');
-
-var RemoveButton = React.createClass({displayName: "RemoveButton",
-    render: function () {
-
-        var taptipX = 60;
-        var taptipY = 120;
-
-        var tooltipX = 20;
-        var tooltipY = 60;
-
-        var removeIcon = React.createElement("i", {className: "fa fa-minus"});
-
-        var removeTooltip = {
-            "content": this.props.tooltipMsg,
-            "xOffset": tooltipX,
-            "yOffset": tooltipY
-        };
-
-        return (
-            React.createElement(ControlButton, {
-                name: "removeControlButton", 
-                icon: removeIcon, 
-                tooltip: removeTooltip, 
-                clickAction: this.props.onremove})
-        );
-    },
-});
-
-module.exports = RemoveButton;
-
-
-},{"../control-button":15,"react":undefined}],21:[function(require,module,exports){
+},{"../control-button":15,"react":undefined}],18:[function(require,module,exports){
 'use strict';
 
 var $ = require('jquery');
@@ -2213,7 +2306,7 @@ function getStateFromStores() {
 module.exports = Conversation;
 
 
-},{"../stores/console-store":49,"./exchange":28,"jquery":undefined,"react":undefined}],22:[function(require,module,exports){
+},{"../stores/console-store":46,"./exchange":25,"jquery":undefined,"react":undefined}],19:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2319,7 +2412,7 @@ function getStateFromStores() {
 module.exports = Dashboard;
 
 
-},{"../action-creators/modal-action-creators":5,"../stores/platforms-store":55,"./chart":9,"./edit-chart-form":27,"react":undefined,"react-router":undefined}],23:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../stores/platforms-store":52,"./chart":9,"./edit-chart-form":24,"react":undefined,"react-router":undefined}],20:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2375,7 +2468,7 @@ function getStateFromStores() {
 module.exports = RegisterPlatformForm;
 
 
-},{"../action-creators/modal-action-creators":5,"../action-creators/platform-manager-action-creators":7,"../stores/platform-registration-store":54,"react":undefined}],24:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../action-creators/platform-manager-action-creators":7,"../stores/platform-registration-store":51,"react":undefined}],21:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2497,7 +2590,7 @@ function getStateFromStores() {
 module.exports = DetectDevices;
 
 
-},{"../action-creators/devices-action-creators":4,"../stores/platforms-store":55,"react":undefined,"react-router":undefined}],25:[function(require,module,exports){
+},{"../action-creators/devices-action-creators":4,"../stores/platforms-store":52,"react":undefined,"react-router":undefined}],22:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2586,7 +2679,7 @@ function getStateFromStores() {
 module.exports = DevicesFound;
 
 
-},{"../action-creators/devices-action-creators":4,"../stores/devices-store":51,"react":undefined,"react-router":undefined}],26:[function(require,module,exports){
+},{"../action-creators/devices-action-creators":4,"../stores/devices-store":48,"react":undefined,"react-router":undefined}],23:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2667,7 +2760,7 @@ function getStateFromStores() {
 module.exports = Devices;
 
 
-},{"../stores/devices-store":51,"./configure-device":11,"./configure-registry":12,"./detect-devices":24,"./devices-found":25,"react":undefined,"react-router":undefined}],27:[function(require,module,exports){
+},{"../stores/devices-store":48,"./configure-device":11,"./configure-registry":12,"./detect-devices":21,"./devices-found":22,"react":undefined,"react-router":undefined}],24:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2824,7 +2917,7 @@ var EditChartForm = React.createClass({displayName: "EditChartForm",
 module.exports = EditChartForm;
 
 
-},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"react":undefined}],28:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"react":undefined}],25:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2877,7 +2970,7 @@ var Exchange = React.createClass({displayName: "Exchange",
 module.exports = Exchange;
 
 
-},{"react":undefined}],29:[function(require,module,exports){
+},{"react":undefined}],26:[function(require,module,exports){
 'use strict';
 
 var d3 = require('d3');
@@ -3066,7 +3159,7 @@ var LineChart = React.createClass({displayName: "LineChart",
 module.exports = LineChart;
 
 
-},{"d3":undefined,"moment":undefined,"react":undefined}],30:[function(require,module,exports){
+},{"d3":undefined,"moment":undefined,"react":undefined}],27:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -3144,7 +3237,7 @@ function getStateFromStores() {
 module.exports = LoginForm;
 
 
-},{"../action-creators/platform-manager-action-creators":7,"../stores/login-form-store":52,"react":undefined,"react-router":undefined}],31:[function(require,module,exports){
+},{"../action-creators/platform-manager-action-creators":7,"../stores/login-form-store":49,"react":undefined,"react-router":undefined}],28:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -3171,7 +3264,7 @@ var Modal = React.createClass({displayName: "Modal",
 module.exports = Modal;
 
 
-},{"../action-creators/modal-action-creators":5,"react":undefined}],32:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"react":undefined}],29:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -3248,7 +3341,7 @@ function getStateFromStores() {
 module.exports = Navigation;
 
 
-},{"../action-creators/platform-manager-action-creators":7,"../stores/authorization-store":48,"react":undefined,"react-router":undefined}],33:[function(require,module,exports){
+},{"../action-creators/platform-manager-action-creators":7,"../stores/authorization-store":45,"react":undefined,"react-router":undefined}],30:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -3266,7 +3359,7 @@ var PageNotFound = React.createClass({displayName: "PageNotFound",
 module.exports = PageNotFound;
 
 
-},{"react":undefined}],34:[function(require,module,exports){
+},{"react":undefined}],31:[function(require,module,exports){
 'use strict';
 
 var $ = require('jquery');
@@ -3375,7 +3468,7 @@ function getStateFromStores() {
 module.exports = PlatformManager;
 
 
-},{"../action-creators/console-action-creators":2,"../action-creators/modal-action-creators":5,"../action-creators/platform-manager-action-creators":7,"../stores/authorization-store":48,"../stores/console-store":49,"../stores/modal-store":53,"./console":14,"./modal":31,"./navigation":32,"jquery":undefined,"react":undefined,"react-router":undefined}],35:[function(require,module,exports){
+},{"../action-creators/console-action-creators":2,"../action-creators/modal-action-creators":5,"../action-creators/platform-manager-action-creators":7,"../stores/authorization-store":45,"../stores/console-store":46,"../stores/modal-store":50,"./console":14,"./modal":28,"./navigation":29,"jquery":undefined,"react":undefined,"react-router":undefined}],32:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -3579,7 +3672,7 @@ function getStateFromStores(component) {
 module.exports = Platform;
 
 
-},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"../stores/platforms-store":55,"./agent-row":8,"./chart":9,"./confirm-form":13,"./edit-chart-form":27,"react":undefined,"react-router":undefined}],36:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"../stores/platforms-store":52,"./agent-row":8,"./chart":9,"./confirm-form":13,"./edit-chart-form":24,"react":undefined,"react-router":undefined}],33:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -3694,7 +3787,7 @@ function getStateFromStores() {
 module.exports = Platforms;
 
 
-},{"../action-creators/modal-action-creators":5,"../components/deregister-platform-confirmation":23,"../components/register-platform-form":37,"../stores/platforms-store":55,"react":undefined,"react-router":undefined}],37:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../components/deregister-platform-confirmation":20,"../components/register-platform-form":34,"../stores/platforms-store":52,"react":undefined,"react-router":undefined}],34:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -3900,7 +3993,7 @@ function getStateFromStores() {
 module.exports = RegisterPlatformForm;
 
 
-},{"../action-creators/modal-action-creators":5,"../action-creators/platform-manager-action-creators":7,"../stores/platform-registration-store":54,"react":undefined}],38:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../action-creators/platform-manager-action-creators":7,"../stores/platform-registration-store":51,"react":undefined}],35:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -3959,7 +4052,7 @@ var RemoveAgentForm = React.createClass({displayName: "RemoveAgentForm",
 module.exports = RemoveAgentForm;
 
 
-},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"react":undefined}],39:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":5,"../action-creators/platform-action-creators":6,"react":undefined}],36:[function(require,module,exports){
 'use strict';
 
 var keyMirror = require('react/lib/keyMirror');
@@ -4002,7 +4095,7 @@ module.exports = keyMirror({
 });
 
 
-},{"react/lib/keyMirror":undefined}],40:[function(require,module,exports){
+},{"react/lib/keyMirror":undefined}],37:[function(require,module,exports){
 'use strict';
 
 var Dispatcher = require('flux').Dispatcher;
@@ -4022,7 +4115,7 @@ dispatcher.dispatch = function (action) {
 module.exports = dispatcher;
 
 
-},{"../constants/action-types":39,"flux":undefined}],41:[function(require,module,exports){
+},{"../constants/action-types":36,"flux":undefined}],38:[function(require,module,exports){
 'use strict';
 
 function RpcError(error) {
@@ -4037,7 +4130,7 @@ RpcError.prototype.constructor = RpcError;
 module.exports = RpcError;
 
 
-},{}],42:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 'use strict';
 
 var uuid = require('node-uuid');
@@ -4125,7 +4218,7 @@ function RpcExchange(request, redactedParams) {
 module.exports = RpcExchange;
 
 
-},{"../../constants/action-types":39,"../../dispatcher":40,"../xhr":46,"./error":41,"node-uuid":undefined}],43:[function(require,module,exports){
+},{"../../constants/action-types":36,"../../dispatcher":37,"../xhr":43,"./error":38,"node-uuid":undefined}],40:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -4134,7 +4227,7 @@ module.exports = {
 };
 
 
-},{"./error":41,"./exchange":42}],44:[function(require,module,exports){
+},{"./error":38,"./exchange":39}],41:[function(require,module,exports){
 'use strict';
 
 var EventEmitter = require('events').EventEmitter;
@@ -4162,7 +4255,7 @@ Store.prototype.removeChangeListener = function (callback) {
 module.exports = Store;
 
 
-},{"events":undefined}],45:[function(require,module,exports){
+},{"events":undefined}],42:[function(require,module,exports){
 'use strict';
 
 function XhrError(message, response) {
@@ -4176,7 +4269,7 @@ XhrError.prototype.constructor = XhrError;
 module.exports = XhrError;
 
 
-},{}],46:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -4185,7 +4278,7 @@ module.exports = {
 };
 
 
-},{"./error":45,"./request":47}],47:[function(require,module,exports){
+},{"./error":42,"./request":44}],44:[function(require,module,exports){
 'use strict';
 
 var jQuery = require('jquery');
@@ -4216,7 +4309,7 @@ function XhrRequest(opts) {
 module.exports = XhrRequest;
 
 
-},{"./error":45,"bluebird":undefined,"jquery":undefined}],48:[function(require,module,exports){
+},{"./error":42,"bluebird":undefined,"jquery":undefined}],45:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4254,7 +4347,7 @@ authorizationStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = authorizationStore;
 
 
-},{"../constants/action-types":39,"../dispatcher":40,"../lib/store":44}],49:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41}],46:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4347,7 +4440,7 @@ consoleStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = consoleStore;
 
 
-},{"../constants/action-types":39,"../dispatcher":40,"../lib/store":44,"../stores/authorization-store":48}],50:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"../stores/authorization-store":45}],47:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4459,7 +4552,7 @@ controlButtonStore.dispatchToken = dispatcher.register(function (action) {
 
 module.exports = controlButtonStore;
 
-},{"../constants/action-types":39,"../dispatcher":40,"../lib/store":44,"../stores/authorization-store":48}],51:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"../stores/authorization-store":45}],48:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4725,7 +4818,7 @@ devicesStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = devicesStore;
 
 
-},{"../constants/action-types":39,"../dispatcher":40,"../lib/store":44,"../stores/authorization-store":48}],52:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"../stores/authorization-store":45}],49:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4760,7 +4853,7 @@ loginFormStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = loginFormStore;
 
 
-},{"../constants/action-types":39,"../dispatcher":40,"../lib/store":44,"./authorization-store":48}],53:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"./authorization-store":45}],50:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4793,7 +4886,7 @@ modalStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = modalStore;
 
 
-},{"../constants/action-types":39,"../dispatcher":40,"../lib/store":44}],54:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41}],51:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4839,7 +4932,7 @@ platformRegistrationStore.dispatchToken = dispatcher.register(function (action) 
 module.exports = platformRegistrationStore;
 
 
-},{"../constants/action-types":39,"../dispatcher":40,"../lib/store":44,"./authorization-store":48}],55:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"./authorization-store":45}],52:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4908,7 +5001,7 @@ platformsStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = platformsStore;
 
 
-},{"../constants/action-types":39,"../dispatcher":40,"../lib/store":44,"../stores/authorization-store":48}],56:[function(require,module,exports){
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"../stores/authorization-store":45}],53:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4948,4 +5041,4 @@ topicDataStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = topicDataStore;
 
 
-},{"../constants/action-types":39,"../dispatcher":40,"../lib/store":44,"./authorization-store":48}]},{},[1]);
+},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"./authorization-store":45}]},{},[1]);
