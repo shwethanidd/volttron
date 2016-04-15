@@ -27,28 +27,12 @@ var EditColumnButton = React.createClass({
 
         this.setState({ findValue: findValue });        
 
-        // if (filterValue !== "")
-        // {
-        //     this.props.onfilter(e.target.value);
-        // }
-        // else
-        // {
-        //     this.props.onclear();
-        // }
+        this.props.onclear(this.props.column);        
     },
     _onReplaceBoxChange: function (e) {
         var replaceValue = e.target.value;
 
         this.setState({ replaceValue: replaceValue });
-
-        // if (filterValue !== "")
-        // {
-        //     this.props.onfilter(e.target.value);
-        // }
-        // else
-        // {
-        //     this.props.onclear();
-        // }
     },
     _findNext: function () {
 
@@ -62,43 +46,23 @@ var EditColumnButton = React.createClass({
         }
     },
     _onClearEdit: function (e) {
+
         this.props.onclear(this.props.column);
-
         this.setState({ findValue: "" });
-    },
-    _replaceNext: function () {
+        this.setState({ replaceValue: "" });
 
-        // if (this.state.findValue === "")
-        // {
-        //     this.props.onclear(this.props.column);
-        // }
-        // else
-        // {
-        //     this.props.replacenext(this.state.findValue, this.props.column);
-        // }
+    },
+    _replace: function () {        
+        this.props.replace(this.state.findValue, this.state.replaceValue, this.props.column);
     },
     _replaceAll: function () {
-
-        // if (this.state.findValue === "")
-        // {
-        //     this.props.onclear(this.props.column);
-        // }
-        // else
-        // {
-        //     this.props.replacenext(this.props.column);
-        // }
+        this.props.replaceall(this.state.findValue, this.state.replaceValue, this.props.column);
     },
     render: function () {
 
         var editBoxContainer = {
             position: "relative"
         };
-
-        var taptipX = 60;
-        var taptipY = 120;
-
-        var tooltipX = 20;
-        var tooltipY = 60;
 
         var inputStyle = {
             width: "100%",
@@ -111,19 +75,31 @@ var EditColumnButton = React.createClass({
         }
 
         var clearTooltip = {
-            content: "Clear Search"
+            content: "Clear Search",
+            x: 50,
+            y: 0
         }
 
-        var forwardTooltip = {
-            content: "Find Next"
+        var findTooltip = {
+            content: "Find Next",
+            x: 100,
+            y: 0
         }
 
         var replaceTooltip = {
-            content: "Replace Next"
+            content: "Replace",
+            x: 100,
+            y: 80
         }
 
         var replaceAllTooltip = {
-            content: "Replace All"
+            content: "Replace All",
+            x: 100,
+            y: 80
+        }
+
+        var buttonsStyle={
+            marginTop: "8px"
         }
 
         var editBox = (
@@ -133,42 +109,62 @@ var EditColumnButton = React.createClass({
                     tooltip={clearTooltip}
                     clickAction={this._onClearEdit}/>
                 <div>
-                    <div className="inlineBlock">
-                        Find in Column
-                    </div>
-                    <div className="inlineBlock" style={divWidth}>
-                        <input
-                            type="text"
-                            style={inputStyle}
-                            onChange={this._onFindBoxChange}
-                            value={ this.state.findValue }
-                        />
-                        <ControlButton 
-                            fontAwesomeIcon="step-forward"
-                            tooltip={forwardTooltip}
-                            clickAction={this._findNext}/>
-                    </div>
-                </div>
-                <div>
-                    <div className="inlineBlock">
-                        Replace With
-                    </div>
-                    <div className="inlineBlock" style={divWidth}>
-                        <input
-                            type="text"
-                            style={inputStyle}
-                            onChange={this._onReplaceBoxChange}
-                            value={ this.state.replaceValue }
-                        />
-                        <ControlButton 
-                            fontAwesomeIcon="pencil"
-                            tooltip={replaceTooltip}
-                            clickAction={this._replaceNext}/>
-                        <ControlButton 
-                            fontAwesomeIcon="edit"
-                            tooltip={replaceAllTooltip}
-                            clickAction={this._replaceAll}/>
-                    </div>
+                    <table>
+                        <tbody>
+                            <tr>
+                                <td colSpan="2">
+                                    Find in Column
+                                </td>
+                            </tr>
+                            <tr>
+                                <td width="70%">
+                                    <input
+                                        type="text"
+                                        style={inputStyle}
+                                        onChange={this._onFindBoxChange}
+                                        value={ this.state.findValue }
+                                    />
+                                </td>
+                                <td>
+                                    <div style={buttonsStyle}>
+                                        <ControlButton 
+                                            fontAwesomeIcon="step-forward"
+                                            tooltip={findTooltip}
+                                            clickAction={this._findNext}/>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colSpan="2">
+                                    Replace With
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <input
+                                        type="text"
+                                        style={inputStyle}
+                                        onChange={this._onReplaceBoxChange}
+                                        value={ this.state.replaceValue }
+                                    />
+                                </td>
+                                <td>
+                                    <div className="inlineBlock"
+                                            style={buttonsStyle}>
+                                        <ControlButton 
+                                            fontAwesomeIcon="pencil"
+                                            tooltip={replaceTooltip}
+                                            clickAction={this._replace}/>
+
+                                        <ControlButton 
+                                            fontAwesomeIcon="edit"
+                                            tooltip={replaceAllTooltip}
+                                            clickAction={this._replaceAll}/>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div> 
         );
@@ -176,25 +172,28 @@ var EditColumnButton = React.createClass({
         var editTaptip = { 
             "title": "Edit Column", 
             "content": editBox,
-            "xOffset": taptipX,
-            "yOffset": taptipY,
-            "styles": [{"key": "width", "value": "200px"}]
+            "x": 100,
+            "y": 24,
+            "styles": [{"key": "width", "value": "250px"}]
         };
         
         var editTooltip = {
             "content": this.props.tooltipMsg,
-            "xOffset": tooltipX,
-            "yOffset": tooltipY
+            "x": 160,
+            "y": 0
         };
 
         var columnIndex = this.props.column;
 
+        
+
         return (
-            <ControlButton 
+            <ControlButton
                 name={"editControlButton" + columnIndex}
-                taptip={editTaptip} 
+                taptip={editTaptip}
                 tooltip={editTooltip}
-                fontAwesomeIcon="pencil"/>
+                fontAwesomeIcon="pencil"
+                closeAction={this._onClearEdit}/>
         );
     },
 });

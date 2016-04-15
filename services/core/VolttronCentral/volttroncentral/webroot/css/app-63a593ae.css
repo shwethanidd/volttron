@@ -1940,3 +1940,7 @@ Interactive Layer
     margin: 15px 5px 15px 40px;
 }
 
+.focusedCell:focus {
+    border: 2px #9DDEF5 solid;
+}
+

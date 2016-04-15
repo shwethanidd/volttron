@@ -13,22 +13,48 @@ var ControlButton = React.createClass({
 		state.showTaptip = false;
 		state.showTooltip = false;
 		state.deactivateTooltip = false;
+
+        state.selected = (this.props.selected === true);
+
 		state.taptipX = 0;
 		state.taptipY = 0;
-		state.selected = (this.props.selected === true);
+        state.tooltipX = 0;
+        state.tooltipY = 0;
 
-		state.tooltipOffsetX = (this.props.hasOwnProperty("tooltip") ? 
-									(this.props.tooltip.hasOwnProperty("xOffset") ? 
-										this.props.tooltip.xOffset : 0) : 0);
-		state.tooltipOffsetY = (this.props.hasOwnProperty("tooltip") ? 
-									(this.props.tooltip.hasOwnProperty("yOffset") ? 
-										this.props.tooltip.yOffset : 0) : 0);
-		state.taptipOffsetX = (this.props.hasOwnProperty("taptip") ? 
-									(this.props.taptip.hasOwnProperty("xOffset") ? 
-										this.props.taptip.xOffset : 0) : 0);
-		state.taptipOffsetY = (this.props.hasOwnProperty("taptip") ? 
-									(this.props.taptip.hasOwnProperty("yOffset") ? 
-										this.props.taptip.yOffset : 0) : 0);
+        state.tooltipOffsetX = 0;
+        state.tooltipOffsetY = 0;
+        state.taptipOffsetX = 0;
+        state.taptipOffsetY = 0;
+
+        if (this.props.hasOwnProperty("tooltip"))
+        {
+            if (this.props.tooltip.hasOwnProperty("x"))
+                state.tooltipX = this.props.tooltip.x;
+
+            if (this.props.tooltip.hasOwnProperty("y"))
+                state.tooltipY = this.props.tooltip.y;
+            
+            if (this.props.tooltip.hasOwnProperty("xOffset"))
+                state.tooltipOffsetX = this.props.tooltip.xOffset;
+
+            if (this.props.tooltip.hasOwnProperty("yOffset"))
+                state.tooltipOffsetY = this.props.tooltip.yOffset;
+        }
+
+        if (this.props.hasOwnProperty("taptip"))
+        {
+            if (this.props.taptip.hasOwnProperty("x"))
+                state.taptipX = this.props.taptip.x;
+
+            if (this.props.taptip.hasOwnProperty("y"))
+                state.taptipY = this.props.taptip.y;
+            
+            if (this.props.taptip.hasOwnProperty("xOffset"))
+                state.taptipOffsetX = this.props.taptip.xOffset;
+
+            if (this.props.taptip.hasOwnProperty("yOffset"))
+                state.taptipOffsetY = this.props.taptip.yOffset;
+        }
 
 		return state;
 	},
@@ -65,16 +91,30 @@ var ControlButton = React.createClass({
 
 	    	if (showTaptip === true)
 	    	{
-	    		this.setState({ showTooltip: false });	
+	    		this.setState({ showTooltip: false });
 	    	}
+            else
+            {
+                if (typeof this.props.closeAction == 'function')
+                {
+                    this.props.closeAction();
+                }
+            }
 	    }
     },
 	_showTaptip: function (evt) {
 
 		if (!this.state.showTaptip)
 		{
-			this.setState({taptipX: evt.clientX - this.state.taptipOffsetX});
-			this.setState({taptipY: evt.clientY - this.state.taptipOffsetY});
+            if (!(this.props.taptip.hasOwnProperty("x") && this.props.taptip.hasOwnProperty("y")))
+            {
+                this.setState({taptipX: evt.clientX - this.state.taptipOffsetX});
+                this.setState({taptipY: evt.clientY - this.state.taptipOffsetY});    
+            }
+			
+            // console.log("clientX: " + evt.clientX + ", clientY: " + evt.clientY);
+            // console.log("taptipOffsetX: " + this.state.taptipOffsetX + ", taptipOffsetY: " + this.state.taptipOffsetY);
+            // console.log("left: " + (evt.clientX - this.state.taptipOffsetX) + ", top: " + (evt.clientY - this.state.taptipOffsetY));
 		}
 
 		controlButtonActionCreators.toggleTaptip(this.props.name);
@@ -87,8 +127,12 @@ var ControlButton = React.createClass({
 	},
     _showTooltip: function (evt) {
         this.setState({showTooltip: true});
-        this.setState({tooltipX: evt.clientX - this.state.tooltipOffsetX});
-        this.setState({tooltipY: evt.clientY - this.state.tooltipOffsetY});
+
+        if (!(this.props.tooltip.hasOwnProperty("x") && this.props.tooltip.hasOwnProperty("y")))
+        {
+            this.setState({tooltipX: evt.clientX - this.state.tooltipOffsetX});
+            this.setState({tooltipY: evt.clientY - this.state.tooltipOffsetY});
+        }
     },
     _hideTooltip: function () {
         this.setState({showTooltip: false});

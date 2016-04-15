@@ -1098,7 +1098,7 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
 
         state.selectedCells = [];
         state.selectedCellRow = null;
-        state.selectedColumn = null;
+        state.selectedCellColumn = null;
 
         this.scrollToBottom = false;
         this.resizeTable = false;
@@ -1396,7 +1396,7 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
             this.setState({ registryValues: registryValues.map(function (values, row) {
 
                     //searching i-th column in each row, and if the cell contains the target value, select it
-                    values[column].selected = (values[column].value.toUpperCase().indexOf(findValue.toUpperCase()) > -1);
+                    values[column].selected = (values[column].value.indexOf(findValue) > -1);
 
                     if (values[column].selected)
                     {
@@ -1410,10 +1410,10 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
             if (selectedCells.length > 0)
             {
                 this.setState({ selectedCells: selectedCells });
-                this.setState({ selectedColumn: column });
+                this.setState({ selectedCellColumn: column });
 
                 //set focus to the first selected cell
-                this.setState({ selectedCellRow: selectedCells[0]})
+                this.setState({ selectedCellRow: selectedCells[0]});
             }
         }
         else
@@ -1421,41 +1421,134 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
             //we've already found the selected cells, so we need to advance focus to the next one
             if (this.state.selectedCells.length > 1)
             {
-                var selectedCellRow;
+                var selectedCellRow = this._goToNext(this.state.selectedCellRow, this.state.selectedCells);
 
-                //this is the row with current focus
-                var rowIndex = this.state.selectedCells.indexOf(this.state.selectedCellRow);
-
-                //either set focus to the next one in the selected cells list
-                if (rowIndex < this.state.selectedCells.length - 1)
-                {
-                    selectedCellRow = this.state.selectedCells[++rowIndex];
-                }
-                else //or if we're at the end of the list, go back to the first one
-                {
-                    selectedCellRow = this.state.selectedCells[0];
-                }
-
-                this.setState({ selectedCellRow: selectedCellRow})
+                this.setState({ selectedCellRow: selectedCellRow});
             }
         }
     },
-    _onReplaceNext: function () {
+    _onReplace: function (findValue, replaceValue, column) {
 
-    },
-    _onReplaceAll: function () {
+        if (!this.state.selectedCellRow)
+        {
+            this._onFindNext(findValue, column);
+        }
+        else
+        {
+            var registryValues = this.state.registryValues.slice();
+            registryValues[this.state.selectedCellRow][column].value = registryValues[this.state.selectedCellRow][column].value.replace(findValue, replaceValue);        
 
+            //If the cell no longer has the target value, deselect it and move focus to the next selected cell
+            if (registryValues[this.state.selectedCellRow][column].value.indexOf(findValue) < 0)
+            {
+                registryValues[this.state.selectedCellRow][column].selected = false;
+
+                //see if there will even be another selected cell to move to
+                var selectedCells = this.state.selectedCells.slice();
+                var index = selectedCells.indexOf(this.state.selectedCellRow);
+
+                if (index > -1)
+                {
+                    selectedCells.splice(index, 1);
+                }
+
+                if (selectedCells.length > 0)
+                {
+                    var selectedCellRow = this._goToNext(this.state.selectedCellRow, this.state.selectedCells);
+                
+                    this.setState({ selectedCellRow: selectedCellRow});
+                    this.setState({ selectedCells: selectedCells });
+                }
+                else
+                {
+                    //there were no more selected cells, so clear everything out
+                    this.setState({ selectedCells: [] });
+                    this.setState({ selectedCellRow: null });
+                    this.setState({ selectedCellColumn: null });
+                }
+            }
+
+            this.setState({ registryValues: registryValues});
+        }
     },
-    _onClearFind: function (index) {
+    _onReplaceAll: function (findValue, replaceValue, column) {
+
+        if (!this.state.selectedCellRow)
+        {
+            this._onFindNext(findValue, column);
+        }
+        else
+        {
+            var registryValues = this.state.registryValues.slice();
+            var selectedCells = this.state.selectedCells.slice();
+            var selectedCellRow = this.state.selectedCellRow;
+
+            while (selectedCells.length > 0)
+            {
+                registryValues[selectedCellRow][column].value = registryValues[this.state.selectedCellRow][column].value.replace(findValue, replaceValue);        
+
+                if (registryValues[selectedCellRow][column].value.indexOf(findValue) < 0)
+                {
+                    registryValues[selectedCellRow][column].selected = false;
+
+                    var index = selectedCells.indexOf(selectedCellRow);
+
+                    if (index > -1)
+                    {
+                        selectedCells.splice(index, 1);
+                    }
+                    else
+                    {
+                        //something went wrong, so stop the while loop
+                        break;
+                    }
+
+                    if (selectedCells.length > 0)
+                    {
+                        selectedCellRow = this._goToNext(selectedCellRow, this.state.selectedCells);
+                    }
+                }
+            }
+
+            this.setState({ selectedCellRow: null});
+            this.setState({ selectedCells: [] });
+            this.setState({ selectedCellColumn: null });
+            this.setState({ registryValues: registryValues});
+        }
+    },
+    _onClearFind: function (column) {
+
         var registryValues = this.state.registryValues.slice();
 
-        this.setState({ registryValues: registryValues.map(function (values) {
-
-                values[index].selected = false;
-
-                return values;
-            })
+        this.state.selectedCells.map(function (row) {
+            registryValues[row][column].selected = false;
         });
+
+        this.setState({ registryValues: registryValues });
+        this.setState({ selectedCells: [] });
+        this.setState({ selectedCellRow: null });
+        this.setState({ selectedCellColumn: null });
+
+    },
+    _goToNext: function (selectedCellRow, selectedCells) {
+
+        //this is the row with current focus
+        var rowIndex = selectedCells.indexOf(selectedCellRow);
+
+        if (rowIndex > -1)
+        {
+            //either set focus to the next one in the selected cells list
+            if (rowIndex < selectedCells.length - 1)
+            {
+                selectedCellRow = selectedCells[++rowIndex];
+            }
+            else //or if we're at the end of the list, go back to the first one
+            {
+                selectedCellRow = selectedCells[0];
+            }
+        }
+
+        return selectedCellRow;
     },
     render: function () {        
         
@@ -1492,8 +1585,8 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
 
             var registryCells = attributesList.map(function (item, columnIndex) {
 
-                var selectedStyle = (item.selected ? {backgroundColor: "#CCCCCC"} : {});
-                var focusedCell = (this.state.selectedColumn === columnIndex && this.state.selectedCellRow === rowIndex ? "focusedCell" : "");
+                var selectedStyle = (item.selected ? {backgroundColor: "#F5B49D"} : {});
+                var focusedCell = (this.state.selectedCellColumn === columnIndex && this.state.selectedCellRow === rowIndex ? "focusedCell" : "");
 
                 var itemCell = (columnIndex === 0 && item.value !== "" ? 
                                     React.createElement("td", null,  item.value) : 
@@ -1555,7 +1648,7 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
                                 column: index, 
                                 tooltipMsg: "Edit Column", 
                                 findnext: this._onFindNext, 
-                                replacenext: this._onReplaceNext, 
+                                replace: this._onReplace, 
                                 replaceall: this._onReplaceAll, 
                                 onfilter: this._onFilterBoxChange, 
                                 onclear: this._onClearFind})
@@ -1720,22 +1813,48 @@ var ControlButton = React.createClass({displayName: "ControlButton",
 		state.showTaptip = false;
 		state.showTooltip = false;
 		state.deactivateTooltip = false;
+
+        state.selected = (this.props.selected === true);
+
 		state.taptipX = 0;
 		state.taptipY = 0;
-		state.selected = (this.props.selected === true);
+        state.tooltipX = 0;
+        state.tooltipY = 0;
 
-		state.tooltipOffsetX = (this.props.hasOwnProperty("tooltip") ? 
-									(this.props.tooltip.hasOwnProperty("xOffset") ? 
-										this.props.tooltip.xOffset : 0) : 0);
-		state.tooltipOffsetY = (this.props.hasOwnProperty("tooltip") ? 
-									(this.props.tooltip.hasOwnProperty("yOffset") ? 
-										this.props.tooltip.yOffset : 0) : 0);
-		state.taptipOffsetX = (this.props.hasOwnProperty("taptip") ? 
-									(this.props.taptip.hasOwnProperty("xOffset") ? 
-										this.props.taptip.xOffset : 0) : 0);
-		state.taptipOffsetY = (this.props.hasOwnProperty("taptip") ? 
-									(this.props.taptip.hasOwnProperty("yOffset") ? 
-										this.props.taptip.yOffset : 0) : 0);
+        state.tooltipOffsetX = 0;
+        state.tooltipOffsetY = 0;
+        state.taptipOffsetX = 0;
+        state.taptipOffsetY = 0;
+
+        if (this.props.hasOwnProperty("tooltip"))
+        {
+            if (this.props.tooltip.hasOwnProperty("x"))
+                state.tooltipX = this.props.tooltip.x;
+
+            if (this.props.tooltip.hasOwnProperty("y"))
+                state.tooltipY = this.props.tooltip.y;
+            
+            if (this.props.tooltip.hasOwnProperty("xOffset"))
+                state.tooltipOffsetX = this.props.tooltip.xOffset;
+
+            if (this.props.tooltip.hasOwnProperty("yOffset"))
+                state.tooltipOffsetY = this.props.tooltip.yOffset;
+        }
+
+        if (this.props.hasOwnProperty("taptip"))
+        {
+            if (this.props.taptip.hasOwnProperty("x"))
+                state.taptipX = this.props.taptip.x;
+
+            if (this.props.taptip.hasOwnProperty("y"))
+                state.taptipY = this.props.taptip.y;
+            
+            if (this.props.taptip.hasOwnProperty("xOffset"))
+                state.taptipOffsetX = this.props.taptip.xOffset;
+
+            if (this.props.taptip.hasOwnProperty("yOffset"))
+                state.taptipOffsetY = this.props.taptip.yOffset;
+        }
 
 		return state;
 	},
@@ -1772,16 +1891,30 @@ var ControlButton = React.createClass({displayName: "ControlButton",
 
 	    	if (showTaptip === true)
 	    	{
-	    		this.setState({ showTooltip: false });	
+	    		this.setState({ showTooltip: false });
 	    	}
+            else
+            {
+                if (typeof this.props.closeAction == 'function')
+                {
+                    this.props.closeAction();
+                }
+            }
 	    }
     },
 	_showTaptip: function (evt) {
 
 		if (!this.state.showTaptip)
 		{
-			this.setState({taptipX: evt.clientX - this.state.taptipOffsetX});
-			this.setState({taptipY: evt.clientY - this.state.taptipOffsetY});
+            if (!(this.props.taptip.hasOwnProperty("x") && this.props.taptip.hasOwnProperty("y")))
+            {
+                this.setState({taptipX: evt.clientX - this.state.taptipOffsetX});
+                this.setState({taptipY: evt.clientY - this.state.taptipOffsetY});    
+            }
+			
+            // console.log("clientX: " + evt.clientX + ", clientY: " + evt.clientY);
+            // console.log("taptipOffsetX: " + this.state.taptipOffsetX + ", taptipOffsetY: " + this.state.taptipOffsetY);
+            // console.log("left: " + (evt.clientX - this.state.taptipOffsetX) + ", top: " + (evt.clientY - this.state.taptipOffsetY));
 		}
 
 		controlButtonActionCreators.toggleTaptip(this.props.name);
@@ -1794,8 +1927,12 @@ var ControlButton = React.createClass({displayName: "ControlButton",
 	},
     _showTooltip: function (evt) {
         this.setState({showTooltip: true});
-        this.setState({tooltipX: evt.clientX - this.state.tooltipOffsetX});
-        this.setState({tooltipY: evt.clientY - this.state.tooltipOffsetY});
+
+        if (!(this.props.tooltip.hasOwnProperty("x") && this.props.tooltip.hasOwnProperty("y")))
+        {
+            this.setState({tooltipX: evt.clientX - this.state.tooltipOffsetX});
+            this.setState({tooltipY: evt.clientY - this.state.tooltipOffsetY});
+        }
     },
     _hideTooltip: function () {
         this.setState({showTooltip: false});
@@ -1942,28 +2079,12 @@ var EditColumnButton = React.createClass({displayName: "EditColumnButton",
 
         this.setState({ findValue: findValue });        
 
-        // if (filterValue !== "")
-        // {
-        //     this.props.onfilter(e.target.value);
-        // }
-        // else
-        // {
-        //     this.props.onclear();
-        // }
+        this.props.onclear(this.props.column);        
     },
     _onReplaceBoxChange: function (e) {
         var replaceValue = e.target.value;
 
         this.setState({ replaceValue: replaceValue });
-
-        // if (filterValue !== "")
-        // {
-        //     this.props.onfilter(e.target.value);
-        // }
-        // else
-        // {
-        //     this.props.onclear();
-        // }
     },
     _findNext: function () {
 
@@ -1977,43 +2098,23 @@ var EditColumnButton = React.createClass({displayName: "EditColumnButton",
         }
     },
     _onClearEdit: function (e) {
+
         this.props.onclear(this.props.column);
-
         this.setState({ findValue: "" });
-    },
-    _replaceNext: function () {
+        this.setState({ replaceValue: "" });
 
-        // if (this.state.findValue === "")
-        // {
-        //     this.props.onclear(this.props.column);
-        // }
-        // else
-        // {
-        //     this.props.replacenext(this.state.findValue, this.props.column);
-        // }
+    },
+    _replace: function () {        
+        this.props.replace(this.state.findValue, this.state.replaceValue, this.props.column);
     },
     _replaceAll: function () {
-
-        // if (this.state.findValue === "")
-        // {
-        //     this.props.onclear(this.props.column);
-        // }
-        // else
-        // {
-        //     this.props.replacenext(this.props.column);
-        // }
+        this.props.replaceall(this.state.findValue, this.state.replaceValue, this.props.column);
     },
     render: function () {
 
         var editBoxContainer = {
             position: "relative"
         };
-
-        var taptipX = 60;
-        var taptipY = 120;
-
-        var tooltipX = 20;
-        var tooltipY = 60;
 
         var inputStyle = {
             width: "100%",
@@ -2026,19 +2127,31 @@ var EditColumnButton = React.createClass({displayName: "EditColumnButton",
         }
 
         var clearTooltip = {
-            content: "Clear Search"
+            content: "Clear Search",
+            x: 50,
+            y: 0
         }
 
-        var forwardTooltip = {
-            content: "Find Next"
+        var findTooltip = {
+            content: "Find Next",
+            x: 100,
+            y: 0
         }
 
         var replaceTooltip = {
-            content: "Replace Next"
+            content: "Replace",
+            x: 100,
+            y: 80
         }
 
         var replaceAllTooltip = {
-            content: "Replace All"
+            content: "Replace All",
+            x: 100,
+            y: 80
+        }
+
+        var buttonsStyle={
+            marginTop: "8px"
         }
 
         var editBox = (
@@ -2048,41 +2161,61 @@ var EditColumnButton = React.createClass({displayName: "EditColumnButton",
                     tooltip: clearTooltip, 
                     clickAction: this._onClearEdit}), 
                 React.createElement("div", null, 
-                    React.createElement("div", {className: "inlineBlock"}, 
-                        "Find in Column"
-                    ), 
-                    React.createElement("div", {className: "inlineBlock", style: divWidth}, 
-                        React.createElement("input", {
-                            type: "text", 
-                            style: inputStyle, 
-                            onChange: this._onFindBoxChange, 
-                            value:  this.state.findValue}
-                        ), 
-                        React.createElement(ControlButton, {
-                            fontAwesomeIcon: "step-forward", 
-                            tooltip: forwardTooltip, 
-                            clickAction: this._findNext})
-                    )
-                ), 
-                React.createElement("div", null, 
-                    React.createElement("div", {className: "inlineBlock"}, 
-                        "Replace With"
-                    ), 
-                    React.createElement("div", {className: "inlineBlock", style: divWidth}, 
-                        React.createElement("input", {
-                            type: "text", 
-                            style: inputStyle, 
-                            onChange: this._onReplaceBoxChange, 
-                            value:  this.state.replaceValue}
-                        ), 
-                        React.createElement(ControlButton, {
-                            fontAwesomeIcon: "pencil", 
-                            tooltip: replaceTooltip, 
-                            clickAction: this._replaceNext}), 
-                        React.createElement(ControlButton, {
-                            fontAwesomeIcon: "edit", 
-                            tooltip: replaceAllTooltip, 
-                            clickAction: this._replaceAll})
+                    React.createElement("table", null, 
+                        React.createElement("tbody", null, 
+                            React.createElement("tr", null, 
+                                React.createElement("td", {colSpan: "2"}, 
+                                    "Find in Column"
+                                )
+                            ), 
+                            React.createElement("tr", null, 
+                                React.createElement("td", {width: "70%"}, 
+                                    React.createElement("input", {
+                                        type: "text", 
+                                        style: inputStyle, 
+                                        onChange: this._onFindBoxChange, 
+                                        value:  this.state.findValue}
+                                    )
+                                ), 
+                                React.createElement("td", null, 
+                                    React.createElement("div", {style: buttonsStyle}, 
+                                        React.createElement(ControlButton, {
+                                            fontAwesomeIcon: "step-forward", 
+                                            tooltip: findTooltip, 
+                                            clickAction: this._findNext})
+                                    )
+                                )
+                            ), 
+                            React.createElement("tr", null, 
+                                React.createElement("td", {colSpan: "2"}, 
+                                    "Replace With"
+                                )
+                            ), 
+                            React.createElement("tr", null, 
+                                React.createElement("td", null, 
+                                    React.createElement("input", {
+                                        type: "text", 
+                                        style: inputStyle, 
+                                        onChange: this._onReplaceBoxChange, 
+                                        value:  this.state.replaceValue}
+                                    )
+                                ), 
+                                React.createElement("td", null, 
+                                    React.createElement("div", {className: "inlineBlock", 
+                                            style: buttonsStyle}, 
+                                        React.createElement(ControlButton, {
+                                            fontAwesomeIcon: "pencil", 
+                                            tooltip: replaceTooltip, 
+                                            clickAction: this._replace}), 
+
+                                        React.createElement(ControlButton, {
+                                            fontAwesomeIcon: "edit", 
+                                            tooltip: replaceAllTooltip, 
+                                            clickAction: this._replaceAll})
+                                    )
+                                )
+                            )
+                        )
                     )
                 )
             ) 
@@ -2091,25 +2224,28 @@ var EditColumnButton = React.createClass({displayName: "EditColumnButton",
         var editTaptip = { 
             "title": "Edit Column", 
             "content": editBox,
-            "xOffset": taptipX,
-            "yOffset": taptipY,
-            "styles": [{"key": "width", "value": "200px"}]
+            "x": 100,
+            "y": 24,
+            "styles": [{"key": "width", "value": "250px"}]
         };
         
         var editTooltip = {
             "content": this.props.tooltipMsg,
-            "xOffset": tooltipX,
-            "yOffset": tooltipY
+            "x": 160,
+            "y": 0
         };
 
         var columnIndex = this.props.column;
+
+        
 
         return (
             React.createElement(ControlButton, {
                 name: "editControlButton" + columnIndex, 
                 taptip: editTaptip, 
                 tooltip: editTooltip, 
-                fontAwesomeIcon: "pencil"})
+                fontAwesomeIcon: "pencil", 
+                closeAction: this._onClearEdit})
         );
     },
 });

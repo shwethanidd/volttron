@@ -38,7 +38,7 @@ var ConfigureRegistry = React.createClass({
 
         state.selectedCells = [];
         state.selectedCellRow = null;
-        state.selectedColumn = null;
+        state.selectedCellColumn = null;
 
         this.scrollToBottom = false;
         this.resizeTable = false;
@@ -336,7 +336,7 @@ var ConfigureRegistry = React.createClass({
             this.setState({ registryValues: registryValues.map(function (values, row) {
 
                     //searching i-th column in each row, and if the cell contains the target value, select it
-                    values[column].selected = (values[column].value.toUpperCase().indexOf(findValue.toUpperCase()) > -1);
+                    values[column].selected = (values[column].value.indexOf(findValue) > -1);
 
                     if (values[column].selected)
                     {
@@ -350,10 +350,10 @@ var ConfigureRegistry = React.createClass({
             if (selectedCells.length > 0)
             {
                 this.setState({ selectedCells: selectedCells });
-                this.setState({ selectedColumn: column });
+                this.setState({ selectedCellColumn: column });
 
                 //set focus to the first selected cell
-                this.setState({ selectedCellRow: selectedCells[0]})
+                this.setState({ selectedCellRow: selectedCells[0]});
             }
         }
         else
@@ -361,41 +361,134 @@ var ConfigureRegistry = React.createClass({
             //we've already found the selected cells, so we need to advance focus to the next one
             if (this.state.selectedCells.length > 1)
             {
-                var selectedCellRow;
+                var selectedCellRow = this._goToNext(this.state.selectedCellRow, this.state.selectedCells);
 
-                //this is the row with current focus
-                var rowIndex = this.state.selectedCells.indexOf(this.state.selectedCellRow);
-
-                //either set focus to the next one in the selected cells list
-                if (rowIndex < this.state.selectedCells.length - 1)
-                {
-                    selectedCellRow = this.state.selectedCells[++rowIndex];
-                }
-                else //or if we're at the end of the list, go back to the first one
-                {
-                    selectedCellRow = this.state.selectedCells[0];
-                }
-
-                this.setState({ selectedCellRow: selectedCellRow})
+                this.setState({ selectedCellRow: selectedCellRow});
             }
         }
     },
-    _onReplaceNext: function () {
+    _onReplace: function (findValue, replaceValue, column) {
 
-    },
-    _onReplaceAll: function () {
+        if (!this.state.selectedCellRow)
+        {
+            this._onFindNext(findValue, column);
+        }
+        else
+        {
+            var registryValues = this.state.registryValues.slice();
+            registryValues[this.state.selectedCellRow][column].value = registryValues[this.state.selectedCellRow][column].value.replace(findValue, replaceValue);        
 
+            //If the cell no longer has the target value, deselect it and move focus to the next selected cell
+            if (registryValues[this.state.selectedCellRow][column].value.indexOf(findValue) < 0)
+            {
+                registryValues[this.state.selectedCellRow][column].selected = false;
+
+                //see if there will even be another selected cell to move to
+                var selectedCells = this.state.selectedCells.slice();
+                var index = selectedCells.indexOf(this.state.selectedCellRow);
+
+                if (index > -1)
+                {
+                    selectedCells.splice(index, 1);
+                }
+
+                if (selectedCells.length > 0)
+                {
+                    var selectedCellRow = this._goToNext(this.state.selectedCellRow, this.state.selectedCells);
+                
+                    this.setState({ selectedCellRow: selectedCellRow});
+                    this.setState({ selectedCells: selectedCells });
+                }
+                else
+                {
+                    //there were no more selected cells, so clear everything out
+                    this.setState({ selectedCells: [] });
+                    this.setState({ selectedCellRow: null });
+                    this.setState({ selectedCellColumn: null });
+                }
+            }
+
+            this.setState({ registryValues: registryValues});
+        }
     },
-    _onClearFind: function (index) {
+    _onReplaceAll: function (findValue, replaceValue, column) {
+
+        if (!this.state.selectedCellRow)
+        {
+            this._onFindNext(findValue, column);
+        }
+        else
+        {
+            var registryValues = this.state.registryValues.slice();
+            var selectedCells = this.state.selectedCells.slice();
+            var selectedCellRow = this.state.selectedCellRow;
+
+            while (selectedCells.length > 0)
+            {
+                registryValues[selectedCellRow][column].value = registryValues[this.state.selectedCellRow][column].value.replace(findValue, replaceValue);        
+
+                if (registryValues[selectedCellRow][column].value.indexOf(findValue) < 0)
+                {
+                    registryValues[selectedCellRow][column].selected = false;
+
+                    var index = selectedCells.indexOf(selectedCellRow);
+
+                    if (index > -1)
+                    {
+                        selectedCells.splice(index, 1);
+                    }
+                    else
+                    {
+                        //something went wrong, so stop the while loop
+                        break;
+                    }
+
+                    if (selectedCells.length > 0)
+                    {
+                        selectedCellRow = this._goToNext(selectedCellRow, this.state.selectedCells);
+                    }
+                }
+            }
+
+            this.setState({ selectedCellRow: null});
+            this.setState({ selectedCells: [] });
+            this.setState({ selectedCellColumn: null });
+            this.setState({ registryValues: registryValues});
+        }
+    },
+    _onClearFind: function (column) {
+
         var registryValues = this.state.registryValues.slice();
 
-        this.setState({ registryValues: registryValues.map(function (values) {
-
-                values[index].selected = false;
-
-                return values;
-            })
+        this.state.selectedCells.map(function (row) {
+            registryValues[row][column].selected = false;
         });
+
+        this.setState({ registryValues: registryValues });
+        this.setState({ selectedCells: [] });
+        this.setState({ selectedCellRow: null });
+        this.setState({ selectedCellColumn: null });
+
+    },
+    _goToNext: function (selectedCellRow, selectedCells) {
+
+        //this is the row with current focus
+        var rowIndex = selectedCells.indexOf(selectedCellRow);
+
+        if (rowIndex > -1)
+        {
+            //either set focus to the next one in the selected cells list
+            if (rowIndex < selectedCells.length - 1)
+            {
+                selectedCellRow = selectedCells[++rowIndex];
+            }
+            else //or if we're at the end of the list, go back to the first one
+            {
+                selectedCellRow = selectedCells[0];
+            }
+        }
+
+        return selectedCellRow;
     },
     render: function () {        
         
@@ -432,8 +525,8 @@ var ConfigureRegistry = React.createClass({
 
             var registryCells = attributesList.map(function (item, columnIndex) {
 
-                var selectedStyle = (item.selected ? {backgroundColor: "#CCCCCC"} : {});
-                var focusedCell = (this.state.selectedColumn === columnIndex && this.state.selectedCellRow === rowIndex ? "focusedCell" : "");
+                var selectedStyle = (item.selected ? {backgroundColor: "#F5B49D"} : {});
+                var focusedCell = (this.state.selectedCellColumn === columnIndex && this.state.selectedCellRow === rowIndex ? "focusedCell" : "");
 
                 var itemCell = (columnIndex === 0 && item.value !== "" ? 
                                     <td>{ item.value }</td> : 
@@ -495,7 +588,7 @@ var ConfigureRegistry = React.createClass({
                                 column={index} 
                                 tooltipMsg="Edit Column"
                                 findnext={this._onFindNext}
-                                replacenext={this._onReplaceNext}
+                                replace={this._onReplace}
                                 replaceall={this._onReplaceAll}
                                 onfilter={this._onFilterBoxChange} 
                                 onclear={this._onClearFind}/>
