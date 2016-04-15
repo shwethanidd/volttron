@@ -46,12 +46,6 @@ var FilterPointsButton = React.createClass({
             position: "relative"
         };
 
-        var taptipX = 60;
-        var taptipY = 120;
-
-        var tooltipX = 20;
-        var tooltipY = 60;
-
         var inputStyle = {
             width: "100%",
             marginLeft: "10px",
@@ -63,9 +57,11 @@ var FilterPointsButton = React.createClass({
         }
 
         var clearTooltip = {
-            content: "Clear Search"
+            content: "Clear Search",
+            "x": 80,
+            "y": 0
         }
-        
+
         var filterBox = (
             <div style={filterBoxContainer}>
                 <ControlButton 
@@ -91,8 +87,8 @@ var FilterPointsButton = React.createClass({
         var filterTaptip = { 
             "title": "Search Points", 
             "content": filterBox,
-            "xOffset": taptipX,
-            "yOffset": taptipY,
+            "xOffset": 60,
+            "yOffset": 120,
             "styles": [{"key": "width", "value": "200px"}]
         };
         
@@ -101,9 +97,9 @@ var FilterPointsButton = React.createClass({
         );
         
         var filterTooltip = {
-            "content": "Search",
-            "xOffset": tooltipX,
-            "yOffset": tooltipY
+            "content": "Search Points",
+            "x": 160,
+            "y": 0
         };
 
         var holdSelect = this.state.filterValue !== "";

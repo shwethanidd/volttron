@@ -1310,6 +1310,39 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
             this.setState({ registryValues: newRegistryValues });
         }
     },
+    _onCloneColumn: function (index) {
+
+        var registryHeader = this.state.registryHeader.slice();
+        var registryValues = this.state.registryValues.slice();
+        var columnNames = this.state.columnNames.slice();
+        
+        registryHeader.splice(index + 1, 0, registryHeader[index]);
+
+        this.setState({ registryHeader: registryHeader });
+
+        columnNames.splice(index + 1, 0, registryHeader[index]);
+
+        this.setState({ columnNames: columnNames });
+
+        var newRegistryValues = registryValues.map(function (values, row) {
+
+            var clonedValue = {};
+
+            for (var key in values[index])
+            {
+                clonedValue[key] = values[index][key];
+            }
+
+            values.splice(index + 1, 0, clonedValue);
+
+            return values;
+        });
+
+        this.resizeTable = true;
+
+        this.setState({ registryValues: newRegistryValues });
+
+    },
     _onRemoveColumn: function (column) {
 
         var promptText = ("Are you sure you want to delete the column, " + column + "?");
@@ -1373,15 +1406,12 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
             modalActionCreators.closeModal();
         }
     },
-    _updateCell: function (e) {
+    _updateCell: function (row, column, e) {
 
         var currentTarget = e.currentTarget;
         var newRegistryValues = this.state.registryValues.slice();
 
-        var rowIndex = currentTarget.dataset.rowIndex;
-        var columnIndex = currentTarget.dataset.columnIndex;
-
-        newRegistryValues[rowIndex][columnIndex].value = currentTarget.value;
+        newRegistryValues[row][column].value = currentTarget.value;
 
         this.setState({ registryValues: newRegistryValues });
     },
@@ -1559,7 +1589,9 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
                                 onclear: this._onClearFilter})
 
         var addPointTooltip = {
-            content: "Add New Point"
+            content: "Add New Point",
+            "x": 160,
+            "y": 0
         }
 
         var addPointButton = React.createElement(ControlButton, {
@@ -1570,7 +1602,9 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
 
 
         var removePointTooltip = {
-            content: "Remove Points"
+            content: "Remove Points",
+            "x": 160,
+            "y": 0
         }
 
         var removePointsButton = React.createElement(ControlButton, {
@@ -1591,14 +1625,15 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
                 var itemCell = (columnIndex === 0 && item.value !== "" ? 
                                     React.createElement("td", null,  item.value) : 
                                         React.createElement("td", null, React.createElement("input", {
+                                                id: this.state.registryValues[rowIndex][columnIndex].key + "-" + columnIndex + "-" + rowIndex, 
                                                 type: "text", 
                                                 className: focusedCell, 
                                                 style: selectedStyle, 
-                                                "data-row-index": rowIndex, 
-                                                "data-column-index": columnIndex, 
-                                                onChange: this._updateCell, 
+                                                onChange: this._updateCell.bind(this, rowIndex, columnIndex), 
                                                 value:  this.state.registryValues[rowIndex][columnIndex].value})
                                         ));
+
+                // console.log(itemCell);
 
                 return itemCell;
             }, this);
@@ -1622,8 +1657,22 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
 
         registryHeader = this.state.registryHeader.map(function (item, index) {
 
+            var cloneColumnTooltip = {
+                content: "Duplicate Column",
+                "x": 180,
+                "y": 0
+            }
+
+            var cloneColumnButton = React.createElement(ControlButton, {
+                                name: "clonePointColumn", 
+                                tooltip: cloneColumnTooltip, 
+                                fontAwesomeIcon: "clone", 
+                                clickAction: this._onCloneColumn.bind(this, index)})
+
             var addColumnTooltip = {
-                content: "Add New Column"
+                content: "Add New Column",
+                "x": 180,
+                "y": 0
             }
 
             var addColumnButton = React.createElement(ControlButton, {
@@ -1634,7 +1683,9 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
 
 
             var removeColumnTooltip = {
-                content: "Remove Column"
+                content: "Remove Column",
+                "x": 200,
+                "y": 0
             }
 
             var removeColumnButton = React.createElement(ControlButton, {
@@ -1663,6 +1714,7 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
                                     React.createElement("div", {className: "th-inner", style: wideCell}, 
                                          item, 
                                          editColumnButton, 
+                                         cloneColumnButton, 
                                          addColumnButton, 
                                          removeColumnButton 
                                     )
@@ -2309,12 +2361,6 @@ var FilterPointsButton = React.createClass({displayName: "FilterPointsButton",
             position: "relative"
         };
 
-        var taptipX = 60;
-        var taptipY = 120;
-
-        var tooltipX = 20;
-        var tooltipY = 60;
-
         var inputStyle = {
             width: "100%",
             marginLeft: "10px",
@@ -2326,9 +2372,11 @@ var FilterPointsButton = React.createClass({displayName: "FilterPointsButton",
         }
 
         var clearTooltip = {
-            content: "Clear Search"
+            content: "Clear Search",
+            "x": 80,
+            "y": 0
         }
-        
+
         var filterBox = (
             React.createElement("div", {style: filterBoxContainer}, 
                 React.createElement(ControlButton, {
@@ -2354,8 +2402,8 @@ var FilterPointsButton = React.createClass({displayName: "FilterPointsButton",
         var filterTaptip = { 
             "title": "Search Points", 
             "content": filterBox,
-            "xOffset": taptipX,
-            "yOffset": taptipY,
+            "xOffset": 60,
+            "yOffset": 120,
             "styles": [{"key": "width", "value": "200px"}]
         };
         
@@ -2364,9 +2412,9 @@ var FilterPointsButton = React.createClass({displayName: "FilterPointsButton",
         );
         
         var filterTooltip = {
-            "content": "Search",
-            "xOffset": tooltipX,
-            "yOffset": tooltipY
+            "content": "Search Points",
+            "x": 160,
+            "y": 0
         };
 
         var holdSelect = this.state.filterValue !== "";
@@ -4911,7 +4959,8 @@ devicesStore.getFilteredRegistryValues = function (device, filterStr) {
 }
 
 devicesStore.getRegistryValues = function (device) {
-    return _registryValues;
+    return _registryValues.slice();
+    
 };
 
 devicesStore.dispatchToken = dispatcher.register(function (action) {

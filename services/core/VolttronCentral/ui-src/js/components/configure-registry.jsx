@@ -250,6 +250,39 @@ var ConfigureRegistry = React.createClass({
             this.setState({ registryValues: newRegistryValues });
         }
     },
+    _onCloneColumn: function (index) {
+
+        var registryHeader = this.state.registryHeader.slice();
+        var registryValues = this.state.registryValues.slice();
+        var columnNames = this.state.columnNames.slice();
+        
+        registryHeader.splice(index + 1, 0, registryHeader[index]);
+
+        this.setState({ registryHeader: registryHeader });
+
+        columnNames.splice(index + 1, 0, registryHeader[index]);
+
+        this.setState({ columnNames: columnNames });
+
+        var newRegistryValues = registryValues.map(function (values, row) {
+
+            var clonedValue = {};
+
+            for (var key in values[index])
+            {
+                clonedValue[key] = values[index][key];
+            }
+
+            values.splice(index + 1, 0, clonedValue);
+
+            return values;
+        });
+
+        this.resizeTable = true;
+
+        this.setState({ registryValues: newRegistryValues });
+
+    },
     _onRemoveColumn: function (column) {
 
         var promptText = ("Are you sure you want to delete the column, " + column + "?");
@@ -313,15 +346,12 @@ var ConfigureRegistry = React.createClass({
             modalActionCreators.closeModal();
         }
     },
-    _updateCell: function (e) {
+    _updateCell: function (row, column, e) {
 
         var currentTarget = e.currentTarget;
         var newRegistryValues = this.state.registryValues.slice();
 
-        var rowIndex = currentTarget.dataset.rowIndex;
-        var columnIndex = currentTarget.dataset.columnIndex;
-
-        newRegistryValues[rowIndex][columnIndex].value = currentTarget.value;
+        newRegistryValues[row][column].value = currentTarget.value;
 
         this.setState({ registryValues: newRegistryValues });
     },
@@ -499,7 +529,9 @@ var ConfigureRegistry = React.createClass({
                                 onclear={this._onClearFilter}/>
 
         var addPointTooltip = {
-            content: "Add New Point"
+            content: "Add New Point",
+            "x": 160,
+            "y": 0
         }
 
         var addPointButton = <ControlButton 
@@ -510,7 +542,9 @@ var ConfigureRegistry = React.createClass({
 
 
         var removePointTooltip = {
-            content: "Remove Points"
+            content: "Remove Points",
+            "x": 160,
+            "y": 0
         }
 
         var removePointsButton = <ControlButton
@@ -531,14 +565,15 @@ var ConfigureRegistry = React.createClass({
                 var itemCell = (columnIndex === 0 && item.value !== "" ? 
                                     <td>{ item.value }</td> : 
                                         <td><input 
+                                                id={this.state.registryValues[rowIndex][columnIndex].key + "-" + columnIndex + "-" + rowIndex}
                                                 type="text"
                                                 className={focusedCell}
                                                 style={selectedStyle}
-                                                data-row-index={rowIndex}
-                                                data-column-index={columnIndex}
-                                                onChange={this._updateCell} 
+                                                onChange={this._updateCell.bind(this, rowIndex, columnIndex)} 
                                                 value={ this.state.registryValues[rowIndex][columnIndex].value }/>
                                         </td>);
+
+                // console.log(itemCell);
 
                 return itemCell;
             }, this);
@@ -562,8 +597,22 @@ var ConfigureRegistry = React.createClass({
 
         registryHeader = this.state.registryHeader.map(function (item, index) {
 
+            var cloneColumnTooltip = {
+                content: "Duplicate Column",
+                "x": 180,
+                "y": 0
+            }
+
+            var cloneColumnButton = <ControlButton 
+                                name="clonePointColumn" 
+                                tooltip={cloneColumnTooltip}
+                                fontAwesomeIcon="clone"
+                                clickAction={this._onCloneColumn.bind(this, index)}/>
+
             var addColumnTooltip = {
-                content: "Add New Column"
+                content: "Add New Column",
+                "x": 180,
+                "y": 0
             }
 
             var addColumnButton = <ControlButton 
@@ -574,7 +623,9 @@ var ConfigureRegistry = React.createClass({
 
 
             var removeColumnTooltip = {
-                content: "Remove Column"
+                content: "Remove Column",
+                "x": 200,
+                "y": 0
             }
 
             var removeColumnButton = <ControlButton 
@@ -603,6 +654,7 @@ var ConfigureRegistry = React.createClass({
                                     <div className="th-inner" style={wideCell}>
                                         { item }
                                         { editColumnButton }
+                                        { cloneColumnButton } 
                                         { addColumnButton } 
                                         { removeColumnButton }
                                     </div>

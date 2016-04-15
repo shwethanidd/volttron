@@ -220,7 +220,8 @@ devicesStore.getFilteredRegistryValues = function (device, filterStr) {
 }
 
 devicesStore.getRegistryValues = function (device) {
-    return _registryValues;
+    return _registryValues.slice();
+    
 };
 
 devicesStore.dispatchToken = dispatcher.register(function (action) {
