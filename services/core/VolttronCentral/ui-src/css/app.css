@@ -690,6 +690,10 @@ br + .form__control-help {
     content: "\f040";
 }
 
+.fa-cog:before {
+    content: "\f013";
+}
+
 /*.tooltip_show {
     display: "block";
 }

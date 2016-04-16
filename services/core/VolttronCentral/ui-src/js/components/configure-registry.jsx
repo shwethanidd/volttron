@@ -7,7 +7,7 @@ var devicesActionCreators = require('../action-creators/devices-action-creators'
 var devicesStore = require('../stores/devices-store');
 var FilterPointsButton = require('./control_buttons/filter-points-button');
 var ControlButton = require('./control-button');
-var EditColumnButton = require('./control_buttons/edit-columns-button');
+var CogButton = require('./control_buttons/cog-button');
 
 var ConfirmForm = require('./confirm-form');
 var modalActionCreators = require('../action-creators/modal-action-creators');
@@ -597,52 +597,17 @@ var ConfigureRegistry = React.createClass({
 
         registryHeader = this.state.registryHeader.map(function (item, index) {
 
-            var cloneColumnTooltip = {
-                content: "Duplicate Column",
-                "x": 180,
-                "y": 0
-            }
-
-            var cloneColumnButton = <ControlButton 
-                                name="clonePointColumn" 
-                                tooltip={cloneColumnTooltip}
-                                fontAwesomeIcon="clone"
-                                clickAction={this._onCloneColumn.bind(this, index)}/>
-
-            var addColumnTooltip = {
-                content: "Add New Column",
-                "x": 180,
-                "y": 0
-            }
-
-            var addColumnButton = <ControlButton 
-                                name="addPointColumn" 
-                                tooltip={addColumnTooltip}
-                                fontAwesomeIcon="plus"
-                                clickAction={this._onAddColumn.bind(this, item)}/>
-
-
-            var removeColumnTooltip = {
-                content: "Remove Column",
-                "x": 200,
-                "y": 0
-            }
-
-            var removeColumnButton = <ControlButton 
-                                name="removePointColumn" 
-                                fontAwesomeIcon="minus"
-                                tooltip={removeColumnTooltip}
-                                clickAction={this._onRemoveColumn.bind(this, item)}/> 
-
-            var editColumnButton = <EditColumnButton 
-                                name={"searchPointColumns" + index}
-                                column={index} 
-                                tooltipMsg="Edit Column"
-                                findnext={this._onFindNext}
-                                replace={this._onReplace}
-                                replaceall={this._onReplaceAll}
-                                onfilter={this._onFilterBoxChange} 
-                                onclear={this._onClearFind}/>
+            var cogButton = (<CogButton 
+                                onfindnext={this._onFindNext}
+                                onreplace={this._onReplace}
+                                onreplaceall={this._onReplaceAll}
+                                onclearfind={this._onClearFind}
+                                onfilterboxchange={this._onFilterBoxChange}
+                                onremove={this._onRemoveColumn}
+                                onadd={this._onAddColumn}
+                                onclone={this._onCloneColumn}
+                                column={index}
+                                item={item}/>);
 
             var headerCell = (index === 0 ?
                                 ( <th>
@@ -653,12 +618,9 @@ var ConfigureRegistry = React.createClass({
                                 ( <th>
                                     <div className="th-inner" style={wideCell}>
                                         { item }
-                                        { editColumnButton }
-                                        { cloneColumnButton } 
-                                        { addColumnButton } 
-                                        { removeColumnButton }
+                                        { cogButton }
                                     </div>
-                                </th> ) )
+                                </th> ) );
 
             return headerCell;
         }, this);        
