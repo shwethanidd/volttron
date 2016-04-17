@@ -89,6 +89,23 @@ controlButtonStore.dispatchToken = dispatcher.register(function (action) {
 
             break;
 
+        case ACTION_TYPES.SHOW_TAPTIP:             
+        
+            _controlButtons[action.name] = { "showTaptip": true };
+
+            //close other taptips    
+            for (var key in _controlButtons)
+            {
+                if (key !== action.name)
+                {
+                    _controlButtons[key].showTaptip = false;
+                }
+            }
+            
+            controlButtonStore.emitChange();
+
+            break;
+
         // case ACTION_TYPES.CLEAR_BUTTON:             
 
         //     if (!_clearButtons.hasOwnProperty(action.name))

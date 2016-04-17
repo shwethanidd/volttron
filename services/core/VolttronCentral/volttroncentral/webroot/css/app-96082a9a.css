@@ -1995,7 +1995,12 @@ Interactive Layer
     margin: 0px 1px;
     cursor: pointer;
     width: 15px;
-    height: 28px;
+    height: 18px;
     padding: 2px 2px;
     color: #878787;
+    transform: translateY(25%);
+}
+
+.edit_column_button {
+    visibility: hidden;
 }

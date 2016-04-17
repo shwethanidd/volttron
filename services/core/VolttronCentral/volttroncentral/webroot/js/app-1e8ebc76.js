@@ -123,6 +123,12 @@ var controlButtonActionCreators = {
 			name: name,
 		});
 	},
+	showTaptip: function (name) {
+		dispatcher.dispatch({
+			type: ACTION_TYPES.SHOW_TAPTIP,
+			name: name,
+		});
+	},
 	clearButton: function (name) {
 		dispatcher.dispatch({
 			type: ACTION_TYPES.CLEAR_BUTTON,
@@ -1068,6 +1074,7 @@ var devicesStore = require('../stores/devices-store');
 var FilterPointsButton = require('./control_buttons/filter-points-button');
 var ControlButton = require('./control-button');
 var CogButton = require('./control_buttons/cog-select-button');
+var EditColumnButton = require('./control_buttons/edit-columns-button');
 
 var ConfirmForm = require('./confirm-form');
 var modalActionCreators = require('../action-creators/modal-action-creators');
@@ -1658,16 +1665,20 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
         registryHeader = this.state.registryHeader.map(function (item, index) {
 
             var cogButton = (React.createElement(CogButton, {
-                                onfindnext: this._onFindNext, 
-                                onreplace: this._onReplace, 
-                                onreplaceall: this._onReplaceAll, 
-                                onclearfind: this._onClearFind, 
-                                onfilterboxchange: this._onFilterBoxChange, 
                                 onremove: this._onRemoveColumn, 
                                 onadd: this._onAddColumn, 
                                 onclone: this._onCloneColumn, 
                                 column: index, 
                                 item: item}));
+
+            var editColumnButton = React.createElement(EditColumnButton, {
+                            column: index, 
+                            tooltipMsg: "Edit Column", 
+                            findnext: this._onFindNext, 
+                            replace: this._onReplace, 
+                            replaceall: this._onReplaceAll, 
+                            onfilter: this._onFilterBoxChange, 
+                            onclear: this._onClearFind})
 
             var headerCell = (index === 0 ?
                                 ( React.createElement("th", null, 
@@ -1678,7 +1689,8 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
                                 ( React.createElement("th", null, 
                                     React.createElement("div", {className: "th-inner", style: wideCell}, 
                                          item, 
-                                         cogButton 
+                                         cogButton, 
+                                         editColumnButton 
                                     )
                                 ) ) );
 
@@ -1741,7 +1753,7 @@ function getRegistryHeader(registryItem) {
 module.exports = ConfigureRegistry;
 
 
-},{"../action-creators/devices-action-creators":4,"../action-creators/modal-action-creators":5,"../stores/devices-store":49,"./confirm-form":13,"./control-button":15,"./control_buttons/cog-select-button":16,"./control_buttons/filter-points-button":18,"react":undefined,"react-router":undefined}],13:[function(require,module,exports){
+},{"../action-creators/devices-action-creators":4,"../action-creators/modal-action-creators":5,"../stores/devices-store":49,"./confirm-form":13,"./control-button":15,"./control_buttons/cog-select-button":16,"./control_buttons/edit-columns-button":17,"./control_buttons/filter-points-button":18,"react":undefined,"react-router":undefined}],13:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2085,17 +2097,10 @@ var React = require('react');
 
 var ControlButton = require('../control-button');
 var EditColumnButton = require('./edit-columns-button');
+var controlButtonActionCreators = require('../../action-creators/control-button-action-creators');
 // var controlButtonStore = require('../../stores/control-button-store');
 
 var CogButton = React.createClass({displayName: "CogButton",
-    getInitialState: function () {
-        
-        var state = {};
-
-        state.selectedOption = "";
-
-        return state;
-    },
     componentDidMount: function () {
         // this.opSelector = document.getElementsByClassName("opSelector")[0];
         // this.opSelector.selectedIndex = -1;
@@ -2107,32 +2112,19 @@ var CogButton = React.createClass({displayName: "CogButton",
     },
     _onCloneColumn: function () {
         this.props.onclone(this.props.column);
+        controlButtonActionCreators.hideTaptip("cogControlButton" + this.props.column);
     },
     _onAddColumn: function () {
         this.props.onadd(this.props.item);
+        controlButtonActionCreators.hideTaptip("cogControlButton" + this.props.column);
     },
     _onRemoveColumn: function () {
         this.props.onremove(this.props.item);
+        controlButtonActionCreators.hideTaptip("cogControlButton" + this.props.column);
     },
-    _updateSelect: function (evt) {
-
-        var operation = evt.target.value;
-
-        switch (operation)
-        {
-            case "edit":
-                break;
-            case "clone":
-                this.props.onclone(this.props.column);
-                break;
-            case "add":
-                this.props.onadd(this.props.item);
-                break;
-            case "remove":
-                this.props.onremove(this.props.item);
-                break;
-        }
-        this.setState({ selectedOption: evt.target.value });
+    _onEditColumn: function () {
+        controlButtonActionCreators.hideTaptip("cogControlButton" + this.props.column);
+        controlButtonActionCreators.showTaptip("editControlButton" + this.props.column);
     },
     render: function () {
 
@@ -2140,67 +2132,13 @@ var CogButton = React.createClass({displayName: "CogButton",
             position: "relative"
         };
 
-        var clearTooltip = {
-            content: "Clear Search",
-            x: 50,
-            y: 0
-        }
-
-        var cloneColumnTooltip = {
-            content: "Duplicate Column",
-            "x": 180,
-            "y": 0
-        }
-
-        var cloneColumnButton = React.createElement(ControlButton, {
-                            name: "clonePointColumn", 
-                            tooltip: cloneColumnTooltip, 
-                            fontAwesomeIcon: "clone", 
-                            clickAction: this._onCloneColumn.bind(this, this.props.column)})
-
-        var addColumnTooltip = {
-            content: "Add New Column",
-            "x": 180,
-            "y": 0
-        }
-
-        var addColumnButton = React.createElement(ControlButton, {
-                            name: "addPointColumn", 
-                            tooltip: addColumnTooltip, 
-                            fontAwesomeIcon: "plus", 
-                            clickAction: this._onAddColumn.bind(this, this.props.item)})
-
-
-        var removeColumnTooltip = {
-            content: "Remove Column",
-            "x": 200,
-            "y": 0
-        }
-
-        var removeColumnButton = React.createElement(ControlButton, {
-                            name: "removePointColumn", 
-                            fontAwesomeIcon: "minus", 
-                            tooltip: removeColumnTooltip, 
-                            clickAction: this._onRemoveColumn.bind(this, this.props.item)}) 
-
-        var editColumnButton = React.createElement(EditColumnButton, {
-                            name: "searchPointColumns" + this.props.column, 
-                            column: this.props.column, 
-                            tooltipMsg: "Edit Column", 
-                            findnext: this.props.onfindnext, 
-                            replace: this.props.onreplace, 
-                            replaceall: this.props.onreplaceall, 
-                            onfilter: this.props.onfilterboxchange, 
-                            onclear: this.props.onclearfind})
-        
-
         var cogBox = (
             React.createElement("div", {style: cogBoxContainer}, 
                 React.createElement("ul", {
                     className: "opList"}, 
                     React.createElement("li", {
                         className: "opListItem edit", 
-                        onClick: this._onRemoveColumn}, "Edit"), 
+                        onClick: this._onEditColumn}, "Edit"), 
                     React.createElement("li", {
                         className: "opListItem clone", 
                         onClick: this._onCloneColumn}, "Duplicate"), 
@@ -2241,31 +2179,19 @@ var CogButton = React.createClass({displayName: "CogButton",
 module.exports = CogButton;
 
 
-},{"../control-button":15,"./edit-columns-button":17,"react":undefined}],17:[function(require,module,exports){
+},{"../../action-creators/control-button-action-creators":3,"../control-button":15,"./edit-columns-button":17,"react":undefined}],17:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
 
 var ControlButton = require('../control-button');
+var controlButtonActionCreators = require('../../action-creators/control-button-action-creators');
 // var controlButtonStore = require('../../stores/control-button-store');
 
 var EditColumnButton = React.createClass({displayName: "EditColumnButton",
     getInitialState: function () {
         return getStateFromStores();
     },
-    // componentDidMount: function () {
-    //     controlButtonStore.addChangeListener(this._onStoresChange);
-    // },
-    // componentWillUnmount: function () {
-    //     controlButtonStore.removeChangeListener(this._onStoresChange);
-    // },
-    // _onStoresChange: function () {
-
-    //     if (controlButtonStore.getClearButton(this.props.name))
-    //     {
-    //         this.setState({ filterValue: "" });
-    //     }
-    // },
     _onFindBoxChange: function (e) {
         var findValue = e.target.value;
 
@@ -2294,6 +2220,7 @@ var EditColumnButton = React.createClass({displayName: "EditColumnButton",
         this.props.onclear(this.props.column);
         this.setState({ findValue: "" });
         this.setState({ replaceValue: "" });
+        controlButtonActionCreators.hideTaptip("editControlButton" + this.props.column);
 
     },
     _replace: function () {        
@@ -2437,7 +2364,7 @@ var EditColumnButton = React.createClass({displayName: "EditColumnButton",
                 taptip: editTaptip, 
                 tooltip: editTooltip, 
                 fontAwesomeIcon: "pencil", 
-                closeAction: this._onClearEdit})
+                controlclass: "edit_column_button"})
         );
     },
 });
@@ -2452,7 +2379,7 @@ function getStateFromStores() {
 module.exports = EditColumnButton;
 
 
-},{"../control-button":15,"react":undefined}],18:[function(require,module,exports){
+},{"../../action-creators/control-button-action-creators":3,"../control-button":15,"react":undefined}],18:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -4408,6 +4335,7 @@ module.exports = keyMirror({
 
     TOGGLE_TAPTIP: null,
     HIDE_TAPTIP: null,
+    SHOW_TAPTIP: null,
     CLEAR_BUTTON: null,
 });
 
@@ -4845,6 +4773,23 @@ controlButtonStore.dispatchToken = dispatcher.register(function (action) {
                 }
             }
 
+            controlButtonStore.emitChange();
+
+            break;
+
+        case ACTION_TYPES.SHOW_TAPTIP:             
+        
+            _controlButtons[action.name] = { "showTaptip": true };
+
+            //close other taptips    
+            for (var key in _controlButtons)
+            {
+                if (key !== action.name)
+                {
+                    _controlButtons[key].showTaptip = false;
+                }
+            }
+            
             controlButtonStore.emitChange();
 
             break;

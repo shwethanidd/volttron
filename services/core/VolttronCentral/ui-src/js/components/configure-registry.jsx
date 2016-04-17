@@ -8,6 +8,7 @@ var devicesStore = require('../stores/devices-store');
 var FilterPointsButton = require('./control_buttons/filter-points-button');
 var ControlButton = require('./control-button');
 var CogButton = require('./control_buttons/cog-select-button');
+var EditColumnButton = require('./control_buttons/edit-columns-button');
 
 var ConfirmForm = require('./confirm-form');
 var modalActionCreators = require('../action-creators/modal-action-creators');
@@ -598,16 +599,20 @@ var ConfigureRegistry = React.createClass({
         registryHeader = this.state.registryHeader.map(function (item, index) {
 
             var cogButton = (<CogButton 
-                                onfindnext={this._onFindNext}
-                                onreplace={this._onReplace}
-                                onreplaceall={this._onReplaceAll}
-                                onclearfind={this._onClearFind}
-                                onfilterboxchange={this._onFilterBoxChange}
                                 onremove={this._onRemoveColumn}
                                 onadd={this._onAddColumn}
                                 onclone={this._onCloneColumn}
                                 column={index}
                                 item={item}/>);
+
+            var editColumnButton = <EditColumnButton 
+                            column={index} 
+                            tooltipMsg="Edit Column"
+                            findnext={this._onFindNext}
+                            replace={this._onReplace}
+                            replaceall={this._onReplaceAll}
+                            onfilter={this._onFilterBoxChange} 
+                            onclear={this._onClearFind}/>
 
             var headerCell = (index === 0 ?
                                 ( <th>
@@ -619,6 +624,7 @@ var ConfigureRegistry = React.createClass({
                                     <div className="th-inner" style={wideCell}>
                                         { item }
                                         { cogButton }
+                                        { editColumnButton }
                                     </div>
                                 </th> ) );
 

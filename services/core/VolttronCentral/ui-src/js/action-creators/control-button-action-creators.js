@@ -16,6 +16,12 @@ var controlButtonActionCreators = {
 			name: name,
 		});
 	},
+	showTaptip: function (name) {
+		dispatcher.dispatch({
+			type: ACTION_TYPES.SHOW_TAPTIP,
+			name: name,
+		});
+	},
 	clearButton: function (name) {
 		dispatcher.dispatch({
 			type: ACTION_TYPES.CLEAR_BUTTON,

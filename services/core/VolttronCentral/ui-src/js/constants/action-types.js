@@ -36,5 +36,6 @@ module.exports = keyMirror({
 
     TOGGLE_TAPTIP: null,
     HIDE_TAPTIP: null,
+    SHOW_TAPTIP: null,
     CLEAR_BUTTON: null,
 });

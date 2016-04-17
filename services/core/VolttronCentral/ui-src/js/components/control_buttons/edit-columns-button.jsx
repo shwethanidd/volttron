@@ -3,25 +3,13 @@
 var React = require('react');
 
 var ControlButton = require('../control-button');
+var controlButtonActionCreators = require('../../action-creators/control-button-action-creators');
 // var controlButtonStore = require('../../stores/control-button-store');
 
 var EditColumnButton = React.createClass({
     getInitialState: function () {
         return getStateFromStores();
     },
-    // componentDidMount: function () {
-    //     controlButtonStore.addChangeListener(this._onStoresChange);
-    // },
-    // componentWillUnmount: function () {
-    //     controlButtonStore.removeChangeListener(this._onStoresChange);
-    // },
-    // _onStoresChange: function () {
-
-    //     if (controlButtonStore.getClearButton(this.props.name))
-    //     {
-    //         this.setState({ filterValue: "" });
-    //     }
-    // },
     _onFindBoxChange: function (e) {
         var findValue = e.target.value;
 
@@ -50,6 +38,7 @@ var EditColumnButton = React.createClass({
         this.props.onclear(this.props.column);
         this.setState({ findValue: "" });
         this.setState({ replaceValue: "" });
+        controlButtonActionCreators.hideTaptip("editControlButton" + this.props.column);
 
     },
     _replace: function () {        
@@ -193,7 +182,7 @@ var EditColumnButton = React.createClass({
                 taptip={editTaptip}
                 tooltip={editTooltip}
                 fontAwesomeIcon="pencil"
-                closeAction={this._onClearEdit}/>
+                controlclass="edit_column_button"/>
         );
     },
 });
