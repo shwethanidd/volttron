@@ -1067,7 +1067,7 @@ var devicesActionCreators = require('../action-creators/devices-action-creators'
 var devicesStore = require('../stores/devices-store');
 var FilterPointsButton = require('./control_buttons/filter-points-button');
 var ControlButton = require('./control-button');
-var CogButton = require('./control_buttons/cog-button');
+var CogButton = require('./control_buttons/cog-select-button');
 
 var ConfirmForm = require('./confirm-form');
 var modalActionCreators = require('../action-creators/modal-action-creators');
@@ -1741,7 +1741,7 @@ function getRegistryHeader(registryItem) {
 module.exports = ConfigureRegistry;
 
 
-},{"../action-creators/devices-action-creators":4,"../action-creators/modal-action-creators":5,"../stores/devices-store":49,"./confirm-form":13,"./control-button":15,"./control_buttons/cog-button":16,"./control_buttons/filter-points-button":18,"react":undefined,"react-router":undefined}],13:[function(require,module,exports){
+},{"../action-creators/devices-action-creators":4,"../action-creators/modal-action-creators":5,"../stores/devices-store":49,"./confirm-form":13,"./control-button":15,"./control_buttons/cog-select-button":16,"./control_buttons/filter-points-button":18,"react":undefined,"react-router":undefined}],13:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2017,13 +2017,26 @@ var ControlButton = React.createClass({displayName: "ControlButton",
 
 		    var tapTipClasses = "taptip_outer";
 
+            var taptipBreak = (this.props.taptip.hasOwnProperty("break") ? this.props.taptip.break : React.createElement("br", null));
+            var taptipTitle = (this.props.taptip.hasOwnProperty("title") ? (React.createElement("h4", null, this.props.taptip.title)) : "");
+
+            var innerStyle = {};
+
+            if (this.props.taptip.hasOwnProperty("padding"))
+            {
+                innerStyle = {
+                    padding: this.props.taptip.padding
+                }
+            } 
+
 		    taptip = (
 		    	React.createElement("div", {className: tapTipClasses, 
 	                style: taptipStyle}, 
-	                React.createElement("div", {className: "taptip_inner"}, 
+	                React.createElement("div", {className: "taptip_inner", 
+                        style: innerStyle}, 
 	                    React.createElement("div", {className: "opaque_inner"}, 
-	                        React.createElement("h4", null, this.props.taptip.title), 
-	                        React.createElement("br", null), 
+	                        taptipTitle, 
+	                        taptipBreak, 
 	                        this.props.taptip.content
 	                    )
 	                )
@@ -2037,11 +2050,13 @@ var ControlButton = React.createClass({displayName: "ControlButton",
         	clickAction = this.props.clickAction;
         }
 
+        var controlButtonClass = (this.props.controlclass ? this.props.controlclass : "control_button");
+
         return (
             React.createElement("div", {className: "inlineBlock"}, 
             	taptip, 
             	tooltip, 
-                React.createElement("div", {className: "control_button", 
+                React.createElement("div", {className: controlButtonClass, 
                     onClick: clickAction, 
                     onMouseEnter: tooltipShow, 
                     onMouseLeave: tooltipHide, 
@@ -2073,17 +2088,51 @@ var EditColumnButton = require('./edit-columns-button');
 // var controlButtonStore = require('../../stores/control-button-store');
 
 var CogButton = React.createClass({displayName: "CogButton",
+    getInitialState: function () {
+        
+        var state = {};
+
+        state.selectedOption = "";
+
+        return state;
+    },
+    componentDidMount: function () {
+        // this.opSelector = document.getElementsByClassName("opSelector")[0];
+        // this.opSelector.selectedIndex = -1;
+    },
+    componentDidUpdate: function () {
+    },
     _onClose: function () {
 
     },
-    _onCloneColumn: function (column) {
-        this.props.onclone(column);
+    _onCloneColumn: function () {
+        this.props.onclone(this.props.column);
     },
-    _onAddColumn: function (item) {
-        this.props.onadd(item);
+    _onAddColumn: function () {
+        this.props.onadd(this.props.item);
     },
-    _onRemoveColumn: function (item) {
-        this.props.onremove(item);
+    _onRemoveColumn: function () {
+        this.props.onremove(this.props.item);
+    },
+    _updateSelect: function (evt) {
+
+        var operation = evt.target.value;
+
+        switch (operation)
+        {
+            case "edit":
+                break;
+            case "clone":
+                this.props.onclone(this.props.column);
+                break;
+            case "add":
+                this.props.onadd(this.props.item);
+                break;
+            case "remove":
+                this.props.onremove(this.props.item);
+                break;
+        }
+        this.setState({ selectedOption: evt.target.value });
     },
     render: function () {
 
@@ -2147,34 +2196,42 @@ var CogButton = React.createClass({displayName: "CogButton",
 
         var cogBox = (
             React.createElement("div", {style: cogBoxContainer}, 
-                 editColumnButton, 
-                 cloneColumnButton, 
-                 addColumnButton, 
-                 removeColumnButton 
+                React.createElement("ul", {
+                    className: "opList"}, 
+                    React.createElement("li", {
+                        className: "opListItem edit", 
+                        onClick: this._onRemoveColumn}, "Edit"), 
+                    React.createElement("li", {
+                        className: "opListItem clone", 
+                        onClick: this._onCloneColumn}, "Duplicate"), 
+                    React.createElement("li", {
+                        className: "opListItem add", 
+                        onClick: this._onAddColumn}, "Add"), 
+                    React.createElement("li", {
+                        className: "opListItem remove", 
+                        onClick: this._onRemoveColumn}, "Remove")
+                )
             ) 
         );
 
         var cogTaptip = { 
-            "title": "Column Operations", 
             "content": cogBox,
             "x": 100,
             "y": 24,
-            "styles": [{"key": "width", "value": "250px"}]
-        };
-        
-        var cogTooltip = {
-            "content": "Column Operations",
-            "x": 160,
-            "y": 0
+            "styles": [{"key": "width", "value": "100px"}],
+            "break": "",
+            "padding": "0px"
         };
 
         var columnIndex = this.props.column;
+
+        var cogIcon = (React.createElement("i", {className: "fa fa-cog "}));
 
         return (
             React.createElement(ControlButton, {
                 name: "cogControlButton" + columnIndex, 
                 taptip: cogTaptip, 
-                tooltip: cogTooltip, 
+                controlclass: "cog_button", 
                 fontAwesomeIcon: "cog", 
                 closeAction: this._onClose})
         );
@@ -2494,19 +2551,12 @@ var FilterPointsButton = React.createClass({displayName: "FilterPointsButton",
             React.createElement("i", {className: "fa fa-search"})
         );
         
-        var filterTooltip = {
-            "content": "Search Points",
-            "x": 160,
-            "y": 0
-        };
-
         var holdSelect = this.state.filterValue !== "";
 
         return (
             React.createElement(ControlButton, {
                 name: "filterControlButton", 
                 taptip: filterTaptip, 
-                tooltip: filterTooltip, 
                 staySelected: holdSelect, 
                 icon: filterIcon})
         );

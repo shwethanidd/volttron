@@ -96,19 +96,12 @@ var FilterPointsButton = React.createClass({
             <i className="fa fa-search"></i>
         );
         
-        var filterTooltip = {
-            "content": "Search Points",
-            "x": 160,
-            "y": 0
-        };
-
         var holdSelect = this.state.filterValue !== "";
 
         return (
             <ControlButton 
                 name={"filterControlButton"}
                 taptip={filterTaptip} 
-                tooltip={filterTooltip}
                 staySelected={holdSelect}
                 icon={filterIcon}></ControlButton>
         );

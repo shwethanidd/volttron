@@ -7,7 +7,7 @@ var devicesActionCreators = require('../action-creators/devices-action-creators'
 var devicesStore = require('../stores/devices-store');
 var FilterPointsButton = require('./control_buttons/filter-points-button');
 var ControlButton = require('./control-button');
-var CogButton = require('./control_buttons/cog-button');
+var CogButton = require('./control_buttons/cog-select-button');
 
 var ConfirmForm = require('./confirm-form');
 var modalActionCreators = require('../action-creators/modal-action-creators');

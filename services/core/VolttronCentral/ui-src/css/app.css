@@ -1948,3 +1948,54 @@ Interactive Layer
     border: 2px #9DDEF5 solid;
 }
 
+.opSelector { 
+    padding: 10px; 
+    margin:-5px -20px -5px -5px; 
+}
+
+.opList { 
+    width: 100%; 
+    list-style-type: none;
+    padding-left: 0px;
+    margin: 0px;
+    overflow: hidden;
+    line-height: 20px;
+}
+
+.opListItem {
+    height: 18px;
+    width: 100%;
+    font-weight: normal;
+    padding-left: 10px; 
+    box-sizing: border-box;  
+    cursor: pointer; 
+}
+
+.opListItem.remove {
+    border-bottom: none;
+    border-bottom-right-radius: 5px;
+    border-bottom-left-radius: 5px;
+}
+
+.opListItem.edit { 
+    border-top-right-radius: 5px;
+    border-top-left-radius: 5px;
+}
+
+.opListItem.add, .clone, .edit {
+    border-bottom: 1px black solid;
+}
+
+.opListItem:hover { 
+     background-color: aquamarine; 
+}
+
+.cog_button {
+    display: inline-block;
+    margin: 0px 1px;
+    cursor: pointer;
+    width: 15px;
+    height: 28px;
+    padding: 2px 2px;
+    color: #878787;
+}

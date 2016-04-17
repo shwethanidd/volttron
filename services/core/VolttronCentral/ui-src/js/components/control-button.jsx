@@ -203,13 +203,26 @@ var ControlButton = React.createClass({
 
 		    var tapTipClasses = "taptip_outer";
 
+            var taptipBreak = (this.props.taptip.hasOwnProperty("break") ? this.props.taptip.break : <br/>);
+            var taptipTitle = (this.props.taptip.hasOwnProperty("title") ? (<h4>{this.props.taptip.title}</h4>) : "");
+
+            var innerStyle = {};
+
+            if (this.props.taptip.hasOwnProperty("padding"))
+            {
+                innerStyle = {
+                    padding: this.props.taptip.padding
+                }
+            } 
+
 		    taptip = (
 		    	<div className={tapTipClasses}
 	                style={taptipStyle}>
-	                <div className="taptip_inner">
+	                <div className="taptip_inner"
+                        style={innerStyle}>
 	                    <div className="opaque_inner">
-	                        <h4>{this.props.taptip.title}</h4>
-	                        <br/>
+	                        {taptipTitle}
+	                        {taptipBreak}
 	                        {this.props.taptip.content}
 	                    </div>
 	                </div>
@@ -223,11 +236,13 @@ var ControlButton = React.createClass({
         	clickAction = this.props.clickAction;
         }
 
+        var controlButtonClass = (this.props.controlclass ? this.props.controlclass : "control_button");
+
         return (
             <div className="inlineBlock">
             	{taptip}
             	{tooltip}
-                <div className="control_button"
+                <div className={controlButtonClass}
                     onClick={clickAction}                  
                     onMouseEnter={tooltipShow}
                     onMouseLeave={tooltipHide}
