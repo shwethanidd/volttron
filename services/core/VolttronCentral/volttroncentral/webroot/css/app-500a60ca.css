@@ -2117,9 +2117,8 @@ td.plain {
 }
 
 .uneditableAttributes {
-    padding: 20px 100px 0px 200px;
+    padding: 20px 140px 0px 140px;
     margin-top: 20px;
-    margin-left: 40px;
 }
 
 .uneditableAttributes > table > tbody > tr > td {
@@ -2160,4 +2159,30 @@ td.plain {
 td.buffer_row {
     height: 80px;
     vertical-align: top;
+}
+
+.uploadButton {
+    position: absolute;
+    opacity: 0;
+    -moz-opactiy: 0;
+    top: 0;
+    right: 0;
+    z-index: 99;
+    cursor: pointer;
+}
+
+.buttonWrapper {
+    position: relative;
+    cursor: pointer;
+    overflow: hidden;
+    height: 20px;
+    width: 66px;
+    text-align: center;
+    -webkit-appearance: button;
+    background-color: buttonface;
+    border: 2px outset buttonface;
+}
+
+.buttonWrapper > div {
+    line-height: 20px;
 }

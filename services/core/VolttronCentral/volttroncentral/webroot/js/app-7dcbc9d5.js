@@ -186,6 +186,12 @@ var devicesActionCreators = {
             device: device
         });
     },
+    cancelRegistry: function (device) {
+        dispatcher.dispatch({
+            type: ACTION_TYPES.CANCEL_REGISTRY,
+            device: device
+        });
+    },
 };
 
 
@@ -948,7 +954,8 @@ var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
         this.setState({registry_config: evt.target.value});
     },
     _uploadRegistryFile: function (evt) {
-
+        this.setState({registry_file: evt.target.value});
+        this.setState({registry_config: evt.target.value});
     },
     _generateRegistryFile: function (device) {
         devicesActionCreators.configureRegistry(device);
@@ -1051,8 +1058,14 @@ var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
                 React.createElement("td", {
                     style: buttonColumns, 
                     className: "plain"}, 
-                    React.createElement("button", {
-                        style: buttonStyle}, "Upload")
+                    React.createElement("div", {className: "buttonWrapper"}, 
+                        React.createElement("div", null, "Upload File"), 
+                        React.createElement("input", {
+                            className: "uploadButton", 
+                            type: "file", 
+                            onChange: this._uploadRegistryFile, 
+                            value: this.state.registry_file})
+                    )
                 ), 
                 React.createElement("td", {
                     style: buttonColumns, 
@@ -1095,7 +1108,8 @@ function getStateFromStores() {
             { key: "minimum_priority", value: "", label: "Minimum Priority" },
             { key: "max_objs_per_read", value: "", label: "Maximum Objects per Read" }
         ],
-        registry_config: ""
+        registry_config: "",
+        registry_file: ""
     };
 }
 
@@ -1626,6 +1640,12 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
 
         return selectedCellRow;
     },
+    _cancelRegistry: function () {
+        devicesActionCreators.cancelRegistry(this.props.device);
+    },
+    _saveRegistry: function () {
+
+    },
     render: function () {        
         
         var filterPointsTooltip = {
@@ -1775,7 +1795,12 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
                     )
                 ), 
                 React.createElement("div", {style: wideDiv}, 
-                    React.createElement("button", null, "Save")
+                    React.createElement("div", {className: "inlineBlock"}, 
+                        React.createElement("button", {onClick: this._cancelRegistry}, "Cancel")
+                    ), 
+                    React.createElement("div", {className: "inlineBlock"}, 
+                        React.createElement("button", {onClick: this._saveRegistry}, "Save")
+                    )
                 )
             )
         );
@@ -4520,6 +4545,7 @@ module.exports = keyMirror({
     LIST_DETECTED_DEVICES: null,
     CONFIGURE_DEVICE: null,
     CONFIGURE_REGISTRY: null,
+    CANCEL_REGISTRY: null,
 
     TOGGLE_TAPTIP: null,
     HIDE_TAPTIP: null,
@@ -5252,12 +5278,19 @@ devicesStore.dispatchToken = dispatcher.register(function (action) {
             devicesStore.emitChange();
             break;
         case ACTION_TYPES.CONFIGURE_DEVICE:
+        case ACTION_TYPES.CANCEL_REGISTRY:
             _action = "configure_device";
             _view = "Configure Device";
             _device = action.device;
             devicesStore.emitChange();
             break;
         case ACTION_TYPES.CONFIGURE_REGISTRY:
+            _action = "configure_registry";
+            _view = "Registry Configuration";
+            _device = action.device;
+            devicesStore.emitChange();
+            break;
+        case ACTION_TYPES.CANCEL_REGISTRY:
             _action = "configure_registry";
             _view = "Registry Configuration";
             _device = action.device;

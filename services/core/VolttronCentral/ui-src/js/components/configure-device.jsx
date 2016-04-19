@@ -43,7 +43,8 @@ var ConfigureDevice = React.createClass({
         this.setState({registry_config: evt.target.value});
     },
     _uploadRegistryFile: function (evt) {
-
+        this.setState({registry_file: evt.target.value});
+        this.setState({registry_config: evt.target.value});
     },
     _generateRegistryFile: function (device) {
         devicesActionCreators.configureRegistry(device);
@@ -146,8 +147,14 @@ var ConfigureDevice = React.createClass({
                 <td 
                     style={buttonColumns}
                     className="plain">
-                    <button 
-                        style={buttonStyle}>Upload</button>
+                    <div className="buttonWrapper">
+                        <div>Upload File</div>
+                        <input 
+                            className="uploadButton" 
+                            type="file"
+                            onChange={this._uploadRegistryFile}
+                            value={this.state.registry_file}/>
+                    </div>
                 </td>
                 <td 
                     style={buttonColumns}
@@ -190,7 +197,8 @@ function getStateFromStores() {
             { key: "minimum_priority", value: "", label: "Minimum Priority" },
             { key: "max_objs_per_read", value: "", label: "Maximum Objects per Read" }
         ],
-        registry_config: ""
+        registry_config: "",
+        registry_file: ""
     };
 }
 

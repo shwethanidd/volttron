@@ -247,12 +247,19 @@ devicesStore.dispatchToken = dispatcher.register(function (action) {
             devicesStore.emitChange();
             break;
         case ACTION_TYPES.CONFIGURE_DEVICE:
+        case ACTION_TYPES.CANCEL_REGISTRY:
             _action = "configure_device";
             _view = "Configure Device";
             _device = action.device;
             devicesStore.emitChange();
             break;
         case ACTION_TYPES.CONFIGURE_REGISTRY:
+            _action = "configure_registry";
+            _view = "Registry Configuration";
+            _device = action.device;
+            devicesStore.emitChange();
+            break;
+        case ACTION_TYPES.CANCEL_REGISTRY:
             _action = "configure_registry";
             _view = "Registry Configuration";
             _device = action.device;

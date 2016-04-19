@@ -36,6 +36,12 @@ var devicesActionCreators = {
             device: device
         });
     },
+    cancelRegistry: function (device) {
+        dispatcher.dispatch({
+            type: ACTION_TYPES.CANCEL_REGISTRY,
+            device: device
+        });
+    },
 };
 
 

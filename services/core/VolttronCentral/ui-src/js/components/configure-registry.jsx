@@ -521,6 +521,12 @@ var ConfigureRegistry = React.createClass({
 
         return selectedCellRow;
     },
+    _cancelRegistry: function () {
+        devicesActionCreators.cancelRegistry(this.props.device);
+    },
+    _saveRegistry: function () {
+
+    },
     render: function () {        
         
         var filterPointsTooltip = {
@@ -670,7 +676,12 @@ var ConfigureRegistry = React.createClass({
                     </div>
                 </div>
                 <div style={wideDiv}>
-                    <button>Save</button>
+                    <div className="inlineBlock">
+                        <button onClick={this._cancelRegistry}>Cancel</button>
+                    </div>
+                    <div className="inlineBlock">
+                        <button onClick={this._saveRegistry}>Save</button>
+                    </div>                    
                 </div>
             </div>
         );
