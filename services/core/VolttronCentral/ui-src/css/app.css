@@ -622,6 +622,24 @@ br + .form__control-help {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.fa-2x {
+  font-size: 2em;
+}
+.fa-3x {
+  font-size: 3em;
+}
+.fa-4x {
+  font-size: 4em;
+}
+.fa-5x {
+  font-size: 5em;
+}
+
+.fa-fw {
+  width: 1.28571429em;
+  text-align: center;
+}
+
 .fa-minus-circle:before {
   content: "\f056";
 }
@@ -686,12 +704,65 @@ br + .form__control-help {
     content: "\f051";
 }
 
+.fa-fast-forward:before {
+    content: "\f050";
+}
+
 .fa-pencil:before {
     content: "\f040";
 }
 
 .fa-cog:before {
     content: "\f013";
+}
+
+.fa-filter:before {
+    content: "\f0b0";
+}
+
+.fa-spinner:before {
+    content: "\f110";
+}
+
+.fa-spin {
+  -webkit-animation: fa-spin 2s infinite linear;
+  animation: fa-spin 2s infinite linear;
+}
+.fa-pulse {
+  -webkit-animation: fa-spin 1s infinite steps(8);
+  animation: fa-spin 1s infinite steps(8);
+}
+@-webkit-keyframes fa-spin {
+  0% {
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(359deg);
+    transform: rotate(359deg);
+  }
+}
+@keyframes fa-spin {
+  0% {
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(359deg);
+    transform: rotate(359deg);
+  }
+}
+.fa-rotate-90 {
+  filter: progid:DXImageTransform.Microsoft.BasicImage(rotation=1);
+  -webkit-transform: rotate(90deg);
+  -ms-transform: rotate(90deg);
+  transform: rotate(90deg);
+}
+.fa-rotate-180 {
+  filter: progid:DXImageTransform.Microsoft.BasicImage(rotation=2);
+  -webkit-transform: rotate(180deg);
+  -ms-transform: rotate(180deg);
+  transform: rotate(180deg);
 }
 
 /*.tooltip_show {
@@ -1990,7 +2061,10 @@ Interactive Layer
      background-color: aquamarine; 
 }
 
-.cog_button {
+.cog_button, 
+.filter_button, 
+.add_point_button, 
+.remove_point_button {
     display: inline-block;
     margin: 0px 1px;
     cursor: pointer;
@@ -2003,4 +2077,87 @@ Interactive Layer
 
 .edit_column_button {
     visibility: hidden;
+}
+
+th.plain,
+td.plain {
+    border-left: none;
+    border-bottom: none;
+}
+
+.detectDevicesContainer {
+    width: 600px;
+    margin-left: 80px;
+}
+
+.devicesFoundContainer, .configDeviceContainer {
+    width: 800px;
+    margin-left: 80px;
+}
+
+.detectDevicesBox {    
+    padding: 60px 20px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+    border: 1px solid black;
+}
+
+.devicesFoundBox {    
+    padding: 60px 20px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+    border: 1px solid black;
+}
+
+.configDeviceBox {    
+    padding: 60px 100px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+    border: 1px solid black;
+}
+
+.uneditableAttributes {
+    padding: 20px 100px 0px 200px;
+    margin-top: 20px;
+    margin-left: 40px;
+}
+
+.uneditableAttributes > table > tbody > tr > td {
+    height: 10px;
+    line-height: 1;
+    padding-left: 60px;
+    padding-right: 0px;
+}
+
+.uneditableAttributes > table > tbody > tr:first-child > td {
+    padding-top: 20px;
+}
+
+.uneditableAttributes > table > tbody > tr:not(:first-child) > td {
+    padding-top: 5px;
+}
+
+.uneditableAttributes > table > tbody > tr:last-child > td {
+    padding-bottom: 20px;
+}
+
+.uneditableAttributes > table > tbody > tr:not(:last-child) > td {
+    padding-bottom: 0px;
+}
+
+.detectDevicesContainer > div > table > tbody > tr > td:first-child {
+    width: 40%;
+}
+
+.detectDevicesContainer > div > table > tbody > tr > td:last-child {
+    width: 60%;
+}
+
+.table_label {
+    font-weight: bold;
+}
+
+td.buffer_row {
+    height: 80px;
+    vertical-align: top;
 }

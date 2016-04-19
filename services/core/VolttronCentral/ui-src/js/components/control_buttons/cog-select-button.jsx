@@ -45,7 +45,7 @@ var CogButton = React.createClass({
                     className="opList">
                     <li 
                         className="opListItem edit"
-                        onClick={this._onEditColumn}>Edit</li>
+                        onClick={this._onEditColumn}>Find and Replace</li>
                     <li 
                         className="opListItem clone"
                         onClick={this._onCloneColumn}>Duplicate</li>
@@ -63,7 +63,7 @@ var CogButton = React.createClass({
             "content": cogBox,
             "x": 100,
             "y": 24,
-            "styles": [{"key": "width", "value": "100px"}],
+            "styles": [{"key": "width", "value": "120px"}],
             "break": "",
             "padding": "0px"
         };
@@ -77,7 +77,7 @@ var CogButton = React.createClass({
                 name={"cogControlButton" + columnIndex}
                 taptip={cogTaptip}
                 controlclass="cog_button"
-                fontAwesomeIcon="cog"
+                fontAwesomeIcon="pencil"
                 closeAction={this._onClose}/>
         );
     },

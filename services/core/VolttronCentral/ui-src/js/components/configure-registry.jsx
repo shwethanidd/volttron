@@ -523,9 +523,15 @@ var ConfigureRegistry = React.createClass({
     },
     render: function () {        
         
+        var filterPointsTooltip = {
+            content: "Filter Points",
+            "x": 160,
+            "y": 0
+        }
+
         var filterButton = <FilterPointsButton 
                                 name="filterRegistryPoints" 
-                                tooltipMsg="Filter Points"
+                                tooltipMsg={filterPointsTooltip}
                                 onfilter={this._onFilterBoxChange} 
                                 onclear={this._onClearFilter}/>
 
@@ -538,6 +544,7 @@ var ConfigureRegistry = React.createClass({
         var addPointButton = <ControlButton 
                                 name="addRegistryPoint" 
                                 tooltip={addPointTooltip}
+                                controlclass="add_point_button"
                                 fontAwesomeIcon="plus"
                                 clickAction={this._onAddPoint}/>
 
@@ -552,6 +559,7 @@ var ConfigureRegistry = React.createClass({
                                 name="removeRegistryPoints" 
                                 fontAwesomeIcon="minus"
                                 tooltip={removePointTooltip}
+                                controlclass="remove_point_button"
                                 clickAction={this._onRemovePoints}/>        
         
         var registryRows, registryHeader;

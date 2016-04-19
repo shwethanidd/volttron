@@ -56,33 +56,55 @@ var ConfigureDevice = React.createClass({
                 return (
                     <tr>
                         <td>{device.label}</td>
-                        <td>{device.value}</td>
+                        <td className="plain">{device.value}</td>
                     </tr>
                 );
 
             });
 
+        var tableStyle = {
+            backgroundColor: "#E7E7E7"
+        }
+
         var uneditableAttributes = 
-            <table>
+            <table style={tableStyle}>
                 <tbody>
 
                     { attributeRows }
 
                     <tr>
                         <td>Proxy Address</td>
-                        <td>10.0.2.15</td>
+                        <td className="plain">10.0.2.15</td>
                     </tr>
                     <tr>
                         <td>Network Interface</td>
-                        <td>UDP/IP</td>
+                        <td className="plain">UDP/IP</td>
                     </tr>
                     <tr>
                         <td>Campus</td>
-                        <td>PNNL</td>
+                        <td className="plain">PNNL</td>
                     </tr>
 
                 </tbody>
             </table>;
+
+        var buttonStyle = {
+            height: "24px",
+            lineHeight: "18px"
+        }
+
+        var firstStyle = {
+            width: "30%",
+            textAlign: "right"
+        }
+
+        var secondStyle = {
+            width: "50%"
+        }
+
+        var buttonColumns = {
+            width: "8%"
+        }
 
         var settingsRows = 
             this.state.settings.map(function (setting) {
@@ -93,8 +115,9 @@ var ConfigureDevice = React.createClass({
 
                 return (
                     <tr>
-                        <td>{setting.label}</td>
-                        <td>
+                        <td style={firstStyle}>{setting.label}</td>
+                        <td style={secondStyle}
+                            className="plain">
                             <input
                                 className="form__control form__control--block"
                                 type="text"
@@ -109,8 +132,10 @@ var ConfigureDevice = React.createClass({
 
         var registryConfigRow = 
             <tr>
-                <td>Registry Configuration File</td>
-                <td>
+                <td style={firstStyle}>Registry Configuration File</td>
+                <td 
+                    style={secondStyle}
+                    className="plain">
                     <input
                         className="form__control form__control--block"
                         type="text"
@@ -118,8 +143,18 @@ var ConfigureDevice = React.createClass({
                         value={this.state.registry_config}
                     />
                 </td>
-                <td><button>Upload</button></td>
-                <td><button onClick={this._generateRegistryFile.bind(this, this.props.device)}>Generate</button></td>
+                <td 
+                    style={buttonColumns}
+                    className="plain">
+                    <button 
+                        style={buttonStyle}>Upload</button>
+                </td>
+                <td 
+                    style={buttonColumns}
+                    className="plain">
+                    <button 
+                        style={buttonStyle} onClick={this._generateRegistryFile.bind(this, this.props.device)}>Generate</button>
+                </td>
             </tr>
 
         var editableAttributes = 
@@ -131,9 +166,13 @@ var ConfigureDevice = React.createClass({
             </table>
 
         return (
-            <div>
-                { uneditableAttributes }
-                { editableAttributes }
+            <div className="configDeviceContainer">
+                <div className="uneditableAttributes">
+                    { uneditableAttributes }
+                </div>
+                <div className="configDeviceBox">                    
+                    { editableAttributes }
+                </div>
             </div>
         );
     },

@@ -27,15 +27,22 @@ var DevicesFound = React.createClass({
         var devices = 
             this.state.devices.map(function (device) {
 
+                var buttonStyle = {
+                    height: "24px",
+                    lineHeight: "18px"
+                }
+
                 var tds = device.map(function (d) {
-                                return (<td>{ d.value }</td>)
+                                return (<td className="plain">{ d.value }</td>)
                             });
                 return (
                     <tr>
                         { tds }
 
-                        <td>
-                            <button onClick={this._configureDevice.bind(this, device)}>Configure</button>
+                        <td className="plain">
+                            <button 
+                                onClick={this._configureDevice.bind(this, device)}
+                                style={buttonStyle}>Configure</button>
                         </td>
                     </tr>
                 );
@@ -43,20 +50,22 @@ var DevicesFound = React.createClass({
             }, this); 
 
         var ths = this.state.devices[0].map(function (d) {
-                        return (<th>{d.label}</th>); 
+                        return (<th className="plain">{d.label}</th>); 
                     });    
 
         return (
-            <div>
-                <table>
-                    <tbody>
-                        <tr>
-                            { ths }
-                            <th></th>
-                        </tr>
-                        {devices}
-                    </tbody>
-                </table>
+            <div className="devicesFoundContainer">
+                <div className="devicesFoundBox">
+                    <table>
+                        <tbody>
+                            <tr>
+                                { ths }
+                                <th className="plain"></th>
+                            </tr>
+                            {devices}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         );
     },

@@ -141,12 +141,12 @@ var EditColumnButton = React.createClass({
                                     <div className="inlineBlock"
                                             style={buttonsStyle}>
                                         <ControlButton 
-                                            fontAwesomeIcon="pencil"
+                                            fontAwesomeIcon="step-forward"
                                             tooltip={replaceTooltip}
                                             clickAction={this._replace}/>
 
                                         <ControlButton 
-                                            fontAwesomeIcon="edit"
+                                            fontAwesomeIcon="fast-forward"
                                             tooltip={replaceAllTooltip}
                                             clickAction={this._replaceAll}/>
                                     </div>
@@ -159,7 +159,7 @@ var EditColumnButton = React.createClass({
         );
 
         var editTaptip = { 
-            "title": "Edit Column", 
+            "title": "Search Column", 
             "content": editBox,
             "x": 100,
             "y": 24,

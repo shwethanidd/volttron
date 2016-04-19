@@ -961,33 +961,55 @@ var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
                 return (
                     React.createElement("tr", null, 
                         React.createElement("td", null, device.label), 
-                        React.createElement("td", null, device.value)
+                        React.createElement("td", {className: "plain"}, device.value)
                     )
                 );
 
             });
 
+        var tableStyle = {
+            backgroundColor: "#E7E7E7"
+        }
+
         var uneditableAttributes = 
-            React.createElement("table", null, 
+            React.createElement("table", {style: tableStyle}, 
                 React.createElement("tbody", null, 
 
                      attributeRows, 
 
                     React.createElement("tr", null, 
                         React.createElement("td", null, "Proxy Address"), 
-                        React.createElement("td", null, "10.0.2.15")
+                        React.createElement("td", {className: "plain"}, "10.0.2.15")
                     ), 
                     React.createElement("tr", null, 
                         React.createElement("td", null, "Network Interface"), 
-                        React.createElement("td", null, "UDP/IP")
+                        React.createElement("td", {className: "plain"}, "UDP/IP")
                     ), 
                     React.createElement("tr", null, 
                         React.createElement("td", null, "Campus"), 
-                        React.createElement("td", null, "PNNL")
+                        React.createElement("td", {className: "plain"}, "PNNL")
                     )
 
                 )
             );
+
+        var buttonStyle = {
+            height: "24px",
+            lineHeight: "18px"
+        }
+
+        var firstStyle = {
+            width: "30%",
+            textAlign: "right"
+        }
+
+        var secondStyle = {
+            width: "50%"
+        }
+
+        var buttonColumns = {
+            width: "8%"
+        }
 
         var settingsRows = 
             this.state.settings.map(function (setting) {
@@ -998,8 +1020,9 @@ var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
 
                 return (
                     React.createElement("tr", null, 
-                        React.createElement("td", null, setting.label), 
-                        React.createElement("td", null, 
+                        React.createElement("td", {style: firstStyle}, setting.label), 
+                        React.createElement("td", {style: secondStyle, 
+                            className: "plain"}, 
                             React.createElement("input", {
                                 className: "form__control form__control--block", 
                                 type: "text", 
@@ -1014,8 +1037,10 @@ var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
 
         var registryConfigRow = 
             React.createElement("tr", null, 
-                React.createElement("td", null, "Registry Configuration File"), 
-                React.createElement("td", null, 
+                React.createElement("td", {style: firstStyle}, "Registry Configuration File"), 
+                React.createElement("td", {
+                    style: secondStyle, 
+                    className: "plain"}, 
                     React.createElement("input", {
                         className: "form__control form__control--block", 
                         type: "text", 
@@ -1023,8 +1048,18 @@ var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
                         value: this.state.registry_config}
                     )
                 ), 
-                React.createElement("td", null, React.createElement("button", null, "Upload")), 
-                React.createElement("td", null, React.createElement("button", {onClick: this._generateRegistryFile.bind(this, this.props.device)}, "Generate"))
+                React.createElement("td", {
+                    style: buttonColumns, 
+                    className: "plain"}, 
+                    React.createElement("button", {
+                        style: buttonStyle}, "Upload")
+                ), 
+                React.createElement("td", {
+                    style: buttonColumns, 
+                    className: "plain"}, 
+                    React.createElement("button", {
+                        style: buttonStyle, onClick: this._generateRegistryFile.bind(this, this.props.device)}, "Generate")
+                )
             )
 
         var editableAttributes = 
@@ -1036,9 +1071,13 @@ var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
             )
 
         return (
-            React.createElement("div", null, 
-                 uneditableAttributes, 
-                 editableAttributes 
+            React.createElement("div", {className: "configDeviceContainer"}, 
+                React.createElement("div", {className: "uneditableAttributes"}, 
+                     uneditableAttributes 
+                ), 
+                React.createElement("div", {className: "configDeviceBox"}, 
+                     editableAttributes 
+                )
             )
         );
     },
@@ -1589,9 +1628,15 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
     },
     render: function () {        
         
+        var filterPointsTooltip = {
+            content: "Filter Points",
+            "x": 160,
+            "y": 0
+        }
+
         var filterButton = React.createElement(FilterPointsButton, {
                                 name: "filterRegistryPoints", 
-                                tooltipMsg: "Filter Points", 
+                                tooltipMsg: filterPointsTooltip, 
                                 onfilter: this._onFilterBoxChange, 
                                 onclear: this._onClearFilter})
 
@@ -1604,6 +1649,7 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
         var addPointButton = React.createElement(ControlButton, {
                                 name: "addRegistryPoint", 
                                 tooltip: addPointTooltip, 
+                                controlclass: "add_point_button", 
                                 fontAwesomeIcon: "plus", 
                                 clickAction: this._onAddPoint})
 
@@ -1618,6 +1664,7 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
                                 name: "removeRegistryPoints", 
                                 fontAwesomeIcon: "minus", 
                                 tooltip: removePointTooltip, 
+                                controlclass: "remove_point_button", 
                                 clickAction: this._onRemovePoints})        
         
         var registryRows, registryHeader;
@@ -2138,7 +2185,7 @@ var CogButton = React.createClass({displayName: "CogButton",
                     className: "opList"}, 
                     React.createElement("li", {
                         className: "opListItem edit", 
-                        onClick: this._onEditColumn}, "Edit"), 
+                        onClick: this._onEditColumn}, "Find and Replace"), 
                     React.createElement("li", {
                         className: "opListItem clone", 
                         onClick: this._onCloneColumn}, "Duplicate"), 
@@ -2156,7 +2203,7 @@ var CogButton = React.createClass({displayName: "CogButton",
             "content": cogBox,
             "x": 100,
             "y": 24,
-            "styles": [{"key": "width", "value": "100px"}],
+            "styles": [{"key": "width", "value": "120px"}],
             "break": "",
             "padding": "0px"
         };
@@ -2170,7 +2217,7 @@ var CogButton = React.createClass({displayName: "CogButton",
                 name: "cogControlButton" + columnIndex, 
                 taptip: cogTaptip, 
                 controlclass: "cog_button", 
-                fontAwesomeIcon: "cog", 
+                fontAwesomeIcon: "pencil", 
                 closeAction: this._onClose})
         );
     },
@@ -2323,12 +2370,12 @@ var EditColumnButton = React.createClass({displayName: "EditColumnButton",
                                     React.createElement("div", {className: "inlineBlock", 
                                             style: buttonsStyle}, 
                                         React.createElement(ControlButton, {
-                                            fontAwesomeIcon: "pencil", 
+                                            fontAwesomeIcon: "step-forward", 
                                             tooltip: replaceTooltip, 
                                             clickAction: this._replace}), 
 
                                         React.createElement(ControlButton, {
-                                            fontAwesomeIcon: "edit", 
+                                            fontAwesomeIcon: "fast-forward", 
                                             tooltip: replaceAllTooltip, 
                                             clickAction: this._replaceAll})
                                     )
@@ -2341,7 +2388,7 @@ var EditColumnButton = React.createClass({displayName: "EditColumnButton",
         );
 
         var editTaptip = { 
-            "title": "Edit Column", 
+            "title": "Search Column", 
             "content": editBox,
             "x": 100,
             "y": 24,
@@ -2439,7 +2486,7 @@ var FilterPointsButton = React.createClass({displayName: "FilterPointsButton",
         }
 
         var clearTooltip = {
-            content: "Clear Search",
+            content: "Clear Filter",
             "x": 80,
             "y": 0
         }
@@ -2452,7 +2499,7 @@ var FilterPointsButton = React.createClass({displayName: "FilterPointsButton",
                     clickAction: this._onClearFilter}), 
                 React.createElement("div", {className: "inlineBlock"}, 
                     React.createElement("div", {className: "inlineBlock"}, 
-                        React.createElement("span", {className: "fa fa-search"})
+                        React.createElement("span", {className: "fa fa-filter"})
                     ), 
                     React.createElement("div", {className: "inlineBlock", style: divWidth}, 
                         React.createElement("input", {
@@ -2467,15 +2514,15 @@ var FilterPointsButton = React.createClass({displayName: "FilterPointsButton",
         );
 
         var filterTaptip = { 
-            "title": "Search Points", 
+            "title": "Filter Points", 
             "content": filterBox,
             "xOffset": 60,
             "yOffset": 120,
             "styles": [{"key": "width", "value": "200px"}]
         };
-        
+
         var filterIcon = (
-            React.createElement("i", {className: "fa fa-search"})
+            React.createElement("i", {className: "fa fa-filter"})
         );
         
         var holdSelect = this.state.filterValue !== "";
@@ -2484,6 +2531,8 @@ var FilterPointsButton = React.createClass({displayName: "FilterPointsButton",
             React.createElement(ControlButton, {
                 name: "filterControlButton", 
                 taptip: filterTaptip, 
+                tooltip: this.props.tooltipMsg, 
+                controlclass: "filter_button", 
                 staySelected: holdSelect, 
                 icon: filterIcon})
         );
@@ -2723,7 +2772,16 @@ var devicesActionCreators = require('../action-creators/devices-action-creators'
 
 var DetectDevices = React.createClass({displayName: "DetectDevices",
     getInitialState: function () {
-        return getStateFromStores();
+        var state = getStateFromStores();
+
+        state.deviceRangeSelected = true;
+        state.selectedProtocol = "udp_ip";
+        state.udpPort = "";
+        state.deviceStart = "";
+        state.deviceEnd = "";
+        state.address = "";
+
+        return state;
     },
     componentDidMount: function () {
         // platformsStore.addChangeListener(this._onStoresChange);
@@ -2743,6 +2801,34 @@ var DetectDevices = React.createClass({displayName: "DetectDevices",
     _continue: function () {
         devicesActionCreators.listDetectedDevices(this.props.platform);
     },
+    _onDeviceRangeSelect: function (evt) {
+        var deviceRangeSelected = evt.target.checked;
+        this.setState({ deviceRangeSelected: deviceRangeSelected });
+    },
+    _onAddressSelect: function (evt) {
+        var addressSelected = evt.target.checked;
+        this.setState({ deviceRangeSelected: !addressSelected });
+    },
+    _onIpSelect: function (evt) {
+        var selectedProtocol = evt.target.value;
+        this.setState({ selectedProtocol: selectedProtocol });
+    },
+    _onPortInput: function (evt) {
+        var udpPort = evt.target.value;
+        this.setState({ udpPort: udpPort });
+    },
+    _onDeviceStart: function (evt) {
+        var deviceStart = evt.target.value;
+        this.setState({ deviceStart: deviceStart });
+    },
+    _onDeviceEnd: function (evt) {
+        var deviceEnd = evt.target.value;
+        this.setState({ deviceEnd: deviceEnd });
+    },
+    _onAddress: function (evt) {
+        var address = evt.target.value;
+        this.setState({ address: address });
+    },
     render: function () {        
         
         var devices;
@@ -2751,14 +2837,37 @@ var DetectDevices = React.createClass({displayName: "DetectDevices",
         {
             case "start_scan":
 
+                var containerStyle = {
+                    width: "400px",
+                    height: "400px"
+                }
+
+                var progressStyle = {
+                    height: "40%",
+                    clear: "both",
+                    padding: "80px 0px 0px 200px"
+                }
+
+                var labelStyle = {
+                    fontSize: "24px"
+                }
+
                 devices = (
-                    React.createElement("div", null, 
-                        React.createElement("progress", null), 
-                        React.createElement("div", null, 
-                            React.createElement("button", {onClick: this._cancelScan}, "Cancel")
+                    React.createElement("div", {style: containerStyle}, 
+                        React.createElement("div", {style: progressStyle}, 
+                            React.createElement("i", {className: "fa fa-cog fa-spin fa-5x fa-fw margin-bottom"}), 
+                            React.createElement("br", null), 
+                            React.createElement("div", {style: labelStyle}, 
+                                React.createElement("span", null, "Detecting...")
+                            )
                         ), 
-                        React.createElement("div", null, 
-                            React.createElement("button", {onClick: this._continue}, "Continue")
+                        React.createElement("div", {className: "inlineBlock"}, 
+                            React.createElement("div", {className: "inlineBlock"}, 
+                                React.createElement("button", {onClick: this._cancelScan}, "Cancel")
+                            ), 
+                            React.createElement("div", {className: "inlineBlock"}, 
+                                React.createElement("button", {onClick: this._continue}, "Continue")
+                            )
                         )
                     )
                 )
@@ -2766,47 +2875,117 @@ var DetectDevices = React.createClass({displayName: "DetectDevices",
                 break;
             case "get_scan_settings":
 
+                var selectStyle = {
+                    height: "24px",
+                    width: "151px"
+                }
+
+                var radioStyle = {
+                    width: "20px",
+                    float: "left",
+                    height: "20px",
+                    paddingTop: "4px"
+                }
+
+                var buttonStyle = {
+                    display: (((this.state.deviceRangeSelected 
+                                    && this.state.deviceStart !== "" 
+                                    && this.state.deviceEnd !== "") || 
+                                (!this.state.deviceRangeSelected 
+                                    && this.state.address !== "")) &&
+                              (this.state.udpPort !== "") ? "block" : "none")
+                }
+
+                var addressStyle = {
+                    color: (this.state.deviceRangeSelected ? "gray" : "black")
+                };
+
+                var deviceRangeStyle = {
+                    color: (this.state.deviceRangeSelected ? "black" : "gray")
+                };
+
                 devices = (
-                    React.createElement("div", null, 
-                        React.createElement("div", null, 
+                    React.createElement("div", {className: "detectDevicesContainer"}, 
+                        React.createElement("div", {className: "detectDevicesBox"}, 
                             React.createElement("table", null, 
                                 React.createElement("tbody", null, 
                                     React.createElement("tr", null, 
-                                        React.createElement("td", null, "Network Interface"), 
-                                        React.createElement("td", null, 
-                                            React.createElement("select", null, 
-                                                React.createElement("option", null, "UDP/IP"), 
-                                                React.createElement("option", null, "IPC"), 
-                                                React.createElement("option", null, "TCP")
+                                        React.createElement("td", {className: "table_label"}, "Network Interface"), 
+                                        React.createElement("td", {className: "plain"}, 
+                                            React.createElement("select", {
+                                                style: selectStyle, 
+                                                onChange: this._onIpSelect, 
+                                                value: this.state.selectedProtocol}, 
+                                                React.createElement("option", {value: "udp_ip"}, "UDP/IP"), 
+                                                React.createElement("option", {value: "ipc"}, "IPC"), 
+                                                React.createElement("option", {value: "tcp"}, "TCP")
                                             )
                                         )
                                     ), 
                                     React.createElement("tr", null, 
-                                        React.createElement("td", null, "UDP Port"), 
-                                        React.createElement("td", null, 
-                                            React.createElement("input", {type: "number"})
+                                        React.createElement("td", {className: "table_label buffer_row"}, "UDP Port"), 
+                                        React.createElement("td", {className: "plain buffer_row"}, 
+                                            React.createElement("input", {
+                                                type: "number", 
+                                                onChange: this._onPortInput, 
+                                                value: this.state.udpPort})
                                         )
                                     ), 
                                     React.createElement("tr", null, 
-                                        React.createElement("td", null, 
-                                            React.createElement("input", {type: "radio", name: "scan_method"}, "Device ID Range")
+                                        React.createElement("td", {className: "table_label"}, 
+                                            React.createElement("div", null, 
+                                                React.createElement("div", {style: radioStyle}, 
+                                                    React.createElement("input", {
+                                                        type: "radio", 
+                                                        name: "scan_method", 
+                                                        onChange: this._onDeviceRangeSelect, 
+                                                        checked: this.state.deviceRangeSelected})
+                                                ), 
+                                                React.createElement("span", {style: deviceRangeStyle}, "Device ID Range")
+                                            )
                                         ), 
-                                        React.createElement("td", null, 
-                                            React.createElement("input", {type: "number"}), " ", React.createElement("input", {type: "number"})
+                                        React.createElement("td", {className: "plain"}, 
+                                            React.createElement("input", {
+                                                disabled: !this.state.deviceRangeSelected, 
+                                                style: deviceRangeStyle, 
+                                                type: "number", 
+                                                onChange: this._onDeviceStart, 
+                                                value: this.state.deviceStart}), " ", 
+                                            React.createElement("input", {
+                                                disabled: !this.state.deviceRangeSelected, 
+                                                style: deviceRangeStyle, 
+                                                type: "number", 
+                                                onChange: this._onDeviceEnd, 
+                                                value: this.state.deviceEnd})
                                         )
                                     ), 
                                     React.createElement("tr", null, 
-                                        React.createElement("td", null, 
-                                            React.createElement("input", {type: "radio", name: "scan_method"}, "Address")
+                                        React.createElement("td", {className: "table_label"}, 
+                                            React.createElement("div", null, 
+                                                React.createElement("div", {style: radioStyle}, 
+                                                    React.createElement("input", {
+                                                        type: "radio", 
+                                                        name: "scan_method", 
+                                                        onChange: this._onAddressSelect, 
+                                                        checked: !this.state.deviceRangeSelected})
+                                                ), 
+                                                React.createElement("span", {style: addressStyle}, "Address")
+                                            )
                                         ), 
-                                        React.createElement("td", null, 
-                                            React.createElement("input", {type: "text"})
+                                        React.createElement("td", {className: "plain"}, 
+                                            React.createElement("input", {
+                                                disabled: this.state.deviceRangeSelected, 
+                                                style: addressStyle, 
+                                                type: "text", 
+                                                onChange: this._onAddress, 
+                                                value: this.state.address})
                                         )
                                     )
                                 )
                             )
                         ), 
-                        React.createElement("div", null, 
+                        React.createElement("div", {
+                            style: buttonStyle}, 
                             React.createElement("button", {onClick: this._doScan}, "Scan")
                         )
                         
@@ -2864,15 +3043,22 @@ var DevicesFound = React.createClass({displayName: "DevicesFound",
         var devices = 
             this.state.devices.map(function (device) {
 
+                var buttonStyle = {
+                    height: "24px",
+                    lineHeight: "18px"
+                }
+
                 var tds = device.map(function (d) {
-                                return (React.createElement("td", null,  d.value))
+                                return (React.createElement("td", {className: "plain"},  d.value))
                             });
                 return (
                     React.createElement("tr", null, 
                          tds, 
 
-                        React.createElement("td", null, 
-                            React.createElement("button", {onClick: this._configureDevice.bind(this, device)}, "Configure")
+                        React.createElement("td", {className: "plain"}, 
+                            React.createElement("button", {
+                                onClick: this._configureDevice.bind(this, device), 
+                                style: buttonStyle}, "Configure")
                         )
                     )
                 );
@@ -2880,18 +3066,20 @@ var DevicesFound = React.createClass({displayName: "DevicesFound",
             }, this); 
 
         var ths = this.state.devices[0].map(function (d) {
-                        return (React.createElement("th", null, d.label)); 
+                        return (React.createElement("th", {className: "plain"}, d.label)); 
                     });    
 
         return (
-            React.createElement("div", null, 
-                React.createElement("table", null, 
-                    React.createElement("tbody", null, 
-                        React.createElement("tr", null, 
-                             ths, 
-                            React.createElement("th", null)
-                        ), 
-                        devices
+            React.createElement("div", {className: "devicesFoundContainer"}, 
+                React.createElement("div", {className: "devicesFoundBox"}, 
+                    React.createElement("table", null, 
+                        React.createElement("tbody", null, 
+                            React.createElement("tr", null, 
+                                 ths, 
+                                React.createElement("th", {className: "plain"})
+                            ), 
+                            devices
+                        )
                     )
                 )
             )

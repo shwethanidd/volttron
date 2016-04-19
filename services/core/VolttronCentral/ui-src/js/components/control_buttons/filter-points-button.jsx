@@ -57,7 +57,7 @@ var FilterPointsButton = React.createClass({
         }
 
         var clearTooltip = {
-            content: "Clear Search",
+            content: "Clear Filter",
             "x": 80,
             "y": 0
         }
@@ -70,7 +70,7 @@ var FilterPointsButton = React.createClass({
                     clickAction={this._onClearFilter}/>
                 <div className="inlineBlock">
                     <div className="inlineBlock">
-                        <span className="fa fa-search"></span>
+                        <span className="fa fa-filter"></span>
                     </div>
                     <div className="inlineBlock" style={divWidth}>
                         <input
@@ -85,15 +85,15 @@ var FilterPointsButton = React.createClass({
         );
 
         var filterTaptip = { 
-            "title": "Search Points", 
+            "title": "Filter Points", 
             "content": filterBox,
             "xOffset": 60,
             "yOffset": 120,
             "styles": [{"key": "width", "value": "200px"}]
         };
-        
+
         var filterIcon = (
-            <i className="fa fa-search"></i>
+            <i className="fa fa-filter"></i>
         );
         
         var holdSelect = this.state.filterValue !== "";
@@ -102,6 +102,8 @@ var FilterPointsButton = React.createClass({
             <ControlButton 
                 name={"filterControlButton"}
                 taptip={filterTaptip} 
+                tooltip={this.props.tooltipMsg}
+                controlclass="filter_button"
                 staySelected={holdSelect}
                 icon={filterIcon}></ControlButton>
         );
