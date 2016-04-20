@@ -8,7 +8,7 @@ var devicesStore = require('../stores/devices-store');
 
 var DevicesFound = React.createClass({
     getInitialState: function () {
-        return getStateFromStores();
+        return getStateFromStores(this.props.platform);
     },
     componentDidMount: function () {
         // platformsStore.addChangeListener(this._onStoresChange);
@@ -17,7 +17,7 @@ var DevicesFound = React.createClass({
         // platformsStore.removeChangeListener(this._onStoresChange);
     },
     _onStoresChange: function () {
-        this.setState(getStateFromStores());
+        this.setState(getStateFromStores(this.props.platform));
     },
     _configureDevice: function (device) {
         devicesActionCreators.configureDevice(device);
@@ -71,24 +71,9 @@ var DevicesFound = React.createClass({
     },
 });
 
-function getStateFromStores() {
+function getStateFromStores(platform) {
     return {
-        devices: [
-            [ 
-                { key: "address", label: "Address", value: "Address 192.168.1.42" }, 
-                { key: "deviceId", label: "Device ID", value: "548" }, 
-                { key: "description", label: "Description", value: "Temperature sensor" }, 
-                { key: "vendorId", label: "Vendor ID", value: "18" }, 
-                { key: "vendor", label: "Vendor", value: "Siemens" }
-            ],
-            [ 
-                { key: "address", label: "Address", value: "RemoteStation 1002:11" }, 
-                { key: "deviceId", label: "Device ID", value: "33" }, 
-                { key: "description", label: "Description", value: "Actuator 3-pt for zone control" }, 
-                { key: "vendorId", label: "Vendor ID", value: "12" }, 
-                { key: "vendor", label: "Vendor", value: "Alerton" }
-            ]
-        ]
+        devices: devicesStore.getDevices(platform)
     };
 }
 

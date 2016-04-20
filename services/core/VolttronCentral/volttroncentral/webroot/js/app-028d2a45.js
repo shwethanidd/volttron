@@ -192,6 +192,13 @@ var devicesActionCreators = {
             device: device
         });
     },
+    loadRegistryCsv: function (device, csvData) {
+        dispatcher.dispatch({
+            type: ACTION_TYPES.CONFIGURE_REGISTRY,
+            device: device,
+            data: csvData
+        });
+    },
 };
 
 
@@ -913,22 +920,24 @@ module.exports = Composer;
 
 var React = require('react');
 var Router = require('react-router');
+// var CsvParse = require('../lib/rpc');
+var CsvParse = require('babyparse');
 
 var devicesActionCreators = require('../action-creators/devices-action-creators');
 var devicesStore = require('../stores/devices-store');
 
 var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
     getInitialState: function () {
-        return getStateFromStores();
+        return getStateFromStores(this.props.device);
     },
     componentDidMount: function () {
-        // platformsStore.addChangeListener(this._onStoresChange);
+        devicesStore.addChangeListener(this._onStoresChange);
     },
     componentWillUnmount: function () {
-        // platformsStore.removeChangeListener(this._onStoresChange);
+        devicesStore.removeChangeListener(this._onStoresChange);
     },
     _onStoresChange: function () {
-        this.setState(getStateFromStores());
+        this.setState(getStateFromStores(this.props.device));
     },
     _configureDevice: function (device) {
         devicesActionCreators.configureDevice(device);
@@ -954,8 +963,62 @@ var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
         this.setState({registry_config: evt.target.value});
     },
     _uploadRegistryFile: function (evt) {
-        this.setState({registry_file: evt.target.value});
-        this.setState({registry_config: evt.target.value});
+
+        var csvFile = evt.target.files[0];
+
+        if (!csvFile)
+        {
+            return;
+        }
+
+        var reader = new FileReader();
+
+        var fileName = evt.target.value;
+
+        reader.onload = function (e) {
+
+            var contents = e.target.result;
+
+            var results = parseCsvFile(contents);
+
+            if (results.error)
+            {
+                var errorMsg = "The file is not a valid CSV document: " + err;
+
+                modalActionCreators.openModal(
+                    React.createElement(ConfirmForm, {
+                        promptTitle: "Error Reading File", 
+                        promptText:  errorMsg, 
+                        cancelText: "OK"
+                    })
+                );
+            }
+            else if (results.data)
+            {
+
+                devicesActionCreators.loadRegistryCsv(this.props.device, results.data);
+
+                // this.setState({csv_data: results.data});
+                // // this.setState({registry_file: fileName});
+                this.setState({registry_config: fileName});
+            }
+        }.bind(this)
+
+        reader.readAsText(csvFile);
+
+        // // var contents = reader.result;
+
+        // if (contents)
+        // {
+        //     var results = parseCsvFile(contents);
+
+        //     if (results.data)
+        //     {
+        //         this.setState({csv_data: results.data});
+        //         this.setState({registry_file: evt.target.value});
+        //         this.setState({registry_config: evt.target.value});
+        //     }
+        // }
     },
     _generateRegistryFile: function (device) {
         devicesActionCreators.configureRegistry(device);
@@ -1096,7 +1159,7 @@ var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
     },
 });
 
-function getStateFromStores() {
+function getStateFromStores(device) {
     return {
         settings: [
             { key: "unit", value: "", label: "Unit" },
@@ -1113,10 +1176,31 @@ function getStateFromStores() {
     };
 }
 
+function parseCsvFile(contents) {
+
+    var results = CsvParse.parse(contents, {
+        error: function (err) {
+            var errorMsg = "The file is not a valid CSV document: " + err;
+
+            modalActionCreators.openModal(
+                React.createElement(ConfirmForm, {
+                    promptTitle: "Error Reading File", 
+                    promptText:  errorMsg, 
+                    cancelText: "OK"
+                })
+            );
+        }
+    });
+
+    return results;
+}
+
+
+
 module.exports = ConfigureDevice;
 
 
-},{"../action-creators/devices-action-creators":4,"../stores/devices-store":49,"react":undefined,"react-router":undefined}],12:[function(require,module,exports){
+},{"../action-creators/devices-action-creators":4,"../stores/devices-store":49,"babyparse":undefined,"react":undefined,"react-router":undefined}],12:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -3049,7 +3133,7 @@ var devicesStore = require('../stores/devices-store');
 
 var DevicesFound = React.createClass({displayName: "DevicesFound",
     getInitialState: function () {
-        return getStateFromStores();
+        return getStateFromStores(this.props.platform);
     },
     componentDidMount: function () {
         // platformsStore.addChangeListener(this._onStoresChange);
@@ -3058,7 +3142,7 @@ var DevicesFound = React.createClass({displayName: "DevicesFound",
         // platformsStore.removeChangeListener(this._onStoresChange);
     },
     _onStoresChange: function () {
-        this.setState(getStateFromStores());
+        this.setState(getStateFromStores(this.props.platform));
     },
     _configureDevice: function (device) {
         devicesActionCreators.configureDevice(device);
@@ -3112,24 +3196,9 @@ var DevicesFound = React.createClass({displayName: "DevicesFound",
     },
 });
 
-function getStateFromStores() {
+function getStateFromStores(platform) {
     return {
-        devices: [
-            [ 
-                { key: "address", label: "Address", value: "Address 192.168.1.42" }, 
-                { key: "deviceId", label: "Device ID", value: "548" }, 
-                { key: "description", label: "Description", value: "Temperature sensor" }, 
-                { key: "vendorId", label: "Vendor ID", value: "18" }, 
-                { key: "vendor", label: "Vendor", value: "Siemens" }
-            ],
-            [ 
-                { key: "address", label: "Address", value: "RemoteStation 1002:11" }, 
-                { key: "deviceId", label: "Device ID", value: "33" }, 
-                { key: "description", label: "Description", value: "Actuator 3-pt for zone control" }, 
-                { key: "vendorId", label: "Vendor ID", value: "12" }, 
-                { key: "vendor", label: "Vendor", value: "Alerton" }
-            ]
-        ]
+        devices: devicesStore.getDevices(platform)
     };
 }
 
@@ -4546,6 +4615,7 @@ module.exports = keyMirror({
     CONFIGURE_DEVICE: null,
     CONFIGURE_REGISTRY: null,
     CANCEL_REGISTRY: null,
+    LOAD_REGISTRY_CSV: null,
 
     TOGGLE_TAPTIP: null,
     HIDE_TAPTIP: null,
@@ -5041,6 +5111,7 @@ var devicesStore = new Store();
 var _action = "get_scan_settings";
 var _view = "Detect Devices";
 var _device = null;
+var _data = null;
 
 var _registryValues = [
     [
@@ -5255,6 +5326,27 @@ devicesStore.getRegistryValues = function (device) {
     
 };
 
+devicesStore.getDevices = function (platform) {
+    return [
+            [ 
+                { key: "address", label: "Address", value: "Address 192.168.1.42" }, 
+                { key: "deviceId", label: "Device ID", value: "548" }, 
+                { key: "description", label: "Description", value: "Temperature sensor" }, 
+                { key: "vendorId", label: "Vendor ID", value: "18" }, 
+                { key: "vendor", label: "Vendor", value: "Siemens" },
+                { key: "type", label: "Type", value: "BACnet" }
+            ],
+            [ 
+                { key: "address", label: "Address", value: "RemoteStation 1002:11" }, 
+                { key: "deviceId", label: "Device ID", value: "33" }, 
+                { key: "description", label: "Description", value: "Actuator 3-pt for zone control" }, 
+                { key: "vendorId", label: "Vendor ID", value: "12" }, 
+                { key: "vendor", label: "Vendor", value: "Alerton" },
+                { key: "type", label: "Type", value: "BACnet" }
+            ]
+        ];
+}
+
 devicesStore.dispatchToken = dispatcher.register(function (action) {
     dispatcher.waitFor([authorizationStore.dispatchToken]);
 
@@ -5288,6 +5380,7 @@ devicesStore.dispatchToken = dispatcher.register(function (action) {
             _action = "configure_registry";
             _view = "Registry Configuration";
             _device = action.device;
+            _data = action.data;
             devicesStore.emitChange();
             break;
         case ACTION_TYPES.CANCEL_REGISTRY:

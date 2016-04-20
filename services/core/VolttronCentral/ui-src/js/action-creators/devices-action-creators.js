@@ -42,6 +42,13 @@ var devicesActionCreators = {
             device: device
         });
     },
+    loadRegistryCsv: function (device, csvData) {
+        dispatcher.dispatch({
+            type: ACTION_TYPES.CONFIGURE_REGISTRY,
+            device: device,
+            data: csvData
+        });
+    },
 };
 
 

@@ -10,6 +10,7 @@ var devicesStore = new Store();
 var _action = "get_scan_settings";
 var _view = "Detect Devices";
 var _device = null;
+var _data = null;
 
 var _registryValues = [
     [
@@ -224,6 +225,27 @@ devicesStore.getRegistryValues = function (device) {
     
 };
 
+devicesStore.getDevices = function (platform) {
+    return [
+            [ 
+                { key: "address", label: "Address", value: "Address 192.168.1.42" }, 
+                { key: "deviceId", label: "Device ID", value: "548" }, 
+                { key: "description", label: "Description", value: "Temperature sensor" }, 
+                { key: "vendorId", label: "Vendor ID", value: "18" }, 
+                { key: "vendor", label: "Vendor", value: "Siemens" },
+                { key: "type", label: "Type", value: "BACnet" }
+            ],
+            [ 
+                { key: "address", label: "Address", value: "RemoteStation 1002:11" }, 
+                { key: "deviceId", label: "Device ID", value: "33" }, 
+                { key: "description", label: "Description", value: "Actuator 3-pt for zone control" }, 
+                { key: "vendorId", label: "Vendor ID", value: "12" }, 
+                { key: "vendor", label: "Vendor", value: "Alerton" },
+                { key: "type", label: "Type", value: "BACnet" }
+            ]
+        ];
+}
+
 devicesStore.dispatchToken = dispatcher.register(function (action) {
     dispatcher.waitFor([authorizationStore.dispatchToken]);
 
@@ -257,6 +279,7 @@ devicesStore.dispatchToken = dispatcher.register(function (action) {
             _action = "configure_registry";
             _view = "Registry Configuration";
             _device = action.device;
+            _data = action.data;
             devicesStore.emitChange();
             break;
         case ACTION_TYPES.CANCEL_REGISTRY:
