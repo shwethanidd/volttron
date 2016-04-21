@@ -2521,7 +2521,7 @@ var PlatformChart = React.createClass({displayName: "PlatformChart",
     getInitialState: function () {
         var state = {};
 
-        state.refreshInterval = 0; //this.props.chart.refreshInterval;
+        state.refreshInterval = this.props.chart.refreshInterval;
 
         return state;
     },
