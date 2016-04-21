@@ -705,13 +705,13 @@ var platformManagerActionCreators = {
                 });
 
                 platforms.forEach(function (platform, i) {
-                    if (platform.name === null || platform.name === "")
-                    {
-                        platform.name = "vc" + (i + 1);
-                    }
+                    // if (platform.name === null || platform.name === "")
+                    // {
+                    //     platform.name = "vc" + (i + 1);
+                    // }
                     
-                    // platformActionCreators.loadPlatform(platform);
-                    platformActionCreators.initializeAgents(platform);
+                    platformActionCreators.loadPlatform(platform);
+                    // platformActionCreators.initializeAgents(platform);
                 });
             })
             .catch(rpc.Error, handle401);
@@ -734,7 +734,7 @@ var platformManagerActionCreators = {
             authorization: authorization,
             params: {
                 identity: 'platform.agent',
-                agentId: name,
+                agentid: name,
                 address: address,
             },
         }).promise
@@ -863,12 +863,12 @@ var platformsPanelActionCreators = {
         }).promise
             .then(function (platforms) {
 
-                platforms.forEach(function (platform, i) {
-                    if (platform.name === null || platform.name === "")
-                    {
-                        platform.name = "vc" + (i + 1);
-                    }
-                });
+                // platforms.forEach(function (platform, i) {
+                //     if (platform.name === null || platform.name === "")
+                //     {
+                //         platform.name = "vc" + (i + 1);
+                //     }
+                // });
 
                 dispatcher.dispatch({
                     type: ACTION_TYPES.RECEIVE_PLATFORM_STATUSES,
@@ -888,7 +888,7 @@ var platformsPanelActionCreators = {
         switch (type)
         {
             case "platform":
-                // loadPanelAgents(parent);
+                loadPanelAgents(parent);
                 loadPanelBuildings(parent);
                 loadPanelPoints(parent);
                 break;
@@ -1001,28 +1001,28 @@ var platformsPanelActionCreators = {
         }
 
         function loadPanelAgents(platform) {
-        //     var authorization = authorizationStore.getAuthorization();
+            var authorization = authorizationStore.getAuthorization();
 
-        //     new rpc.Exchange({
-        //         method: 'platforms.uuid.' + platform.uuid + '.list_agents',
-        //         authorization: authorization,
-        //     }).promise
-        //         .then(function (agentsList) {
+            new rpc.Exchange({
+                method: 'platforms.uuid.' + platform.uuid + '.list_agents',
+                authorization: authorization,
+            }).promise
+                .then(function (agentsList) {
                     
-        //             dispatcher.dispatch({
-        //                 type: ACTION_TYPES.RECEIVE_AGENT_STATUSES,
-        //                 platform: platform,
-        //                 agents: agentsList
-        //             });
+                    dispatcher.dispatch({
+                        type: ACTION_TYPES.RECEIVE_AGENT_STATUSES,
+                        platform: platform,
+                        agents: agentsList
+                    });
 
                     
-        //         })
-        //         .catch(rpc.Error, handle401);    
+                })
+                .catch(rpc.Error, handle401);    
         // }
-            dispatcher.dispatch({
-                type: ACTION_TYPES.RECEIVE_AGENT_STATUSES,
-                platform: platform
-            });
+            // dispatcher.dispatch({
+            //     type: ACTION_TYPES.RECEIVE_AGENT_STATUSES,
+            //     platform: platform
+            // });
         }
     
     },
@@ -2521,7 +2521,7 @@ var PlatformChart = React.createClass({displayName: "PlatformChart",
     getInitialState: function () {
         var state = {};
 
-        state.refreshInterval = this.props.chart.refreshInterval;
+        state.refreshInterval = 0; //this.props.chart.refreshInterval;
 
         return state;
     },
@@ -2819,7 +2819,9 @@ var GraphLineChart = React.createClass({displayName: "GraphLineChart",
       }
 
       lineChart.margin({left: 25, right: 25})
-          .x(function(d) {return d.x})
+          .x(function(d) {
+            return d.x
+          })
           .y(function(d) {return d.y})
           .useInteractiveGuideline(true)
           .showYAxis(true)
@@ -4675,7 +4677,6 @@ function RpcExchange(request, redactedParams) {
 
 module.exports = RpcExchange;
 
-
 },{"../../constants/action-types":36,"../../dispatcher":37,"../xhr":43,"./error":38,"node-uuid":undefined}],40:[function(require,module,exports){
 'use strict';
 
@@ -5261,6 +5262,17 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
             {
                 var value = data[key][skey];
                 
+                if (typeof value === 'string')
+                {
+                    var index = value.indexOf('+00:00');
+
+                    if (index > -1)
+                    {
+                        value = value.replace('+00:00', '');
+                    }
+                }
+
+
                 if (skey === "0" && typeof value === 'string' &&
                     Date.parse(value + 'Z')) {
                     value = Date.parse(value + 'Z');
@@ -6790,16 +6802,16 @@ platformsPanelItemsStore.dispatchToken = dispatcher.register(function (action) {
                 var platformItem = _items["platforms"][platform.uuid];
                 platformItem.path = ["platforms", platform.uuid];
 
-                var status = JSON.parse(platform.status);
-                platformItem.status = status.status.toUpperCase();
+                // var status = JSON.parse(platform.status);
+                // platformItem.status = status.status.toUpperCase();
                 platformItem.children = [];
                 platformItem.type = "platform";
                 platformItem.visible = true;
                 platformItem.expanded = null;
                 // platformItem.name = (platform.name === null ? platform.uuid : platform.name);
 
-                loadAgents(platform);                
-                loadDevices(platform);
+                // loadAgents(platform);                
+                // loadDevices(platform);
             });
             
             platformsPanelItemsStore.emitChange();
@@ -6823,42 +6835,42 @@ platformsPanelItemsStore.dispatchToken = dispatcher.register(function (action) {
             break;
         case ACTION_TYPES.RECEIVE_AGENT_STATUSES:
 
-            // var platform = _items["platforms"][action.platform.uuid];
+            var platform = _items["platforms"][action.platform.uuid];
 
-            // if (action.agents.length > 0)
-            // {
-            //     platform.expanded = true;
-            //     platform.agents = {};
-            //     platform.agents.path = platform.path.slice(0);
-            //     platform.agents.path.push("agents");
-            //     platform.agents.name = "Agents";
-            //     platform.agents.expanded = false;
-            //     platform.agents.visible = true;
-            //     platform.agents.children = [];
-            //     platform.agents.type = "type";
-            //     platform.agents.sortOrder = _agentsOrder;
+            if (action.agents.length > 0)
+            {
+                platform.expanded = true;
+                platform.agents = {};
+                platform.agents.path = platform.path.slice(0);
+                platform.agents.path.push("agents");
+                platform.agents.name = "Agents";
+                platform.agents.expanded = false;
+                platform.agents.visible = true;
+                platform.agents.children = [];
+                platform.agents.type = "type";
+                platform.agents.sortOrder = _agentsOrder;
 
-            //     if (platform.children.indexOf("agents") < 0)
-            //     {
-            //         platform.children.push("agents");
-            //     }
+                if (platform.children.indexOf("agents") < 0)
+                {
+                    platform.children.push("agents");
+                }
 
-            //     action.agents.forEach(function (agent)
-            //     {
-            //         var agentProps = agent;
-            //         agentProps.expanded = false;
-            //         agentProps.visible = true;
-            //         agentProps.path = platform.agents.path.slice(0);
-            //         agentProps.path.push(agent.uuid);
-            //         // agent.status = "GOOD";
-            //         agentProps.children = [];
-            //         agentProps.type = "agent";
-            //         agentProps.sortOrder = 0;
-            //         platform.agents.children.push(agent.uuid); 
-            //         platform.agents[agent.uuid] = agentProps;
-            //     });
+                action.agents.forEach(function (agent)
+                {
+                    var agentProps = agent;
+                    agentProps.expanded = false;
+                    agentProps.visible = true;
+                    agentProps.path = platform.agents.path.slice(0);
+                    agentProps.path.push(agent.uuid);
+                    // agent.status = "GOOD";
+                    agentProps.children = [];
+                    agentProps.type = "agent";
+                    agentProps.sortOrder = 0;
+                    platform.agents.children.push(agent.uuid); 
+                    platform.agents[agent.uuid] = agentProps;
+                });
 
-            // }
+            }
 
             platformsPanelItemsStore.emitChange();
             break;
@@ -6979,105 +6991,105 @@ platformsPanelItemsStore.dispatchToken = dispatcher.register(function (action) {
             break;
     }
 
-    function loadAgents(platform)
-    {
-        // var platform = _items["platforms"][action.platform.uuid];
+    // function loadAgents(platform)
+    // {
+    //     // var platform = _items["platforms"][action.platform.uuid];
         
-        if (platform.agents.length > 0)
-        {
-            var agents = [];
+    //     if (platform.agents.length > 0)
+    //     {
+    //         var agents = [];
 
-            platform.agents.forEach(function (agent) {
-                agents.push(agent);
-            });
+    //         platform.agents.forEach(function (agent) {
+    //             agents.push(agent);
+    //         });
 
-            // platform.expanded = true;
-            platform.agents = {};
-            platform.agents.path = platform.path.slice(0);
-            platform.agents.path.push("agents");
-            platform.agents.name = "Agents";
-            platform.agents.expanded = false;
-            platform.agents.visible = true;
-            platform.agents.children = [];
-            platform.agents.type = "type";
-            platform.agents.sortOrder = _agentsOrder;
+    //         // platform.expanded = true;
+    //         platform.agents = {};
+    //         platform.agents.path = platform.path.slice(0);
+    //         platform.agents.path.push("agents");
+    //         platform.agents.name = "Agents";
+    //         platform.agents.expanded = false;
+    //         platform.agents.visible = true;
+    //         platform.agents.children = [];
+    //         platform.agents.type = "type";
+    //         platform.agents.sortOrder = _agentsOrder;
 
-            if (platform.children.indexOf("agents") < 0)
-            {
-                platform.children.push("agents");
-            }
+    //         if (platform.children.indexOf("agents") < 0)
+    //         {
+    //             platform.children.push("agents");
+    //         }
 
-            agents.forEach(function (agent)
-            {
-                var agentProps = agent;
-                agentProps.expanded = false;
-                agentProps.visible = true;
-                agentProps.path = platform.agents.path.slice(0);
-                agentProps.path.push(agent.uuid);
-                // agent.status = "GOOD";
-                agentProps.children = [];
-                agentProps.type = "agent";
-                agentProps.sortOrder = 0;
-                platform.agents.children.push(agent.uuid); 
-                platform.agents[agent.uuid] = agentProps;
-            });
+    //         agents.forEach(function (agent)
+    //         {
+    //             var agentProps = agent;
+    //             agentProps.expanded = false;
+    //             agentProps.visible = true;
+    //             agentProps.path = platform.agents.path.slice(0);
+    //             agentProps.path.push(agent.uuid);
+    //             // agent.status = "GOOD";
+    //             agentProps.children = [];
+    //             agentProps.type = "agent";
+    //             agentProps.sortOrder = 0;
+    //             platform.agents.children.push(agent.uuid); 
+    //             platform.agents[agent.uuid] = agentProps;
+    //         });
 
-        }
-        else
-        {
-            delete platform.agents;
-        }
-    }
+    //     }
+    //     else
+    //     {
+    //         delete platform.agents;
+    //     }
+    // }
 
-    function loadDevices(platform)
-    {
-        // var platform = _items["platforms"][action.platform.uuid];
+    // function loadDevices(platform)
+    // {
+    //     // var platform = _items["platforms"][action.platform.uuid];
         
-        if (platform.devices.length > 0)
-        {
-            // var agents = [];
+    //     if (platform.devices.length > 0)
+    //     {
+    //         // var agents = [];
 
-            // platform.agents.forEach(function (agent)) {
-            //     agents.push(agent);
-            // }
+    //         // platform.agents.forEach(function (agent)) {
+    //         //     agents.push(agent);
+    //         // }
 
-            // platform.expanded = true;
-            // platform.agents = {};
-            // platform.agents.path = platform.path.slice(0);
-            // platform.agents.path.push("agents");
-            // platform.agents.name = "Agents";
-            // platform.agents.expanded = false;
-            // platform.agents.visible = true;
-            // platform.agents.children = [];
-            // platform.agents.type = "type";
-            // platform.agents.sortOrder = _agentsOrder;
+    //         // platform.expanded = true;
+    //         // platform.agents = {};
+    //         // platform.agents.path = platform.path.slice(0);
+    //         // platform.agents.path.push("agents");
+    //         // platform.agents.name = "Agents";
+    //         // platform.agents.expanded = false;
+    //         // platform.agents.visible = true;
+    //         // platform.agents.children = [];
+    //         // platform.agents.type = "type";
+    //         // platform.agents.sortOrder = _agentsOrder;
 
-            // if (platform.children.indexOf("agents") < 0)
-            // {
-            //     platform.children.push("agents");
-            // }
+    //         // if (platform.children.indexOf("agents") < 0)
+    //         // {
+    //         //     platform.children.push("agents");
+    //         // }
 
-            // agents.forEach(function (agent)
-            // {
-            //     var agentProps = agent;
-            //     agentProps.expanded = false;
-            //     agentProps.visible = true;
-            //     agentProps.path = platform.agents.path.slice(0);
-            //     agentProps.path.push(agent.uuid);
-            //     // agent.status = "GOOD";
-            //     agentProps.children = [];
-            //     agentProps.type = "agent";
-            //     agentProps.sortOrder = 0;
-            //     platform.agents.children.push(agent.uuid); 
-            //     platform.agents[agent.uuid] = agentProps;
-            // });
+    //         // agents.forEach(function (agent)
+    //         // {
+    //         //     var agentProps = agent;
+    //         //     agentProps.expanded = false;
+    //         //     agentProps.visible = true;
+    //         //     agentProps.path = platform.agents.path.slice(0);
+    //         //     agentProps.path.push(agent.uuid);
+    //         //     // agent.status = "GOOD";
+    //         //     agentProps.children = [];
+    //         //     agentProps.type = "agent";
+    //         //     agentProps.sortOrder = 0;
+    //         //     platform.agents.children.push(agent.uuid); 
+    //         //     platform.agents[agent.uuid] = agentProps;
+    //         // });
 
-        }
-        else
-        {
-            delete platform.devices;
-        }
-    }
+    //     }
+    //     else
+    //     {
+    //         delete platform.devices;
+    //     }
+    // }
 
     function getParentPath(parent)
     {

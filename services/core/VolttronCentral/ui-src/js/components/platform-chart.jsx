@@ -16,7 +16,7 @@ var PlatformChart = React.createClass({
     getInitialState: function () {
         var state = {};
 
-        state.refreshInterval = this.props.chart.refreshInterval;
+        state.refreshInterval = 0; //this.props.chart.refreshInterval;
 
         return state;
     },
@@ -314,7 +314,9 @@ var GraphLineChart = React.createClass({
       }
 
       lineChart.margin({left: 25, right: 25})
-          .x(function(d) {return d.x})
+          .x(function(d) {
+            return d.x
+          })
           .y(function(d) {return d.y})
           .useInteractiveGuideline(true)
           .showYAxis(true)

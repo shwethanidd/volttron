@@ -50,13 +50,13 @@ var platformManagerActionCreators = {
                 });
 
                 platforms.forEach(function (platform, i) {
-                    if (platform.name === null || platform.name === "")
-                    {
-                        platform.name = "vc" + (i + 1);
-                    }
+                    // if (platform.name === null || platform.name === "")
+                    // {
+                    //     platform.name = "vc" + (i + 1);
+                    // }
                     
-                    // platformActionCreators.loadPlatform(platform);
-                    platformActionCreators.initializeAgents(platform);
+                    platformActionCreators.loadPlatform(platform);
+                    // platformActionCreators.initializeAgents(platform);
                 });
             })
             .catch(rpc.Error, handle401);
@@ -79,7 +79,7 @@ var platformManagerActionCreators = {
             authorization: authorization,
             params: {
                 identity: 'platform.agent',
-                agentId: name,
+                agentid: name,
                 address: address,
             },
         }).promise
