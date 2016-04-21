@@ -1179,7 +1179,7 @@ def test_analysis_topic(request, sqlhistorian, publish_agent, query_agent,
         headers_mod.DATE: now
     }
     # Publish messages
-    publish(publish_agent, 'analysis/Building/LAB/Device/MixedAirTemperature',
+    publish(publish_agent, 'analysis/Building/LAB/Device',
             headers, all_message)
     gevent.sleep(0.5)
 
