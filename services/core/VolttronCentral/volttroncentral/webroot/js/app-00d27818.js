@@ -3371,6 +3371,8 @@ var PlatformsPanelItem = React.createClass({displayName: "PlatformsPanelItem",
         state.panelItem = this.props.panelItem;
         state.children = this.props.panelChildren;
 
+        this.checkedName = this.props.panelItem.name + "2";
+
         return state;
     },
     componentDidMount: function () {
@@ -3387,6 +3389,11 @@ var PlatformsPanelItem = React.createClass({displayName: "PlatformsPanelItem",
         this.setState({panelItem: panelItem});
         this.setState({children: panelChildren});
         this.setState({checked: panelItem.checked});
+
+        if (this.checkedName === this.props.panelItem.name)
+        {
+            console.log("store change for " + this.checkedName);
+        }
     },
     _expandAll : function () {
         
@@ -3414,9 +3421,12 @@ var PlatformsPanelItem = React.createClass({displayName: "PlatformsPanelItem",
 
         var checked = e.target.checked;
 
+        this.checkedName = this.props.panelItem.name;
+        console.log("check " + this.checkedName + " " + checked);
+
         platformsPanelActionCreators.checkItem(this.props.itemPath, checked);
 
-        this.setState({checked: checked});
+        // this.setState({checked: checked});
 
         if (checked)
         {
@@ -3444,6 +3454,13 @@ var PlatformsPanelItem = React.createClass({displayName: "PlatformsPanelItem",
         var itemPath = this.props.itemPath;
         var propChildren = this.state.children;
         var children;
+
+        if (this.checkedName === this.props.panelItem.name)
+        {
+            console.log("rendering for " + this.checkedName);
+            console.log("checked is " + this.state.checked);
+            // this.checkedName = this.props.panelItem.name + "2";
+        }
 
         var visibleStyle = {};
 
@@ -3556,7 +3573,7 @@ var PlatformsPanelItem = React.createClass({displayName: "PlatformsPanelItem",
                         onClick: this._toggleItem}, 
                         arrowContent
                     ), 
-                        React.createElement(Router.Link, {to: "charts"}, ChartCheckbox), 
+                    ChartCheckbox, 
                     React.createElement("div", {className: toolTipClasses, 
                         style: tooltipStyle}, 
                         React.createElement("div", {className: "tooltip_inner"}, 
@@ -5264,14 +5281,8 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
                 
                 if (typeof value === 'string')
                 {
-                    var index = value.indexOf('+00:00');
-
-                    if (index > -1)
-                    {
-                        value = value.replace('+00:00', '');
-                    }
+                    value = value.replace('+00:00', '');
                 }
-
 
                 if (skey === "0" && typeof value === 'string' &&
                     Date.parse(value + 'Z')) {

@@ -18,6 +18,8 @@ var PlatformsPanelItem = React.createClass({
         state.panelItem = this.props.panelItem;
         state.children = this.props.panelChildren;
 
+        this.checkedName = this.props.panelItem.name + "2";
+
         return state;
     },
     componentDidMount: function () {
@@ -34,6 +36,11 @@ var PlatformsPanelItem = React.createClass({
         this.setState({panelItem: panelItem});
         this.setState({children: panelChildren});
         this.setState({checked: panelItem.checked});
+
+        if (this.checkedName === this.props.panelItem.name)
+        {
+            console.log("store change for " + this.checkedName);
+        }
     },
     _expandAll : function () {
         
@@ -61,9 +68,12 @@ var PlatformsPanelItem = React.createClass({
 
         var checked = e.target.checked;
 
+        this.checkedName = this.props.panelItem.name;
+        console.log("check " + this.checkedName + " " + checked);
+
         platformsPanelActionCreators.checkItem(this.props.itemPath, checked);
 
-        this.setState({checked: checked});
+        // this.setState({checked: checked});
 
         if (checked)
         {
@@ -91,6 +101,13 @@ var PlatformsPanelItem = React.createClass({
         var itemPath = this.props.itemPath;
         var propChildren = this.state.children;
         var children;
+
+        if (this.checkedName === this.props.panelItem.name)
+        {
+            console.log("rendering for " + this.checkedName);
+            console.log("checked is " + this.state.checked);
+            // this.checkedName = this.props.panelItem.name + "2";
+        }
 
         var visibleStyle = {};
 
@@ -203,7 +220,7 @@ var PlatformsPanelItem = React.createClass({
                         onClick={this._toggleItem}>
                         {arrowContent}
                     </div>  
-                        <Router.Link to="charts">{ChartCheckbox}</Router.Link>                  
+                    {ChartCheckbox}                  
                     <div className={toolTipClasses}
                         style={tooltipStyle}>
                         <div className="tooltip_inner">
