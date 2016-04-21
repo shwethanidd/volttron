@@ -266,7 +266,6 @@ class BaseHistorianAgent(Agent):
 
         Filter out all but the all topics
         """
-        print("Capture analysis", topic, headers, message)
         if topic.endswith("/all") or '/all/' in topic:
             return
 
@@ -324,7 +323,6 @@ class BaseHistorianAgent(Agent):
         _log.debug(
             "Queuing {topic} from {source} for publish".format(topic=topic,
                                                                source=source))
-        print ("VALUES","analysis", values)
         for key, value in values.iteritems():
             point_topic = device + '/' + key
             self._event_queue.put({'source': source,
