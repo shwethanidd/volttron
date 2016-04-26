@@ -10,200 +10,23 @@ var devicesStore = new Store();
 var _action = "get_scan_settings";
 var _view = "Detect Devices";
 var _device = null;
-var _data = null;
+var _data = {};
+var _backupData = {};
+var _registryFiles = {};
+var _backupFileName = {};
 
-var _registryValues = [
-    [
-        {"key": "Point_Name", "value": "Heartbeat"},
-        {"key": "Volttron_Point_Name", "value": "Heartbeat"},
-        {"key": "Units", "value": "On/Off"},
-        {"key": "Units_Details", "value": "On/Off"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": 0},
-        {"key": "Type", "value": "boolean"},
-        {"key": "Notes", "value": "Point for heartbeat toggle"}
-    ],
-    [
-        {"key": "Point_Name", "value": "OutsideAirTemperature1"},
-        {"key": "Volttron_Point_Name", "value": "OutsideAirTemperature1"},
-        {"key": "Units", "value": "F"},
-        {"key": "Units_Details", "value": "-100 to 300"},
-        {"key": "Writable", "value": false},
-        {"key": "Starting_Value", "value": 50},
-        {"key": "Type", "value": "float"},
-        {"key": "Notes", "value": "CO2 Reading 0.00-2000.0 ppm"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleWritableFloat1"},
-        {"key": "Volttron_Point_Name", "value": "SampleWritableFloat1"},
-        {"key": "Units", "value": "PPM"},
-        {"key": "Units_Details", "value": "1000.00 (default)"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": 10},
-        {"key": "Type", "value": "float"},
-        {"key": "Notes", "value": "Setpoint to enable demand control ventilation"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleLong1"},
-        {"key": "Volttron_Point_Name", "value": "SampleLong1"},
-        {"key": "Units", "value": "Enumeration"},
-        {"key": "Units_Details", "value": "1 through 13"},
-        {"key": "Writable", "value": false},
-        {"key": "Starting_Value", "value": 50},
-        {"key": "Type", "value": "int"},
-        {"key": "Notes", "value": "Status indicator of service switch"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleWritableShort1"},
-        {"key": "Volttron_Point_Name", "value": "SampleWritableShort1"},
-        {"key": "Units", "value": "%"},
-        {"key": "Units_Details", "value": "0.00 to 100.00 (20 default)"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": 20},
-        {"key": "Type", "value": "int"},
-        {"key": "Notes", "value": "Minimum damper position during the standard mode"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleBool1"},
-        {"key": "Volttron_Point_Name", "value": "SampleBool1"},
-        {"key": "Units", "value": "On / Off"},
-        {"key": "Units_Details", "value": "on/off"},
-        {"key": "Writable", "value": false},
-        {"key": "Starting_Value", "value": true},
-        {"key": "Type", "value": "boolean"},
-        {"key": "Notes", "value": "Status indidcator of cooling stage 1"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleWritableBool1"},
-        {"key": "Volttron_Point_Name", "value": "SampleWritableBool1"},
-        {"key": "Units", "value": "On / Off"},
-        {"key": "Units_Details", "value": "on/off"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": true},
-        {"key": "Type", "value": "boolean"},
-        {"key": "Notes", "value": "Status indicator"}
-    ],
-    [
-        {"key": "Point_Name", "value": "OutsideAirTemperature2"},
-        {"key": "Volttron_Point_Name", "value": "OutsideAirTemperature2"},
-        {"key": "Units", "value": "F"},
-        {"key": "Units_Details", "value": "-100 to 300"},
-        {"key": "Writable", "value": false},
-        {"key": "Starting_Value", "value": 50},
-        {"key": "Type", "value": "float"},
-        {"key": "Notes", "value": "CO2 Reading 0.00-2000.0 ppm"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleWritableFloat2"},
-        {"key": "Volttron_Point_Name", "value": "SampleWritableFloat2"},
-        {"key": "Units", "value": "PPM"},
-        {"key": "Units_Details", "value": "1000.00 (default)"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": 10},
-        {"key": "Type", "value": "float"},
-        {"key": "Notes", "value": "Setpoint to enable demand control ventilation"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleLong2"},
-        {"key": "Volttron_Point_Name", "value": "SampleLong2"},
-        {"key": "Units", "value": "Enumeration"},
-        {"key": "Units_Details", "value": "1 through 13"},
-        {"key": "Writable", "value": false},
-        {"key": "Starting_Value", "value": 50},
-        {"key": "Type", "value": "int"},
-        {"key": "Notes", "value": "Status indicator of service switch"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleWritableShort2"},
-        {"key": "Volttron_Point_Name", "value": "SampleWritableShort2"},
-        {"key": "Units", "value": "%"},
-        {"key": "Units_Details", "value": "0.00 to 100.00 (20 default)"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": 20},
-        {"key": "Type", "value": "int"},
-        {"key": "Notes", "value": "Minimum damper position during the standard mode"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleBool2"},
-        {"key": "Volttron_Point_Name", "value": "SampleBool2"},
-        {"key": "Units", "value": "On / Off"},
-        {"key": "Units_Details", "value": "on/off"},
-        {"key": "Writable", "value": false},
-        {"key": "Starting_Value", "value": true},
-        {"key": "Type", "value": "boolean"},
-        {"key": "Notes", "value": "Status indidcator of cooling stage 1"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleWritableBool2"},
-        {"key": "Volttron_Point_Name", "value": "SampleWritableBool2"},
-        {"key": "Units", "value": "On / Off"},
-        {"key": "Units_Details", "value": "on/off"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": true},
-        {"key": "Type", "value": "boolean"},
-        {"key": "Notes", "value": "Status indicator"}
-    ],
-    [
-        {"key": "Point_Name", "value": "OutsideAirTemperature3"},
-        {"key": "Volttron_Point_Name", "value": "OutsideAirTemperature3"},
-        {"key": "Units", "value": "F"},
-        {"key": "Units_Details", "value": "-100 to 300"},
-        {"key": "Writable", "value": false},
-        {"key": "Starting_Value", "value": 50},
-        {"key": "Type", "value": "float"},
-        {"key": "Notes", "value": "CO2 Reading 0.00-2000.0 ppm"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleWritableFloat3"},
-        {"key": "Volttron_Point_Name", "value": "SampleWritableFloat3"},
-        {"key": "Units", "value": "PPM"},
-        {"key": "Units_Details", "value": "1000.00 (default)"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": 10},
-        {"key": "Type", "value": "float"},
-        {"key": "Notes", "value": "Setpoint to enable demand control ventilation"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleLong3"},
-        {"key": "Volttron_Point_Name", "value": "SampleLong3"},
-        {"key": "Units", "value": "Enumeration"},
-        {"key": "Units_Details", "value": "1 through 13"},
-        {"key": "Writable", "value": false},
-        {"key": "Starting_Value", "value": 50},
-        {"key": "Type", "value": "int"},
-        {"key": "Notes", "value": "Status indicator of service switch"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleWritableShort3"},
-        {"key": "Volttron_Point_Name", "value": "SampleWritableShort3"},
-        {"key": "Units", "value": "%"},
-        {"key": "Units_Details", "value": "0.00 to 100.00 (20 default)"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": 20},
-        {"key": "Type", "value": "int"},
-        {"key": "Notes", "value": "Minimum damper position during the standard mode"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleBool3"},
-        {"key": "Volttron_Point_Name", "value": "SampleBool3"},
-        {"key": "Units", "value": "On / Off"},
-        {"key": "Units_Details", "value": "on/off"},
-        {"key": "Writable", "value": false},
-        {"key": "Starting_Value", "value": true},
-        {"key": "Type", "value": "boolean"},
-        {"key": "Notes", "value": "Status indidcator of cooling stage 1"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleWritableBool3"},
-        {"key": "Volttron_Point_Name", "value": "SampleWritableBool3"},
-        {"key": "Units", "value": "On / Off"},
-        {"key": "Units_Details", "value": "on/off"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": true},
-        {"key": "Type", "value": "boolean"},
-        {"key": "Notes", "value": "Status indicator"}
-    ]
-];
+
+var _placeHolders = [ [
+    {"key": "Point_Name", "value": "", "editable": true},
+    {"key": "Volttron_Point_Name", "value": ""},
+    {"key": "Units", "value": ""},
+    {"key": "Units_Details", "value": "" },
+    {"key": "Writable", "value": "" },
+    {"key": "Starting_Value", "value": "" },
+    {"key": "Type", "value": "" },
+    {"key": "Notes", "value": "" }
+] ];
+
 
 devicesStore.getState = function () {
     return { action: _action, view: _view, device: _device };
@@ -211,7 +34,7 @@ devicesStore.getState = function () {
 
 devicesStore.getFilteredRegistryValues = function (device, filterStr) {
 
-    return _registryValues.filter(function (item) {
+    return _data[device.deviceId].filter(function (item) {
         var pointName = item.find(function (pair) {
             return pair.key === "Point_Name";
         })
@@ -221,7 +44,23 @@ devicesStore.getFilteredRegistryValues = function (device, filterStr) {
 }
 
 devicesStore.getRegistryValues = function (device) {
-    return _registryValues.slice();
+
+    return (_data[device.deviceId].length ? 
+                JSON.parse(JSON.stringify(_data[device.deviceId])) : 
+                    JSON.parse(JSON.stringify(_placeHolders)));
+    
+};
+
+devicesStore.getDataLoaded = function (device) {
+    return ( (_data.hasOwnProperty(device.deviceId) && 
+                (_data.hasOwnProperty(device.deviceId))) ? _data[device.deviceId].length : false);
+};
+
+devicesStore.getRegistryFile = function (device) {
+
+    return (_registryFiles.hasOwnProperty(device.deviceId) &&
+                _data.hasOwnProperty(device.deviceId) &&
+                _data[device.deviceId].length ? _registryFiles[device.deviceId] : "");
     
 };
 
@@ -269,23 +108,50 @@ devicesStore.dispatchToken = dispatcher.register(function (action) {
             devicesStore.emitChange();
             break;
         case ACTION_TYPES.CONFIGURE_DEVICE:
-        case ACTION_TYPES.CANCEL_REGISTRY:
             _action = "configure_device";
             _view = "Configure Device";
             _device = action.device;
             devicesStore.emitChange();
-            break;
-        case ACTION_TYPES.CONFIGURE_REGISTRY:
-            _action = "configure_registry";
-            _view = "Registry Configuration";
+        case ACTION_TYPES.CANCEL_REGISTRY:
+            _action = "configure_device";
+            _view = "Configure Device";
             _device = action.device;
-            _data = action.data;
+            _data[_device.deviceId] = (_backupData.hasOwnProperty(_device.deviceId) ? JSON.parse(JSON.stringify(_backupData[_device.deviceId])) : []);
+            _registryFiles[_device.deviceId] = (_backupFileName.hasOwnProperty(_device.deviceId) ? _backupFileName[_device.deviceId] : "");
             devicesStore.emitChange();
             break;
-        case ACTION_TYPES.CANCEL_REGISTRY:
+        case ACTION_TYPES.LOAD_REGISTRY:
             _action = "configure_registry";
             _view = "Registry Configuration";
             _device = action.device;
+            _backupData[_device.deviceId] = (_data.hasOwnProperty(_device.deviceId) ? JSON.parse(JSON.stringify(_data[_device.deviceId])) : []);
+            _backupFileName[_device.deviceId] = (_registryFiles.hasOwnProperty(_device.deviceId) ? _registryFiles[_device.deviceId] : "");
+            _data[_device.deviceId] = JSON.parse(JSON.stringify(action.data));
+            _registryFiles[_device.deviceId] = action.file;             
+            devicesStore.emitChange();
+            break;
+        case ACTION_TYPES.EDIT_REGISTRY:
+            _action = "configure_registry";
+            _view = "Registry Configuration";
+            _device = action.device;  
+            _backupData[_device.deviceId] = (_data.hasOwnProperty(_device.deviceId) ? JSON.parse(JSON.stringify(_data[_device.deviceId])) : []);                      
+            _backupFileName[_device.deviceId] = (_registryFiles.hasOwnProperty(_device.deviceId) ? _registryFiles[_device.deviceId] : "");
+            devicesStore.emitChange();
+            break;
+        case ACTION_TYPES.GENERATE_REGISTRY:
+            _action = "configure_registry";
+            _view = "Registry Configuration";
+            _device = action.device;
+            _backupData[_device.deviceId] = (_data.hasOwnProperty(_device.deviceId) ? JSON.parse(JSON.stringify(_data[_device.deviceId])) : []);
+            _backupFileName[_device.deviceId] = (_registryFiles.hasOwnProperty(_device.deviceId) ? _registryFiles[_device.deviceId] : "");
+            _data[_device.deviceId] = [];
+            devicesStore.emitChange();
+            break;
+        case ACTION_TYPES.SAVE_REGISTRY:
+            _action = "configure_device";
+            _view = "Configure Device";
+            _device = action.device;
+            _data[_device.deviceId] = JSON.parse(JSON.stringify(action.data));
             devicesStore.emitChange();
             break;
     }

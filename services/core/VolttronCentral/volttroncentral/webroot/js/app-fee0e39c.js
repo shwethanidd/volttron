@@ -180,9 +180,15 @@ var devicesActionCreators = {
             device: device
         });
     },
-    configureRegistry: function (device) {
+    // configureRegistry: function (device) {
+    //     dispatcher.dispatch({
+    //         type: ACTION_TYPES.CONFIGURE_REGISTRY,
+    //         device: device
+    //     });
+    // },
+    generateRegistry: function (device) {
         dispatcher.dispatch({
-            type: ACTION_TYPES.CONFIGURE_REGISTRY,
+            type: ACTION_TYPES.GENERATE_REGISTRY,
             device: device
         });
     },
@@ -192,11 +198,25 @@ var devicesActionCreators = {
             device: device
         });
     },
-    loadRegistryCsv: function (device, csvData) {
+    loadRegistry: function (device, csvData, fileName) {
         dispatcher.dispatch({
-            type: ACTION_TYPES.CONFIGURE_REGISTRY,
+            type: ACTION_TYPES.LOAD_REGISTRY,
             device: device,
-            data: csvData
+            data: csvData,
+            file: fileName
+        });
+    },
+    editRegistry: function (device) {
+        dispatcher.dispatch({
+            type: ACTION_TYPES.EDIT_REGISTRY,
+            device: device
+        });
+    },
+    saveRegistry: function (device, values) {
+        dispatcher.dispatch({
+            type: ACTION_TYPES.SAVE_REGISTRY,
+            device: device,
+            data: values
         });
     },
 };
@@ -920,9 +940,10 @@ module.exports = Composer;
 
 var React = require('react');
 var Router = require('react-router');
-// var CsvParse = require('../lib/rpc');
 var CsvParse = require('babyparse');
 
+var ConfirmForm = require('./confirm-form');
+var modalActionCreators = require('../action-creators/modal-action-creators');
 var devicesActionCreators = require('../action-creators/devices-action-creators');
 var devicesStore = require('../stores/devices-store');
 
@@ -971,9 +992,9 @@ var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
             return;
         }
 
-        var reader = new FileReader();
+        var fileName = evt.target.value;        
 
-        var fileName = evt.target.value;
+        var reader = new FileReader();
 
         reader.onload = function (e) {
 
@@ -981,9 +1002,12 @@ var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
 
             var results = parseCsvFile(contents);
 
-            if (results.error)
+            if (results.errors.length)
             {
-                var errorMsg = "The file is not a valid CSV document: " + err;
+                var errorMsg = "The following errors were encountered parsing the document: " + 
+                        results.errors.map(function (error) {
+                            return error.message;
+                        });                
 
                 modalActionCreators.openModal(
                     React.createElement(ConfirmForm, {
@@ -992,36 +1016,42 @@ var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
                         cancelText: "OK"
                     })
                 );
+
+                this.setState({registry_config: ""});
             }
-            else if (results.data)
+            else 
             {
+                if (results.warnings.length)
+                {    
+                    var warningMsg = results.warnings.map(function (warning) {
+                                return warning.message;
+                            });                
 
-                devicesActionCreators.loadRegistryCsv(this.props.device, results.data);
+                    modalActionCreators.openModal(
+                        React.createElement(ConfirmForm, {
+                            promptTitle: "File Upload Notes", 
+                            promptText:  warningMsg, 
+                            cancelText: "OK"
+                        })
+                    );
+                }
 
-                // this.setState({csv_data: results.data});
-                // // this.setState({registry_file: fileName});
-                this.setState({registry_config: fileName});
+                if (!results.meta.aborted)            
+                {
+                    this.setState({registry_config: fileName});       
+                    devicesActionCreators.loadRegistry(this.props.device, results.data, fileName);
+                }
             }
+
         }.bind(this)
 
-        reader.readAsText(csvFile);
-
-        // // var contents = reader.result;
-
-        // if (contents)
-        // {
-        //     var results = parseCsvFile(contents);
-
-        //     if (results.data)
-        //     {
-        //         this.setState({csv_data: results.data});
-        //         this.setState({registry_file: evt.target.value});
-        //         this.setState({registry_config: evt.target.value});
-        //     }
-        // }
+        reader.readAsText(csvFile);        
     },
-    _generateRegistryFile: function (device) {
-        devicesActionCreators.configureRegistry(device);
+    _generateRegistryFile: function () {
+        devicesActionCreators.generateRegistry(this.props.device);
+    },
+    _editRegistryFile: function () {
+        devicesActionCreators.editRegistry(this.props.device);
     },
     render: function () {        
         
@@ -1065,6 +1095,7 @@ var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
 
         var buttonStyle = {
             height: "24px",
+            width: "66px",
             lineHeight: "18px"
         }
 
@@ -1105,6 +1136,18 @@ var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
                 );
             }, this);
 
+
+        var editButton = ( this.state.registry_saved ?
+                                React.createElement("td", {
+                                    style: buttonColumns, 
+                                    className: "plain"}, 
+                                    React.createElement("button", {
+                                        style: buttonStyle, onClick: this._editRegistryFile}, "Edit")
+                                ) :
+
+                                        React.createElement("td", {className: "plain"})
+            );
+
         var registryConfigRow = 
             React.createElement("tr", null, 
                 React.createElement("td", {style: firstStyle}, "Registry Configuration File"), 
@@ -1122,19 +1165,19 @@ var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
                     style: buttonColumns, 
                     className: "plain"}, 
                     React.createElement("div", {className: "buttonWrapper"}, 
-                        React.createElement("div", null, "Upload File"), 
+                        React.createElement("div", null, "Upload"), 
                         React.createElement("input", {
                             className: "uploadButton", 
                             type: "file", 
-                            onChange: this._uploadRegistryFile, 
-                            value: this.state.registry_file})
+                            onChange: this._uploadRegistryFile})
                     )
                 ), 
+                 editButton, 
                 React.createElement("td", {
                     style: buttonColumns, 
                     className: "plain"}, 
                     React.createElement("button", {
-                        style: buttonStyle, onClick: this._generateRegistryFile.bind(this, this.props.device)}, "Generate")
+                        style: buttonStyle, onClick: this._generateRegistryFile}, "Generate")
                 )
             )
 
@@ -1146,12 +1189,21 @@ var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
                 )
             )
 
+        var boxPadding = (this.state.registry_saved ? "60px" : "60px 100px");
+
+        var configDeviceBox = {
+            padding: boxPadding,
+            marginTop: "20px",
+            marginBottom: "20px",
+            border: "1px solid black"
+        }
+
         return (
             React.createElement("div", {className: "configDeviceContainer"}, 
                 React.createElement("div", {className: "uneditableAttributes"}, 
                      uneditableAttributes 
                 ), 
-                React.createElement("div", {className: "configDeviceBox"}, 
+                React.createElement("div", {style: configDeviceBox}, 
                      editableAttributes 
                 )
             )
@@ -1160,6 +1212,9 @@ var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
 });
 
 function getStateFromStores(device) {
+
+    var registryFile = devicesStore.getRegistryFile(device);
+
     return {
         settings: [
             { key: "unit", value: "", label: "Unit" },
@@ -1171,26 +1226,71 @@ function getStateFromStores(device) {
             { key: "minimum_priority", value: "", label: "Minimum Priority" },
             { key: "max_objs_per_read", value: "", label: "Maximum Objects per Read" }
         ],
-        registry_config: "",
-        registry_file: ""
+        registry_config: registryFile,
+        registry_saved: (registryFile ? true : false)
     };
 }
 
 function parseCsvFile(contents) {
 
-    var results = CsvParse.parse(contents, {
-        error: function (err) {
-            var errorMsg = "The file is not a valid CSV document: " + err;
+    var results = CsvParse.parse(contents);
 
-            modalActionCreators.openModal(
-                React.createElement(ConfirmForm, {
-                    promptTitle: "Error Reading File", 
-                    promptText:  errorMsg, 
-                    cancelText: "OK"
-                })
-            );
+    var registryValues = [];
+
+    var header = [];
+
+    var data = results.data;
+
+    results.warnings = [];
+
+    if (data.length)
+    {
+        header = data.slice(0, 1);
+    }
+
+    var template = [];
+
+    if (header[0].length)
+    {
+        header[0].forEach(function (column) {
+            template.push({ "key": column.replace(/ /g, "_"), "value": null, "label": column });
+        });
+
+        var templateLength = template.length;
+
+        if (data.length > 1)
+        {
+            var rows = data.slice(1);
+
+            rows.forEach(function (r, num) {
+
+                if (r.length !== templateLength)
+                {
+                    results.warnings.push({ message: "Incorrect column count in row " +  num });
+                }
+                else
+                {
+                    var newTemplate = JSON.parse(JSON.stringify(template));
+
+                    var newRow = [];
+
+                    r.forEach( function (value, i) {
+                        newTemplate[i].value = value;
+
+                        newRow.push(newTemplate[i]);
+                    });
+
+                    registryValues.push(newRow);
+                }
+            });
         }
-    });
+        else
+        {
+            registryValues = template;
+        }
+    }
+
+    results.data = registryValues;
 
     return results;
 }
@@ -1200,7 +1300,7 @@ function parseCsvFile(contents) {
 module.exports = ConfigureDevice;
 
 
-},{"../action-creators/devices-action-creators":4,"../stores/devices-store":49,"babyparse":undefined,"react":undefined,"react-router":undefined}],12:[function(require,module,exports){
+},{"../action-creators/devices-action-creators":4,"../action-creators/modal-action-creators":5,"../stores/devices-store":49,"./confirm-form":13,"babyparse":undefined,"react":undefined,"react-router":undefined}],12:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1311,7 +1411,7 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
         var pointValues = [];
 
         this.state.columnNames.map(function (column) {
-            pointValues.push({ "key" : column, "value": "" });
+            pointValues.push({ "key" : column, "value": "", "editable": true });
         });
 
         registryValues.push(pointValues);
@@ -1728,14 +1828,14 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
         devicesActionCreators.cancelRegistry(this.props.device);
     },
     _saveRegistry: function () {
-
+        devicesActionCreators.saveRegistry(this.props.device, this.state.registryValues);
     },
     render: function () {        
         
         var filterPointsTooltip = {
             content: "Filter Points",
             "x": 160,
-            "y": 0
+            "y": 30
         }
 
         var filterButton = React.createElement(FilterPointsButton, {
@@ -1747,7 +1847,7 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
         var addPointTooltip = {
             content: "Add New Point",
             "x": 160,
-            "y": 0
+            "y": 30
         }
 
         var addPointButton = React.createElement(ControlButton, {
@@ -1761,7 +1861,7 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
         var removePointTooltip = {
             content: "Remove Points",
             "x": 160,
-            "y": 0
+            "y": 30
         }
 
         var removePointsButton = React.createElement(ControlButton, {
@@ -1780,8 +1880,8 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
                 var selectedStyle = (item.selected ? {backgroundColor: "#F5B49D"} : {});
                 var focusedCell = (this.state.selectedCellColumn === columnIndex && this.state.selectedCellRow === rowIndex ? "focusedCell" : "");
 
-                var itemCell = (columnIndex === 0 && item.value !== "" ? 
-                                    React.createElement("td", null,  item.value) : 
+                var itemCell = (columnIndex === 0 && !item.editable ? 
+                                    React.createElement("td", null, React.createElement("label", null,  item.value)) : 
                                         React.createElement("td", null, React.createElement("input", {
                                                 id: this.state.registryValues[rowIndex][columnIndex].key + "-" + columnIndex + "-" + rowIndex, 
                                                 type: "text", 
@@ -1790,8 +1890,6 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
                                                 onChange: this._updateCell.bind(this, rowIndex, columnIndex), 
                                                 value:  this.state.registryValues[rowIndex][columnIndex].value})
                                         ));
-
-                // console.log(itemCell);
 
                 return itemCell;
             }, this);
@@ -1831,8 +1929,17 @@ var ConfigureRegistry = React.createClass({displayName: "ConfigureRegistry",
                             onfilter: this._onFilterBoxChange, 
                             onclear: this._onClearFind})
 
+            var firstColumnWidth;
+
+            if (index === 0)
+            {
+                firstColumnWidth = {
+                    width: (item.length * 10) + "px"
+                }
+            }
+
             var headerCell = (index === 0 ?
-                                ( React.createElement("th", null, 
+                                ( React.createElement("th", {style: firstColumnWidth}, 
                                     React.createElement("div", {className: "th-inner"}, 
                                          item, " ",  filterButton, " ",  addPointButton, " ",  removePointsButton 
                                     )
@@ -4613,9 +4720,11 @@ module.exports = keyMirror({
     CANCEL_SCANNING: null,
     LIST_DETECTED_DEVICES: null,
     CONFIGURE_DEVICE: null,
-    CONFIGURE_REGISTRY: null,
+    EDIT_REGISTRY: null,
+    LOAD_REGISTRY: null,
+    GENERATE_REGISTRY: null,
     CANCEL_REGISTRY: null,
-    LOAD_REGISTRY_CSV: null,
+    SAVE_REGISTRY: null,
 
     TOGGLE_TAPTIP: null,
     HIDE_TAPTIP: null,
@@ -5111,200 +5220,23 @@ var devicesStore = new Store();
 var _action = "get_scan_settings";
 var _view = "Detect Devices";
 var _device = null;
-var _data = null;
+var _data = {};
+var _backupData = {};
+var _registryFiles = {};
+var _backupFileName = {};
 
-var _registryValues = [
-    [
-        {"key": "Point_Name", "value": "Heartbeat"},
-        {"key": "Volttron_Point_Name", "value": "Heartbeat"},
-        {"key": "Units", "value": "On/Off"},
-        {"key": "Units_Details", "value": "On/Off"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": 0},
-        {"key": "Type", "value": "boolean"},
-        {"key": "Notes", "value": "Point for heartbeat toggle"}
-    ],
-    [
-        {"key": "Point_Name", "value": "OutsideAirTemperature1"},
-        {"key": "Volttron_Point_Name", "value": "OutsideAirTemperature1"},
-        {"key": "Units", "value": "F"},
-        {"key": "Units_Details", "value": "-100 to 300"},
-        {"key": "Writable", "value": false},
-        {"key": "Starting_Value", "value": 50},
-        {"key": "Type", "value": "float"},
-        {"key": "Notes", "value": "CO2 Reading 0.00-2000.0 ppm"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleWritableFloat1"},
-        {"key": "Volttron_Point_Name", "value": "SampleWritableFloat1"},
-        {"key": "Units", "value": "PPM"},
-        {"key": "Units_Details", "value": "1000.00 (default)"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": 10},
-        {"key": "Type", "value": "float"},
-        {"key": "Notes", "value": "Setpoint to enable demand control ventilation"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleLong1"},
-        {"key": "Volttron_Point_Name", "value": "SampleLong1"},
-        {"key": "Units", "value": "Enumeration"},
-        {"key": "Units_Details", "value": "1 through 13"},
-        {"key": "Writable", "value": false},
-        {"key": "Starting_Value", "value": 50},
-        {"key": "Type", "value": "int"},
-        {"key": "Notes", "value": "Status indicator of service switch"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleWritableShort1"},
-        {"key": "Volttron_Point_Name", "value": "SampleWritableShort1"},
-        {"key": "Units", "value": "%"},
-        {"key": "Units_Details", "value": "0.00 to 100.00 (20 default)"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": 20},
-        {"key": "Type", "value": "int"},
-        {"key": "Notes", "value": "Minimum damper position during the standard mode"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleBool1"},
-        {"key": "Volttron_Point_Name", "value": "SampleBool1"},
-        {"key": "Units", "value": "On / Off"},
-        {"key": "Units_Details", "value": "on/off"},
-        {"key": "Writable", "value": false},
-        {"key": "Starting_Value", "value": true},
-        {"key": "Type", "value": "boolean"},
-        {"key": "Notes", "value": "Status indidcator of cooling stage 1"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleWritableBool1"},
-        {"key": "Volttron_Point_Name", "value": "SampleWritableBool1"},
-        {"key": "Units", "value": "On / Off"},
-        {"key": "Units_Details", "value": "on/off"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": true},
-        {"key": "Type", "value": "boolean"},
-        {"key": "Notes", "value": "Status indicator"}
-    ],
-    [
-        {"key": "Point_Name", "value": "OutsideAirTemperature2"},
-        {"key": "Volttron_Point_Name", "value": "OutsideAirTemperature2"},
-        {"key": "Units", "value": "F"},
-        {"key": "Units_Details", "value": "-100 to 300"},
-        {"key": "Writable", "value": false},
-        {"key": "Starting_Value", "value": 50},
-        {"key": "Type", "value": "float"},
-        {"key": "Notes", "value": "CO2 Reading 0.00-2000.0 ppm"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleWritableFloat2"},
-        {"key": "Volttron_Point_Name", "value": "SampleWritableFloat2"},
-        {"key": "Units", "value": "PPM"},
-        {"key": "Units_Details", "value": "1000.00 (default)"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": 10},
-        {"key": "Type", "value": "float"},
-        {"key": "Notes", "value": "Setpoint to enable demand control ventilation"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleLong2"},
-        {"key": "Volttron_Point_Name", "value": "SampleLong2"},
-        {"key": "Units", "value": "Enumeration"},
-        {"key": "Units_Details", "value": "1 through 13"},
-        {"key": "Writable", "value": false},
-        {"key": "Starting_Value", "value": 50},
-        {"key": "Type", "value": "int"},
-        {"key": "Notes", "value": "Status indicator of service switch"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleWritableShort2"},
-        {"key": "Volttron_Point_Name", "value": "SampleWritableShort2"},
-        {"key": "Units", "value": "%"},
-        {"key": "Units_Details", "value": "0.00 to 100.00 (20 default)"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": 20},
-        {"key": "Type", "value": "int"},
-        {"key": "Notes", "value": "Minimum damper position during the standard mode"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleBool2"},
-        {"key": "Volttron_Point_Name", "value": "SampleBool2"},
-        {"key": "Units", "value": "On / Off"},
-        {"key": "Units_Details", "value": "on/off"},
-        {"key": "Writable", "value": false},
-        {"key": "Starting_Value", "value": true},
-        {"key": "Type", "value": "boolean"},
-        {"key": "Notes", "value": "Status indidcator of cooling stage 1"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleWritableBool2"},
-        {"key": "Volttron_Point_Name", "value": "SampleWritableBool2"},
-        {"key": "Units", "value": "On / Off"},
-        {"key": "Units_Details", "value": "on/off"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": true},
-        {"key": "Type", "value": "boolean"},
-        {"key": "Notes", "value": "Status indicator"}
-    ],
-    [
-        {"key": "Point_Name", "value": "OutsideAirTemperature3"},
-        {"key": "Volttron_Point_Name", "value": "OutsideAirTemperature3"},
-        {"key": "Units", "value": "F"},
-        {"key": "Units_Details", "value": "-100 to 300"},
-        {"key": "Writable", "value": false},
-        {"key": "Starting_Value", "value": 50},
-        {"key": "Type", "value": "float"},
-        {"key": "Notes", "value": "CO2 Reading 0.00-2000.0 ppm"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleWritableFloat3"},
-        {"key": "Volttron_Point_Name", "value": "SampleWritableFloat3"},
-        {"key": "Units", "value": "PPM"},
-        {"key": "Units_Details", "value": "1000.00 (default)"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": 10},
-        {"key": "Type", "value": "float"},
-        {"key": "Notes", "value": "Setpoint to enable demand control ventilation"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleLong3"},
-        {"key": "Volttron_Point_Name", "value": "SampleLong3"},
-        {"key": "Units", "value": "Enumeration"},
-        {"key": "Units_Details", "value": "1 through 13"},
-        {"key": "Writable", "value": false},
-        {"key": "Starting_Value", "value": 50},
-        {"key": "Type", "value": "int"},
-        {"key": "Notes", "value": "Status indicator of service switch"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleWritableShort3"},
-        {"key": "Volttron_Point_Name", "value": "SampleWritableShort3"},
-        {"key": "Units", "value": "%"},
-        {"key": "Units_Details", "value": "0.00 to 100.00 (20 default)"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": 20},
-        {"key": "Type", "value": "int"},
-        {"key": "Notes", "value": "Minimum damper position during the standard mode"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleBool3"},
-        {"key": "Volttron_Point_Name", "value": "SampleBool3"},
-        {"key": "Units", "value": "On / Off"},
-        {"key": "Units_Details", "value": "on/off"},
-        {"key": "Writable", "value": false},
-        {"key": "Starting_Value", "value": true},
-        {"key": "Type", "value": "boolean"},
-        {"key": "Notes", "value": "Status indidcator of cooling stage 1"}
-    ],
-    [
-        {"key": "Point_Name", "value": "SampleWritableBool3"},
-        {"key": "Volttron_Point_Name", "value": "SampleWritableBool3"},
-        {"key": "Units", "value": "On / Off"},
-        {"key": "Units_Details", "value": "on/off"},
-        {"key": "Writable", "value": true},
-        {"key": "Starting_Value", "value": true},
-        {"key": "Type", "value": "boolean"},
-        {"key": "Notes", "value": "Status indicator"}
-    ]
-];
+
+var _placeHolders = [ [
+    {"key": "Point_Name", "value": "", "editable": true},
+    {"key": "Volttron_Point_Name", "value": ""},
+    {"key": "Units", "value": ""},
+    {"key": "Units_Details", "value": "" },
+    {"key": "Writable", "value": "" },
+    {"key": "Starting_Value", "value": "" },
+    {"key": "Type", "value": "" },
+    {"key": "Notes", "value": "" }
+] ];
+
 
 devicesStore.getState = function () {
     return { action: _action, view: _view, device: _device };
@@ -5312,7 +5244,7 @@ devicesStore.getState = function () {
 
 devicesStore.getFilteredRegistryValues = function (device, filterStr) {
 
-    return _registryValues.filter(function (item) {
+    return _data[device.deviceId].filter(function (item) {
         var pointName = item.find(function (pair) {
             return pair.key === "Point_Name";
         })
@@ -5322,7 +5254,23 @@ devicesStore.getFilteredRegistryValues = function (device, filterStr) {
 }
 
 devicesStore.getRegistryValues = function (device) {
-    return _registryValues.slice();
+
+    return (_data[device.deviceId].length ? 
+                JSON.parse(JSON.stringify(_data[device.deviceId])) : 
+                    JSON.parse(JSON.stringify(_placeHolders)));
+    
+};
+
+devicesStore.getDataLoaded = function (device) {
+    return ( (_data.hasOwnProperty(device.deviceId) && 
+                (_data.hasOwnProperty(device.deviceId))) ? _data[device.deviceId].length : false);
+};
+
+devicesStore.getRegistryFile = function (device) {
+
+    return (_registryFiles.hasOwnProperty(device.deviceId) &&
+                _data.hasOwnProperty(device.deviceId) &&
+                _data[device.deviceId].length ? _registryFiles[device.deviceId] : "");
     
 };
 
@@ -5370,23 +5318,50 @@ devicesStore.dispatchToken = dispatcher.register(function (action) {
             devicesStore.emitChange();
             break;
         case ACTION_TYPES.CONFIGURE_DEVICE:
-        case ACTION_TYPES.CANCEL_REGISTRY:
             _action = "configure_device";
             _view = "Configure Device";
             _device = action.device;
             devicesStore.emitChange();
-            break;
-        case ACTION_TYPES.CONFIGURE_REGISTRY:
-            _action = "configure_registry";
-            _view = "Registry Configuration";
+        case ACTION_TYPES.CANCEL_REGISTRY:
+            _action = "configure_device";
+            _view = "Configure Device";
             _device = action.device;
-            _data = action.data;
+            _data[_device.deviceId] = (_backupData.hasOwnProperty(_device.deviceId) ? JSON.parse(JSON.stringify(_backupData[_device.deviceId])) : []);
+            _registryFiles[_device.deviceId] = (_backupFileName.hasOwnProperty(_device.deviceId) ? _backupFileName[_device.deviceId] : "");
             devicesStore.emitChange();
             break;
-        case ACTION_TYPES.CANCEL_REGISTRY:
+        case ACTION_TYPES.LOAD_REGISTRY:
             _action = "configure_registry";
             _view = "Registry Configuration";
             _device = action.device;
+            _backupData[_device.deviceId] = (_data.hasOwnProperty(_device.deviceId) ? JSON.parse(JSON.stringify(_data[_device.deviceId])) : []);
+            _backupFileName[_device.deviceId] = (_registryFiles.hasOwnProperty(_device.deviceId) ? _registryFiles[_device.deviceId] : "");
+            _data[_device.deviceId] = JSON.parse(JSON.stringify(action.data));
+            _registryFiles[_device.deviceId] = action.file;             
+            devicesStore.emitChange();
+            break;
+        case ACTION_TYPES.EDIT_REGISTRY:
+            _action = "configure_registry";
+            _view = "Registry Configuration";
+            _device = action.device;  
+            _backupData[_device.deviceId] = (_data.hasOwnProperty(_device.deviceId) ? JSON.parse(JSON.stringify(_data[_device.deviceId])) : []);                      
+            _backupFileName[_device.deviceId] = (_registryFiles.hasOwnProperty(_device.deviceId) ? _registryFiles[_device.deviceId] : "");
+            devicesStore.emitChange();
+            break;
+        case ACTION_TYPES.GENERATE_REGISTRY:
+            _action = "configure_registry";
+            _view = "Registry Configuration";
+            _device = action.device;
+            _backupData[_device.deviceId] = (_data.hasOwnProperty(_device.deviceId) ? JSON.parse(JSON.stringify(_data[_device.deviceId])) : []);
+            _backupFileName[_device.deviceId] = (_registryFiles.hasOwnProperty(_device.deviceId) ? _registryFiles[_device.deviceId] : "");
+            _data[_device.deviceId] = [];
+            devicesStore.emitChange();
+            break;
+        case ACTION_TYPES.SAVE_REGISTRY:
+            _action = "configure_device";
+            _view = "Configure Device";
+            _device = action.device;
+            _data[_device.deviceId] = JSON.parse(JSON.stringify(action.data));
             devicesStore.emitChange();
             break;
     }

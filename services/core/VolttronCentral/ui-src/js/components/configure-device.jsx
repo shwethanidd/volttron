@@ -2,9 +2,10 @@
 
 var React = require('react');
 var Router = require('react-router');
-// var CsvParse = require('../lib/rpc');
 var CsvParse = require('babyparse');
 
+var ConfirmForm = require('./confirm-form');
+var modalActionCreators = require('../action-creators/modal-action-creators');
 var devicesActionCreators = require('../action-creators/devices-action-creators');
 var devicesStore = require('../stores/devices-store');
 
@@ -53,9 +54,9 @@ var ConfigureDevice = React.createClass({
             return;
         }
 
-        var reader = new FileReader();
+        var fileName = evt.target.value;        
 
-        var fileName = evt.target.value;
+        var reader = new FileReader();
 
         reader.onload = function (e) {
 
@@ -63,9 +64,12 @@ var ConfigureDevice = React.createClass({
 
             var results = parseCsvFile(contents);
 
-            if (results.error)
+            if (results.errors.length)
             {
-                var errorMsg = "The file is not a valid CSV document: " + err;
+                var errorMsg = "The following errors were encountered parsing the document: " + 
+                        results.errors.map(function (error) {
+                            return error.message;
+                        });                
 
                 modalActionCreators.openModal(
                     <ConfirmForm
@@ -74,36 +78,42 @@ var ConfigureDevice = React.createClass({
                         cancelText="OK"
                     ></ConfirmForm>
                 );
+
+                this.setState({registry_config: ""});
             }
-            else if (results.data)
+            else 
             {
+                if (results.warnings.length)
+                {    
+                    var warningMsg = results.warnings.map(function (warning) {
+                                return warning.message;
+                            });                
 
-                devicesActionCreators.loadRegistryCsv(this.props.device, results.data);
+                    modalActionCreators.openModal(
+                        <ConfirmForm
+                            promptTitle="File Upload Notes"
+                            promptText={ warningMsg }
+                            cancelText="OK"
+                        ></ConfirmForm>
+                    );
+                }
 
-                // this.setState({csv_data: results.data});
-                // // this.setState({registry_file: fileName});
-                this.setState({registry_config: fileName});
+                if (!results.meta.aborted)            
+                {
+                    this.setState({registry_config: fileName});       
+                    devicesActionCreators.loadRegistry(this.props.device, results.data, fileName);
+                }
             }
+
         }.bind(this)
 
-        reader.readAsText(csvFile);
-
-        // // var contents = reader.result;
-
-        // if (contents)
-        // {
-        //     var results = parseCsvFile(contents);
-
-        //     if (results.data)
-        //     {
-        //         this.setState({csv_data: results.data});
-        //         this.setState({registry_file: evt.target.value});
-        //         this.setState({registry_config: evt.target.value});
-        //     }
-        // }
+        reader.readAsText(csvFile);        
     },
-    _generateRegistryFile: function (device) {
-        devicesActionCreators.configureRegistry(device);
+    _generateRegistryFile: function () {
+        devicesActionCreators.generateRegistry(this.props.device);
+    },
+    _editRegistryFile: function () {
+        devicesActionCreators.editRegistry(this.props.device);
     },
     render: function () {        
         
@@ -147,6 +157,7 @@ var ConfigureDevice = React.createClass({
 
         var buttonStyle = {
             height: "24px",
+            width: "66px",
             lineHeight: "18px"
         }
 
@@ -187,6 +198,18 @@ var ConfigureDevice = React.createClass({
                 );
             }, this);
 
+
+        var editButton = ( this.state.registry_saved ?
+                                <td 
+                                    style={buttonColumns}
+                                    className="plain">
+                                    <button 
+                                        style={buttonStyle} onClick={this._editRegistryFile}>Edit</button>
+                                </td> :
+
+                                        <td className="plain"></td>
+            );
+
         var registryConfigRow = 
             <tr>
                 <td style={firstStyle}>Registry Configuration File</td>
@@ -204,19 +227,19 @@ var ConfigureDevice = React.createClass({
                     style={buttonColumns}
                     className="plain">
                     <div className="buttonWrapper">
-                        <div>Upload File</div>
+                        <div>Upload</div>
                         <input 
                             className="uploadButton" 
                             type="file"
-                            onChange={this._uploadRegistryFile}
-                            value={this.state.registry_file}/>
+                            onChange={this._uploadRegistryFile}/>
                     </div>
                 </td>
+                { editButton }
                 <td 
                     style={buttonColumns}
                     className="plain">
                     <button 
-                        style={buttonStyle} onClick={this._generateRegistryFile.bind(this, this.props.device)}>Generate</button>
+                        style={buttonStyle} onClick={this._generateRegistryFile}>Generate</button>
                 </td>
             </tr>
 
@@ -228,12 +251,21 @@ var ConfigureDevice = React.createClass({
                 </tbody>
             </table>
 
+        var boxPadding = (this.state.registry_saved ? "60px" : "60px 100px");
+
+        var configDeviceBox = {
+            padding: boxPadding,
+            marginTop: "20px",
+            marginBottom: "20px",
+            border: "1px solid black"
+        }
+
         return (
             <div className="configDeviceContainer">
                 <div className="uneditableAttributes">
                     { uneditableAttributes }
                 </div>
-                <div className="configDeviceBox">                    
+                <div style={configDeviceBox}>                    
                     { editableAttributes }
                 </div>
             </div>
@@ -242,6 +274,9 @@ var ConfigureDevice = React.createClass({
 });
 
 function getStateFromStores(device) {
+
+    var registryFile = devicesStore.getRegistryFile(device);
+
     return {
         settings: [
             { key: "unit", value: "", label: "Unit" },
@@ -253,26 +288,71 @@ function getStateFromStores(device) {
             { key: "minimum_priority", value: "", label: "Minimum Priority" },
             { key: "max_objs_per_read", value: "", label: "Maximum Objects per Read" }
         ],
-        registry_config: "",
-        registry_file: ""
+        registry_config: registryFile,
+        registry_saved: (registryFile ? true : false)
     };
 }
 
 function parseCsvFile(contents) {
 
-    var results = CsvParse.parse(contents, {
-        error: function (err) {
-            var errorMsg = "The file is not a valid CSV document: " + err;
+    var results = CsvParse.parse(contents);
 
-            modalActionCreators.openModal(
-                <ConfirmForm
-                    promptTitle="Error Reading File"
-                    promptText={ errorMsg }
-                    cancelText="OK"
-                ></ConfirmForm>
-            );
+    var registryValues = [];
+
+    var header = [];
+
+    var data = results.data;
+
+    results.warnings = [];
+
+    if (data.length)
+    {
+        header = data.slice(0, 1);
+    }
+
+    var template = [];
+
+    if (header[0].length)
+    {
+        header[0].forEach(function (column) {
+            template.push({ "key": column.replace(/ /g, "_"), "value": null, "label": column });
+        });
+
+        var templateLength = template.length;
+
+        if (data.length > 1)
+        {
+            var rows = data.slice(1);
+
+            rows.forEach(function (r, num) {
+
+                if (r.length !== templateLength)
+                {
+                    results.warnings.push({ message: "Incorrect column count in row " +  num });
+                }
+                else
+                {
+                    var newTemplate = JSON.parse(JSON.stringify(template));
+
+                    var newRow = [];
+
+                    r.forEach( function (value, i) {
+                        newTemplate[i].value = value;
+
+                        newRow.push(newTemplate[i]);
+                    });
+
+                    registryValues.push(newRow);
+                }
+            });
         }
-    });
+        else
+        {
+            registryValues = template;
+        }
+    }
+
+    results.data = registryValues;
 
     return results;
 }

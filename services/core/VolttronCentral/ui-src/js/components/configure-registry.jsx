@@ -108,7 +108,7 @@ var ConfigureRegistry = React.createClass({
         var pointValues = [];
 
         this.state.columnNames.map(function (column) {
-            pointValues.push({ "key" : column, "value": "" });
+            pointValues.push({ "key" : column, "value": "", "editable": true });
         });
 
         registryValues.push(pointValues);
@@ -525,14 +525,14 @@ var ConfigureRegistry = React.createClass({
         devicesActionCreators.cancelRegistry(this.props.device);
     },
     _saveRegistry: function () {
-
+        devicesActionCreators.saveRegistry(this.props.device, this.state.registryValues);
     },
     render: function () {        
         
         var filterPointsTooltip = {
             content: "Filter Points",
             "x": 160,
-            "y": 0
+            "y": 30
         }
 
         var filterButton = <FilterPointsButton 
@@ -544,7 +544,7 @@ var ConfigureRegistry = React.createClass({
         var addPointTooltip = {
             content: "Add New Point",
             "x": 160,
-            "y": 0
+            "y": 30
         }
 
         var addPointButton = <ControlButton 
@@ -558,7 +558,7 @@ var ConfigureRegistry = React.createClass({
         var removePointTooltip = {
             content: "Remove Points",
             "x": 160,
-            "y": 0
+            "y": 30
         }
 
         var removePointsButton = <ControlButton
@@ -577,8 +577,8 @@ var ConfigureRegistry = React.createClass({
                 var selectedStyle = (item.selected ? {backgroundColor: "#F5B49D"} : {});
                 var focusedCell = (this.state.selectedCellColumn === columnIndex && this.state.selectedCellRow === rowIndex ? "focusedCell" : "");
 
-                var itemCell = (columnIndex === 0 && item.value !== "" ? 
-                                    <td>{ item.value }</td> : 
+                var itemCell = (columnIndex === 0 && !item.editable ? 
+                                    <td><label>{ item.value }</label></td> : 
                                         <td><input 
                                                 id={this.state.registryValues[rowIndex][columnIndex].key + "-" + columnIndex + "-" + rowIndex}
                                                 type="text"
@@ -587,8 +587,6 @@ var ConfigureRegistry = React.createClass({
                                                 onChange={this._updateCell.bind(this, rowIndex, columnIndex)} 
                                                 value={ this.state.registryValues[rowIndex][columnIndex].value }/>
                                         </td>);
-
-                // console.log(itemCell);
 
                 return itemCell;
             }, this);
@@ -628,8 +626,17 @@ var ConfigureRegistry = React.createClass({
                             onfilter={this._onFilterBoxChange} 
                             onclear={this._onClearFind}/>
 
+            var firstColumnWidth;
+
+            if (index === 0)
+            {
+                firstColumnWidth = {
+                    width: (item.length * 10) + "px"
+                }
+            }
+
             var headerCell = (index === 0 ?
-                                ( <th>
+                                ( <th style={firstColumnWidth}>
                                     <div className="th-inner">
                                         { item } { filterButton } { addPointButton } { removePointsButton }
                                     </div>
