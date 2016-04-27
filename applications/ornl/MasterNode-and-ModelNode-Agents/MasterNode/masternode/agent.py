@@ -42,11 +42,21 @@ class MasterNode(Agent):
     def __init__(self, config_path, identity, **kwargs):
         super(MasterNode, self).__init__(identity='masternode', **kwargs)
         config = utils.load_config(config_path)
-        self.n_buildings = config['numberOfBuildings']
+        self.model_nodes = []
+        for address in config['model_node_addresses']:
+            agent = Agent(address=address)
+            event = gevent.event.Event()
+            agent.core.onstart.connect(lambda *a, **kw: event.set(), event)
+            gevent.spawn(agent.core.run)
+            event.wait()
+            self.model_nodes.append(agent)
+
+        self.n_buildings = len(self.model_nodes)
 
         self.additionalInit = False
+
         self.iteration = 0
-        self.modelNodes = []
+        self.registered_nodes = []
         self.Nsim = 144
         self.Reg = []
         self.x0 = []
@@ -77,20 +87,20 @@ class MasterNode(Agent):
     @RPC.export
     def register_modelnode(self, message):
         ID = message['ID']
-        addr = message['address']
         x0 = message['x0']
         xref = message['xref']
-        self.modelNodes.append(ID)
+        self.registered_nodes.append(ID)
         self.x0.append(x0)
         self.xref.append(xref)
         log.info( ' REGISTER REQUEST ::::::::::::::::::::::::::::::::: ' + ID )
 
     @Core.periodic(2)
     def RunControl(self):
-        if len(self.modelNodes) != self.n_buildings:
-            n_registered_nodes = len(self.modelNodes)
-            log.info('{} nodes registered, master configured for {}'.format(n_registered_nodes,
-                                                                            self.n_buildings))
+        n_registered = len(self.registered_nodes)
+        if n_registered != self.n_buildings:
+            log.info('{} nodes registered, master configured for {}'.format(
+                n_registered,
+                self.n_buildings))
             return
 
         if not self.additionalInit:
@@ -173,13 +183,11 @@ class MasterNode(Agent):
                 if count >= ReqBld:
                     break
 
-        for j in range(0, self.n_buildings):
-            message = {}
-            message['ID'] = self.modelNodes[j]
-            message['action'] = self.U[j, i]
-            self.vip.pubsub.publish('pubsub',
-                                    topic='masternode/command',
-                                    message=message)
+        for model in self.model_nodes:
+            try:
+                model.vip.rpc.call('modelnode', 'set_state', self.U[j, i]).get()
+            except Exception as e:
+                print e
 
         self.iteration += 1
         if self.iteration == self.Nsim:

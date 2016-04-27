@@ -39,8 +39,8 @@ class StateEnum(object):
 
 
 class ModelNode(Agent):
-    def __init__(self, config_path, **kwargs):
-        super(ModelNode, self).__init__(**kwargs)
+    def __init__(self, config_path, identity, **kwargs):
+        super(ModelNode, self).__init__(identity='modelnode', **kwargs)
         config = utils.load_config(config_path)
         self.setPoint = config['setPoint']
         self.master_vip = config['master-vip-address']
@@ -79,24 +79,19 @@ class ModelNode(Agent):
     def _set_state(self, state):
         self.agentState = state
 
-    # SHOULD BE RPC
-    # so master node will know when ur dead
-    @PubSub.subscribe('pubsub', 'masternode/command')
-    def ProcessIncomingMessage(self, peer, sender, bus,  topic, headers, message):
-        msg = message
-        if msg['ID'] == self.agentID:
-            value = msg['action']
-            if value == 0:
-                self._set_state(StateEnum.OFF)
-                log.info('OFF')
-            elif value == -3:
-                self._set_state(StateEnum.COOLING_STAGE_ONE)
-                log.info('COOL STAGE 1')
-            elif value == -6:
-                self._set_state(StateEnum.COOLING_STAGE_TWO)
-                log.info('COOL STAGE 2')
-            else:
-                log.error('Invalid command received')
+    @RPC.export
+    def set_state(self, value):
+        if value == 0:
+            self._set_state(StateEnum.OFF)
+            log.info('OFF')
+        elif value == -3:
+            self._set_state(StateEnum.COOLING_STAGE_ONE)
+            log.info('COOL STAGE 1')
+        elif value == -6:
+            self._set_state(StateEnum.COOLING_STAGE_TWO)
+            log.info('COOL STAGE 2')
+        else:
+            log.error('Invalid command received')
 
 
 if __name__ == '__main__':
