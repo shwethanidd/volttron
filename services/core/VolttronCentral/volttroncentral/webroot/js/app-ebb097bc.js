@@ -1004,10 +1004,7 @@ var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
 
             if (results.errors.length)
             {
-                var errorMsg = "The following errors were encountered parsing the document: " + 
-                        results.errors.map(function (error) {
-                            return error.message;
-                        });                
+                var errorMsg = "The file wasn't in a valid CSV format.";
 
                 modalActionCreators.openModal(
                     React.createElement(ConfirmForm, {
@@ -1017,7 +1014,7 @@ var ConfigureDevice = React.createClass({displayName: "ConfigureDevice",
                     })
                 );
 
-                this.setState({registry_config: ""});
+                this.setState({registry_config: this.state.registry_config});
             }
             else 
             {
@@ -1262,11 +1259,13 @@ function parseCsvFile(contents) {
         {
             var rows = data.slice(1);
 
+            var rowsCount = rows.length;
+
             rows.forEach(function (r, num) {
 
-                if (r.length !== templateLength)
+                if ((r.length !== templateLength) && (num !== (rowsCount - 1)))
                 {
-                    results.warnings.push({ message: "Incorrect column count in row " +  num });
+                    results.warnings.push({ message: "Row " +  num + " was omitted for having the wrong number of columns."});
                 }
                 else
                 {
