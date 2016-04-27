@@ -1,5 +1,5 @@
 '''
-Copyright (c) 2014, Battelle Memorial Institute
+Copyright (c) 2016, Battelle Memorial Institute
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -26,6 +26,7 @@ The views and conclusions contained in the software and documentation are those
 of the authors and should not be interpreted as representing official policies,
 either expressed or implied, of the FreeBSD Project.
 
+
 This material was prepared as an account of work sponsored by an
 agency of the United States Government.  Neither the United States
 Government nor the United States Department of Energy, nor Battelle,
@@ -50,58 +51,71 @@ under Contract DE-AC05-76RL01830
 '''
 import datetime
 from datetime import timedelta as td
-import logging
-from volttron.platform.agent.driven import Results, AbstractDrivenAgent
-import zmq
-import time
-import json
-import random
 
-class Application(AbstractDrivenAgent):
-    
-    def __init__(self, **kwargs):
-        pass
-        
-    def run(self, cur_time, points):
-        """
-        Creates and returns Results object from fake Matlab response.
-        :param cur_time: timestamp
-        :param points: device point name and value 
-        :type cur_time: datetime.datetime
-        :type points: dict
-        :Returns Results object containing commands for devices, 
-                    log messages and table data.
-        :rtype results: Results object \\volttron.platform.agent.driven"""
-        
-        status = [0, 1]
-        # random.choice(status)
+"""Common functions used across multiple algorithms."""
 
-        matlab_result = {'commands':{
-                                "fakedriver0":[["HPWH_Phy0_PowerState",1],["ERWH_Phy0_ValveState",1]]
-                               }
-                        }
-        
-        result = Results()
-        
-        if 'commands' in matlab_result:
-            commands = matlab_result['commands']
-            for device, point_value_dict in commands.items():
-                for point, value in point_value_dict:
-                    result.command(point, value, device); 
-        
-#             if 'logs' in matlab_result:
-#                 logs = matlab_result['logs']
-#                 for message in logs:
-#                     result.log(message);
-#                     
-#             if 'table_data' in matlab_result:
-#                 table_data = matlab_result['table_data']
-#                 for table in table_data:
-#                     rows = table_data[table]
-#                     for row in rows:
-#                         result.insert_table_row(table, row)  
-        
-        #print(result.commands)
-        #print(result.log_messages)
-        #print(result.table_output)
-        return result
+
+def check_date(current_time, timestamp_array):
+    """Check current timestamp with previous timestamp
+
+    to verify that there are no large missing data gaps.
+    """
+    if not timestamp_array:
+        return False
+    if current_time.date() != timestamp_array[-1].date():
+        if (timestamp_array[-1].date() + td(days=1) != current_time.date() or
+                (timestamp_array[-1].hour != 23 and current_time.hour == 0)):
+            return True
+        return False
+
+
+def validation_builder(validate, dx_name, data_tag):
+    data = {}
+    for key, value in validate.items():
+        tag = dx_name + data_tag + key
+        data.update({tag: value})
+    return data
+
+
+def check_run_status(timestamp_array, current_time, no_required_data):
+    if timestamp_array and timestamp_array[-1].hour != current_time.hour:
+        if len(timestamp_array) < no_required_data:
+            return None
+        return True
+    return False
+
+
+def setpoint_control_check(setpoint_array, point_array, allowable_deviation,
+                           dx_name, dx_tag, token, token_offset):
+    """Verify that point is tracking well with set point.
+        ARGS:
+            setpoint_array (list(floats):
+    """
+    average_setpoint = None
+    setpoint_array = [float(pt) for pt in setpoint_array if pt !=0]
+    if setpoint_array:
+        average_setpoint = sum(setpoint_array)/len(setpoint_array)
+        zipper = (setpoint_array, point_array)
+        stpt_tracking = [abs(x - y) for x, y in zip(*zipper)]
+        stpt_tracking = (sum(stpt_tracking)/len(stpt_tracking))/average_setpoint*100
+
+        if stpt_tracking > allowable_deviation:
+            # color_code = 'red'
+            msg = ('{pt} is deviating significantly '
+                   'from the {pt} set point.'.format(pt=token))
+            dx_msg = 1.1 + token_offset
+            dx_table = {dx_name + dx_tag: dx_msg}
+        else:
+            # color_code = 'green'
+            msg = 'No problem detected.'
+            dx_msg = 0.0 + token_offset
+            dx_table = {dx_name + dx_tag: dx_msg}
+    else:
+        # color_code = 'grey'
+        msg = ('{} set point data is not available. '
+               'The Set Point Control Loop Diagnostic'
+               'requires set point '
+               'data.'.format(token))
+        dx_msg = 2.2 + token_offset
+        dx_table = {dx_name + dx_tag: dx_msg}
+    return average_setpoint, dx_table
