@@ -585,6 +585,7 @@ def ilc_agent(config_path, **kwargs):
             self.break_end = None
             self.reset_curtail_count_time = None
             self.kill_signal_recieved = False
+            self.power_data_count = 0
             self.scheduled_devices = set()
             self.devices_curtailed = set()
             self.bldg_power = []
@@ -663,8 +664,13 @@ def ilc_agent(config_path, **kwargs):
             self.bldg_power.append((now, current_power))
             if self.bldg_power[-1][0] - self.bldg_power[0][0] > average_building_power_window:
                 self.bldg_power.pop(0)
+            else:
+                self.power_data_count += 1
+            smoothing_constant = 2 / (self.power_data_count + 1)
+            average_power = 0
             average_power = sum(power[1] for power in self.bldg_power)/len(self.bldg_power)
-
+            for n in xrange(len(self.bldg_power)):
+                average_power += self.bldg_power[n][1]*smoothing_constant*(1-smoothing_constant)**n
             _log.debug('Reported time: '+str(now))
             _log.info('Current load: {}'.format(average_power))
 
