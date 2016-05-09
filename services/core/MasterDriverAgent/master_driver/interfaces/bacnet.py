@@ -171,6 +171,19 @@ class Interface(BaseInterface):
             _log.warning("Unable to reach BACnet proxy.")
             self.schedule_ping()
             raise
+
+        request_names = set(point_map.keys())
+        result_names = set(result.keys())
+
+        missing_results = request_names - result_names
+
+        if missing_results:
+            missing_results = list(missing_results)
+            missing_results.sort()
+            _log.warning("Missing points from scrape on device id {_id}: {points}".format(self.device_id,
+                                                                                          missing_results))
+
+
             
         return result
     

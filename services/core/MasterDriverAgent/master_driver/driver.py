@@ -176,10 +176,9 @@ class DriverAgent(BasicAgent):
         except Exception as ex:
             _log.error('Failed to scrape ' + self.device_name + ': ' + str(ex))
             return
-        
-        # XXX: Does a warning need to be printed?
+
         if not results:
-            return
+            _log.warning('Scrape of ' + self.device_name + ' returned an empty result.')
         
         utcnow = utils.get_aware_utc_now()
         utcnow_string = utils.format_timestamp(utcnow)
