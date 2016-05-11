@@ -33,6 +33,60 @@ platformsStore.getLastError = function (uuid) {
     return _lastErrors[uuid] || null;
 };
 
+platformsStore.getVcInstance = function () 
+{
+    var vc;
+
+    if (_platforms)
+    {
+        if (_platforms.length)
+        {
+            vc = _platforms.find(function (platform) {
+
+                var hasVcAgent = false;
+
+                if (platform.agents)
+                {
+                    if (platform.agents.length)
+                    {
+                        var vcAgent = platform.agents.find(function (agent) {     
+                            return agent.name.toLowerCase().indexOf("volttroncentral") > -1;
+                        });
+
+                        if (vcAgent)
+                        {
+                            hasVcAgent = true;
+                        }
+                    }
+                }
+
+                return hasVcAgent;
+            });
+        }
+    }
+
+    return vc;
+};
+
+platformsStore.getHistorianRunning = function (platform) {
+
+    var historianRunning = false;
+
+    if (platform)
+    {
+        var historian = platform.agents.find(function (agent) {     
+            return agent.name.toLowerCase().indexOf("historian") > -1;
+        });
+
+        if (historian)
+        {
+            historianRunning = ((historian.process_id !== null) && (historian.return_code === null));
+        }
+    }
+
+    return historianRunning;
+};
+
 platformsStore.dispatchToken = dispatcher.register(function (action) {
     dispatcher.waitFor([authorizationStore.dispatchToken]);
 

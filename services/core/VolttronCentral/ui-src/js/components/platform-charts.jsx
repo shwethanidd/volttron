@@ -3,13 +3,23 @@
 var React = require('react');
 var Router = require('react-router');
 var PlatformChart = require('./platform-chart');
-
+var modalActionCreators = require('../action-creators/modal-action-creators');
+var platformActionCreators = require('../action-creators/platform-action-creators');
+var EditChartForm = require('./edit-chart-form');
+var platformsStore = require('../stores/platforms-store');
 var chartStore = require('../stores/platform-chart-store');
+var statusIndicatorActionCreators = require('../action-creators/status-indicator-action-creators');
+var platformManagerActionCreators = require('../action-creators/platform-manager-action-creators');
 
 var PlatformCharts = React.createClass({
     getInitialState: function () {
+
+        var vc = platformsStore.getVcInstance();
+
         var state = {
-            chartData: getChartsFromStores()
+            platform: vc,
+            chartData: getChartsFromStores(),
+            historianRunning: platformsStore.getHistorianRunning(vc)
         };
 
         return state;
@@ -19,14 +29,57 @@ var PlatformCharts = React.createClass({
     },
     componentDidMount: function () {
         chartStore.addChangeListener(this._onStoreChange);
+        platformsStore.addChangeListener(this._onStoreChange);
+
+        if (this.state.platform)
+        {
+            platformManagerActionCreators.loadPlatforms();
+        }
     },
     componentWillUnmount: function () {
         chartStore.removeChangeListener(this._onStoreChange);
+        platformsStore.removeChangeListener(this._onStoreChange);
     },
     _onStoreChange: function () {
-        var platformCharts = getChartsFromStores();
 
-        this.setState({chartData: platformCharts});
+        var platform = this.state.platform;
+
+        if (!platform)
+        {
+            platform = platformsStore.getVcInstance();
+
+            if (platform)
+            {
+                this.setState({platform: platform});
+            }
+        }
+        
+        this.setState({chartData: getChartsFromStores()});
+        this.setState({historianRunning: platformsStore.getHistorianRunning(platform)});
+    },
+    _onAddChartClick: function (platform) {
+
+        if (this.state.historianRunning)
+        {
+            platformActionCreators.loadChartTopics(this.state.platform);
+
+            modalActionCreators.openModal(<EditChartForm platform={this.state.platform}/>);            
+        }
+        else
+        {
+            var message = "Charts can't be added. The historian agent is unavailable."
+            statusIndicatorActionCreators.openStatusIndicator("error", message);
+        }
+    },
+    _onDeleteChartClick: function (platform, chart) {
+        modalActionCreators.openModal(
+            <ConfirmForm
+                promptTitle="Delete chart"
+                promptText={'Delete ' + chart.type + ' chart for ' + chart.topic + '?'}
+                confirmText="Delete"
+                onConfirm={platformActionCreators.deleteChart.bind(null, platform, chart)}>
+            </ConfirmForm>
+        );
     },
     render: function () {
 
@@ -48,10 +101,18 @@ var PlatformCharts = React.createClass({
             var noCharts = <div>No charts have been loaded. Add charts by selecting points in the side panel.</div>
             platformCharts.push(noCharts);
         }
-
+    
         return (
                 <div>
                     <div className="view">
+                        <div>
+                            <button
+                                className="button"
+                                onClick={this._onAddChartClick.bind(null, this.state.platform)}
+                            >
+                                Add chart
+                            </button>
+                        </div>
                         <h2>Charts</h2>
                         {platformCharts}
                     </div>
@@ -64,5 +125,22 @@ function getChartsFromStores() {
 
     return chartStore.getData();
 }
+
+// function getHistorian()
+// {
+//     var platform = platformsStore.getHistorian();
+
+//     var historian;
+
+//     if (platform.agents)
+//     {
+//         historian = platform.agents.find(function (agent) {
+     
+//             return agent.name.indexOf("historian") > -1;
+//         });        
+//     }
+ 
+//     return historian;
+// } 
 
 module.exports = PlatformCharts;

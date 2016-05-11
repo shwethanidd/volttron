@@ -4,6 +4,7 @@ var ACTION_TYPES = require('../constants/action-types');
 var authorizationStore = require('../stores/authorization-store');
 var dispatcher = require('../dispatcher');
 var rpc = require('../lib/rpc');
+var statusIndicatorActionCreators = require('../action-creators/status-indicator-action-creators');
 
 var platformActionCreators = {
     loadPlatform: function (platform) {
@@ -192,6 +193,57 @@ var platformActionCreators = {
                 }
             })
             .catch(rpc.Error, handle401);
+    },
+    loadChartTopics: function (platform) {
+        var authorization = authorizationStore.getAuthorization();
+
+        new rpc.Exchange({
+            method: 'historian.get_topic_list',
+            authorization: authorization,
+        }).promise
+            .then(function (topics) {
+                
+                var topicsList = topics.map(function (topic, index) {
+                    return { path: topic, label: getLabelFromTopic(topic), key: index};
+                });
+
+                dispatcher.dispatch({
+                    type: ACTION_TYPES.RECEIVE_CHART_TOPICS,
+                    platform: platform,
+                    topics: topicsList
+                });
+            })
+            .catch(rpc.Error, function (error) {
+                
+                var message = error.message;
+
+                if (error.code === -32602)
+                {
+                    if (error.message === "historian unavailable")
+                    {
+                        message = "Charts can't be added. The historian agent is unavailable."
+                    }
+                }
+
+                statusIndicatorActionCreators.openStatusIndicator("error", message);
+                handle401(error);
+            });     
+
+        function getLabelFromTopic(topic) {
+
+            var topicLabel = topic;
+
+            var topicParts = topic.split("/");
+
+            var len = topicParts.length; 
+
+            if (len > 2)
+            {
+                topicLabel = topicParts[len - 2] + " / " + topicParts[len - 1];
+            }
+
+            return topicLabel;
+        }      
     },
     loadCharts: function (platform) {
         var authorization = authorizationStore.getAuthorization();

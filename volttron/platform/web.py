@@ -424,8 +424,7 @@ class MasterWebService(Agent):
             os.makedirs(logdir)
         with open(os.path.join(logdir, 'web.access.log'), 'wb') as accesslog:
             with open(os.path.join(logdir, 'web.error.log'), 'wb') as errlog:
-                server = pywsgi.WSGIServer((hostname, port), self.app_routing,
-                                       log=accesslog, error_log=errlog)
+                server = pywsgi.WSGIServer((hostname, port), self.app_routing)
                 server.serve_forever()
 
 

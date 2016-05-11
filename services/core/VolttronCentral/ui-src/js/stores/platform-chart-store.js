@@ -8,6 +8,7 @@ var Store = require('../lib/store');
 
 var _chartData = {};
 var _showCharts = false;
+var _chartTopics = {};
 
 var chartStore = new Store();
 
@@ -59,6 +60,17 @@ chartStore.showCharts = function () {
     _showCharts = false;
 
     return showCharts;
+}
+
+chartStore.getChartTopics = function (uuid) {
+    var topics = [];
+
+    if (_chartTopics.hasOwnProperty(uuid))
+    {
+        topics = _chartTopics[uuid];
+    }
+
+    return topics;
 }
 
 chartStore.dispatchToken = dispatcher.register(function (action) {
@@ -158,6 +170,12 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
 
             chartStore.emitChange();
 
+            break;
+
+        case ACTION_TYPES.RECEIVE_CHART_TOPICS:
+            _chartTopics = {};
+            _chartTopics[action.platform.uuid] = JSON.parse(JSON.stringify(action.topics));
+            chartStore.emitChange();
             break;
     } 
 

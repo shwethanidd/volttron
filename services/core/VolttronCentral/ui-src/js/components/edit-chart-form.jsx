@@ -4,6 +4,8 @@ var React = require('react');
 
 var modalActionCreators = require('../action-creators/modal-action-creators');
 var platformActionCreators = require('../action-creators/platform-action-creators');
+var chartStore = require('../stores/platform-chart-store');
+var ComboBox = require('./combo-box');
 
 var EditChartForm = React.createClass({
     getInitialState: function () {
@@ -13,7 +15,20 @@ var EditChartForm = React.createClass({
             state[prop] = this.props.chart[prop];
         }
 
+        state.topics = chartStore.getChartTopics(this.props.platform.uuid);
+
+        state.selectedTopic = "";
+
         return state;
+    },
+    componentDidMount: function () {
+        chartStore.addChangeListener(this._onStoresChange);
+    },
+    componentWillUnmount: function () {
+        chartStore.removeChangeListener(this._onStoresChange);
+    },
+    _onStoresChange: function () {
+        this.setState({ topics: chartStore.getChartTopics(this.props.platform.uuid)});
     },
     _onPropChange: function (e) {
         var state = {};
@@ -30,6 +45,11 @@ var EditChartForm = React.createClass({
         }
 
         this.setState(state);
+    },
+    _onTopicChange: function (value) {
+
+        this.setState({ selectedTopic: value });
+
     },
     _onCancelClick: modalActionCreators.closeModal,
     _onSubmit: function () {
@@ -68,27 +88,31 @@ var EditChartForm = React.createClass({
             );
         }
 
+        var topics = (
+            this.state.topics.map(function (topic) {
+                return <option value={topic}>{topic}</option>
+            })
+        );
+
+        var topicsSelector;
+
+        if (this.state.topics.length)
+        {
+            topicsSelector = (
+                <ComboBox items={this.state.topics} itemskey="key" itemsvalue="value" itemslabel="label" onselect={this._onTopicChange}>
+                </ComboBox>
+            )
+        }
+
         return (
             <form className="edit-chart-form" onSubmit={this._onSubmit}>
-                <h1>{this.props.chart ? 'Edit' : 'Add'} chart</h1>
+                <h1>{this.props.chart ? 'Edit' : 'Add'} Chart</h1>
                 {this.state.error && (
                     <div className="error">{this.state.error.message}</div>
                 )}
                 <div className="form__control-group">
-                    <label htmlFor="topic">Platform</label>
-                    {this.props.platform.name} ({this.props.platform.uuid})
-                </div>
-                <div className="form__control-group">
                     <label htmlFor="topic">Topic</label>
-                    <input
-                        className="form__control form__control--block"
-                        type="text"
-                        id="topic"
-                        onChange={this._onPropChange}
-                        value={this.state.topic}
-                        placeholder="e.g. some/published/topic"
-                        required
-                    />
+                    {topicsSelector}
                 </div>
                 <div className="form__control-group">
                     <label>Dashboard</label>
