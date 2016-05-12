@@ -164,11 +164,13 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
 
             break;
 
-        case ACTION_TYPES.SHOW_CHARTS:
+        case ACTION_TYPES.SHOW_CHARTS:            
 
-            _showCharts = true;
-
-            chartStore.emitChange();
+            if (action.emitChange)
+            {
+                _showCharts = true;
+                chartStore.emitChange();    
+            }
 
             break;
 

@@ -3,7 +3,9 @@
 var React = require('react');
 var Router = require('react-router');
 var PlatformChart = require('./platform-chart');
+// var Modal = require('./modal');
 var modalActionCreators = require('../action-creators/modal-action-creators');
+// var modalStore = require('../stores/modal-store');
 var platformActionCreators = require('../action-creators/platform-action-creators');
 var EditChartForm = require('./edit-chart-form');
 var platformsStore = require('../stores/platforms-store');
@@ -18,8 +20,9 @@ var PlatformCharts = React.createClass({
 
         var state = {
             platform: vc,
-            chartData: getChartsFromStores(),
-            historianRunning: platformsStore.getHistorianRunning(vc)
+            chartData: chartStore.getData(),
+            historianRunning: platformsStore.getHistorianRunning(vc),
+            modalContent: null
         };
 
         return state;
@@ -28,19 +31,24 @@ var PlatformCharts = React.createClass({
         
     },
     componentDidMount: function () {
-        chartStore.addChangeListener(this._onStoreChange);
-        platformsStore.addChangeListener(this._onStoreChange);
+        chartStore.addChangeListener(this._onChartStoreChange);
+        platformsStore.addChangeListener(this._onPlatformStoreChange);
+        // modalStore.addChangeListener(this._onModalStoreChange);
 
-        if (this.state.platform)
+        if (!this.state.platform)
         {
             platformManagerActionCreators.loadPlatforms();
         }
     },
     componentWillUnmount: function () {
-        chartStore.removeChangeListener(this._onStoreChange);
-        platformsStore.removeChangeListener(this._onStoreChange);
+        chartStore.removeChangeListener(this._onChartStoreChange);
+        platformsStore.removeChangeListener(this._onPlatformStoreChange);
+        // modalStore.removeChangeListener(this._onModalStoreChange);
     },
-    _onStoreChange: function () {
+    _onChartStoreChange: function () {
+        this.setState({chartData: chartStore.getData()});
+    },
+    _onPlatformStoreChange: function () {
 
         var platform = this.state.platform;
 
@@ -53,10 +61,17 @@ var PlatformCharts = React.createClass({
                 this.setState({platform: platform});
             }
         }
-        
-        this.setState({chartData: getChartsFromStores()});
+
         this.setState({historianRunning: platformsStore.getHistorianRunning(platform)});
     },
+    // _onModalStoreChange: function () {
+    //     var modalContent = modalStore.getModalContent();
+
+    //     if (modalContent.hasOwnProperty("charts"))
+    //     {
+    //         this.setState({modalContent: modalContent.charts});
+    //     }
+    // },
     _onAddChartClick: function (platform) {
 
         if (this.state.historianRunning)
@@ -74,6 +89,7 @@ var PlatformCharts = React.createClass({
     _onDeleteChartClick: function (platform, chart) {
         modalActionCreators.openModal(
             <ConfirmForm
+                targetArea="charts"
                 promptTitle="Delete chart"
                 promptText={'Delete ' + chart.type + ' chart for ' + chart.topic + '?'}
                 confirmText="Delete"
@@ -101,6 +117,13 @@ var PlatformCharts = React.createClass({
             var noCharts = <div>No charts have been loaded. Add charts by selecting points in the side panel.</div>
             platformCharts.push(noCharts);
         }
+
+        // if (this.state.modalContent) {
+        //     classes.push('platform-manager--modal-open');
+        //     modal = (
+        //         <Modal targetArea="charts" targetRef="view">{this.state.modalContent}</Modal>
+        //     );
+        // }
     
         return (
                 <div>
@@ -121,10 +144,10 @@ var PlatformCharts = React.createClass({
     },
 });
 
-function getChartsFromStores() {
+// function getChartsFromStores() {
 
-    return chartStore.getData();
-}
+//     return chartStore.getData();
+// }
 
 // function getHistorian()
 // {

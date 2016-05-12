@@ -11,7 +11,9 @@ var ComboBox = React.createClass({
         var preppedItems = prepItems(this.props.itemskey, this.props.itemsvalue, this.props.itemslabel, this.props.items);
 
         var state = {
-            selectedItem: "",
+            selectedKey: "",
+            selectedLabel: "",
+            selectedValue: "",
             inputValue: "",
             hideMenu: true,
             preppedItems: preppedItems,
@@ -32,13 +34,35 @@ var ComboBox = React.createClass({
     handleClickOutside: function () {
         if (!this.state.hideMenu)
         {
+            var validValue = this._validateValue(this.state.inputValue);
+            this.props.onselect(validValue);
             this.setState({hideMenu: true});
         }
     },
+    _validateValue: function (inputValue) {
+
+        var validInput = this.props.items.find(function (item) {
+            return item.label === inputValue;
+        });
+
+        var validKey = (validInput ? validInput.key : "");
+        var validValue = (validInput ? validInput.value : "");
+        var validLabel = (validInput ? validInput.label : "");
+        
+        this.setState({selectedKey: validKey});
+        this.setState({selectedValue: validValue});
+        this.setState({selectedLabel: validLabel});
+
+        return validValue;
+    },
     _onClick: function (e) {
-        this.setState({selectedItem: e.target.dataset.topicLabel});
+        this.setState({selectedKey: e.target.dataset.key});
+        this.setState({selectedLabel: e.target.dataset.label});
+        this.setState({selectedValue: e.target.dataset.value});
+        this.setState({inputValue: e.target.dataset.label});
         this.setState({hideMenu: true});
-        this.setState({inputValue: e.target.dataset.topicLabel});
+
+        this.props.onselect(e.target.dataset.value);
     },
     _onFocus: function () {
         this.setState({hideMenu: false});
@@ -48,6 +72,9 @@ var ComboBox = React.createClass({
         {
             this.forceHide = true;
             this.setState({hideMenu: true});
+
+            var validValue = this._validateValue(this.state.inputValue);
+            this.props.onselect(validValue);
         }
     },
     _onChange: function (e) {
@@ -73,9 +100,9 @@ var ComboBox = React.createClass({
                 <div className="combobox-item">
                     <div 
                         onClick={this._onClick}
-                        data-topic-label={item.label}
-                        data-topic-value={item.value}
-                        data-topic-key={item.key}>{item.label}</div>
+                        data-label={item.label}
+                        data-value={item.value}
+                        data-key={item.key}>{item.label}</div>
                 </div>
             )
         }, this);

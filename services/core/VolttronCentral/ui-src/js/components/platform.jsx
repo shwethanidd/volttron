@@ -4,8 +4,8 @@ var React = require('react');
 var Router = require('react-router');
 
 var AgentRow = require('./agent-row');
-var ConfirmForm = require('./confirm-form');
-var modalActionCreators = require('../action-creators/modal-action-creators');
+// var ConfirmForm = require('./confirm-form');
+// var modalActionCreators = require('../action-creators/modal-action-creators');
 var platformActionCreators = require('../action-creators/platform-action-creators');
 var statusIndicatorActionCreators = require('../action-creators/status-indicator-action-creators');
 var platformsStore = require('../stores/platforms-store');
@@ -33,7 +33,7 @@ var Platform = React.createClass({
     //     {
     //         platformActionCreators.loadChartTopics(platform, this.state.historian);
 
-    //         modalActionCreators.openModal(<EditChartForm platform={platform} chart={chart} />);            
+    //         modalActionCreators.openModal("platforms", <EditChartForm platform={platform} chart={chart} />);            
     //     }
     //     else
     //     {

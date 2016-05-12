@@ -4,6 +4,7 @@ var React = require('react');
 
 var modalActionCreators = require('../action-creators/modal-action-creators');
 var platformActionCreators = require('../action-creators/platform-action-creators');
+var platformChartActionCreators = require('../action-creators/platform-chart-action-creators');
 var chartStore = require('../stores/platform-chart-store');
 var ComboBox = require('./combo-box');
 
@@ -33,15 +34,22 @@ var EditChartForm = React.createClass({
     _onPropChange: function (e) {
         var state = {};
 
+        for (key in this.state)
+        {
+            state[key] = this.state[key];
+        }
+
+        var key = e.target.id;
+
         switch (e.target.type) {
         case 'checkbox':
-            state[e.target.id] = e.target.checked;
+            state[key] = e.target.checked;
             break;
         case 'number':
-            state[e.target.id] = parseFloat(e.target.value);
+            state[key] = parseFloat(e.target.value);
             break;
         default:
-            state[e.target.id] = e.target.value;
+            state[key] = e.target.value;
         }
 
         this.setState(state);
@@ -51,9 +59,41 @@ var EditChartForm = React.createClass({
         this.setState({ selectedTopic: value });
 
     },
-    _onCancelClick: modalActionCreators.closeModal,
+    _onCancelClick: function () {
+        modalActionCreators.closeModal();
+    },
     _onSubmit: function () {
-        platformActionCreators.saveChart(this.props.platform, this.props.chart, this.state);
+        // platformActionCreators.saveChart(this.props.platform, this.props.chart, this.state);
+
+        var topicParts = this.state.selectedTopic.split("/");
+
+        var chartItem = {};
+
+        if (topicParts.length > 3)
+        {
+            var name = topicParts[topicParts.length - 2] + " / " + topicParts[topicParts.length - 1];
+
+            var parentPath = topicParts[0];
+
+            for (var i = 1; i < topicParts.length - 2; i++)
+            {
+                parentPath = parentPath + " > " + topicParts[i];
+            }
+
+            chartItem = {
+                name: name,
+                uuid: this.state.selectedTopic,
+                topic: this.state.selectedTopic,
+                pinned: (this.state.pin ? true : false),
+                parentPath: parentPath,
+                parentUuid: this.props.platform.uuid
+            };
+        }
+
+        var notifyRouter = false;
+
+        platformChartActionCreators.addToChart(chartItem, notifyRouter);
+        modalActionCreators.closeModal();
     },
     render: function () {
         var typeOptions;
@@ -99,7 +139,7 @@ var EditChartForm = React.createClass({
         if (this.state.topics.length)
         {
             topicsSelector = (
-                <ComboBox items={this.state.topics} itemskey="key" itemsvalue="value" itemslabel="label" onselect={this._onTopicChange}>
+                <ComboBox items={this.state.topics} itemskey="key" itemsvalue="path" itemslabel="label" onselect={this._onTopicChange}>
                 </ComboBox>
             )
         }
@@ -152,6 +192,9 @@ var EditChartForm = React.createClass({
                     >
                         <option value="">-- Select type --</option>
                         <option value="line">Line</option>
+                        <option value="lineWithFocus">Line with View Finder</option>
+                        <option value="stackedArea">Stacked Area</option>
+                        <option value="cumulativeLine">Cumulative Line</option>
                     </select>
                 </div>
                 {typeOptions}
@@ -165,7 +208,7 @@ var EditChartForm = React.createClass({
                     </button>
                     <button
                         className="button"
-                        disabled={!this.state.topic || !this.state.type}
+                        disabled={!this.state.selectedTopic || !this.state.type}
                     >
                         Save
                     </button>

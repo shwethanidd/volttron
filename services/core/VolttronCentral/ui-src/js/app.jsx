@@ -78,7 +78,7 @@ router.run(function (Handler) {
     platformChartsStore.addChangeListener(function () {
         if (platformChartsStore.showCharts() && authorizationStore.getAuthorization())
         {
-            !router.isActive('charts')
+            if (!router.isActive('charts'))
             {
                 router.replaceWith('/platform-charts');
             }
