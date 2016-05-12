@@ -133,11 +133,8 @@ class VolttronCentralAgent(Agent):
             raise ValueError('users not specified within the config file.')
 
         # This is a special object so only use it's identity.
-        identity = kwargs.pop("identity", None)
-        identity = VOLTTRON_CENTRAL
-
-        super(VolttronCentralAgent, self).__init__(identity=identity,
-                                                   **kwargs)
+        kwargs['identity'] = VOLTTRON_CENTRAL
+        super(VolttronCentralAgent, self).__init__(**kwargs)
 
         # A resource directory that contains everything that can be looked up.
         self._resources = ResourceDirectory()
@@ -147,7 +144,7 @@ class VolttronCentralAgent(Agent):
         # connected to the vip-address of the registered platform.  If the
         # registered platform is None then that means we were unable to
         # connect to the platform the last time it was tried.
-        self._pa_agents = dict()
+        self._pa_agents = {}
 
         # if there is a volttron central agent on this instance then this
         # will be resolved.
@@ -442,53 +439,8 @@ class VolttronCentralAgent(Agent):
 
         return {'status': 'SUCCESS', 'context': context}
 
-    # @RPC.export
-    # def register_platform(self, peer_identity, name, peer_address):
-    #     '''Agents will call this to register with the platform.
-    #
-    #     This method is successful unless an error is raised.
-    #     '''
-    #     value = self._handle_register_platform(peer_address, peer_identity, name)
-    #
-    #     if not value:
-    #         return 'Platform Unavailable'
-    #
-    #     return value
-
     def _store_registry(self):
         self._store('registry', self._registry.package())
-
-    #    def _handle_register_platform(self, address, identity=None, agentid='platform.agent'):
-    #        _log.debug('Registering platform identity {} at vip address {} with name {}'
-    #                   .format(identity, address, agentid))
-    #        agent = self._get_rpc_agent(address)
-    #
-    #        if not identity:
-    #            identity = 'platform.agent'
-    #
-    #        result = agent.vip.rpc.call(identity, "manage",
-    #                                    address=self._external_addresses,
-    #                                    identity=self.core.identity)
-    #        if result.get(timeout=10):
-    #            node = self._registry.register(address, identity, agentid)
-    #
-    #            if node:
-    #                self._store_registry()
-    #            return node
-    #
-    #        return False
-    #
-    #    def _get_rpc_agent(self, address):
-    #        if address == self.core.address:
-    #            agent = self
-    #        elif address not in self._vip_channels:
-    #            agent = Agent(address=address)
-    #            gevent.spawn(agent.core.run).join(0)
-    #            self._vip_channels[address] = agent
-    #
-    #        else:
-    #            agent = self._vip_channels[address]
-    #        return agent
 
     @Core.receiver('onsetup')
     def setup(self, sender, **kwargs):
@@ -801,7 +753,6 @@ class VolttronCentralAgent(Agent):
                 VOLTTRON_CENTRAL_PLATFORM, 'route_request', id,
                 platform_method,
                 params).get(timeout=10)
-
 
 
 def main(argv=sys.argv):
