@@ -589,6 +589,7 @@ def ilc_agent(config_path, **kwargs):
             self.scheduled_devices = set()
             self.devices_curtailed = set()
             self.bldg_power = []
+            self.average_power = None
 
         @Core.receiver('onstart')
         def starting_base(self, sender, **kwargs):
@@ -666,17 +667,23 @@ def ilc_agent(config_path, **kwargs):
                 self.bldg_power.pop(0)
             else:
                 self.power_data_count += 1
-            smoothing_constant = 2 / (self.power_data_count + 1)
-            average_power = 0
-            average_power = sum(power[1] for power in self.bldg_power)/len(self.bldg_power)
+
+            smoothing_constant = 4.4/ (self.power_data_count + 1)
+            window_power = 0
+
             for n in xrange(len(self.bldg_power)):
-                average_power += self.bldg_power[n][1]*smoothing_constant*(1-smoothing_constant)**n
-            _log.debug('Reported time: '+str(now))
-            _log.info('Current load: {}'.format(average_power))
+                window_power += self.bldg_power[n][1]*smoothing_constant*(1-smoothing_constant)**n
+            if self.average_power is None:
+                self.average_power = current_power
+            self.average_power = self.average_power*(1-smoothing_constant) + current_power*smoothing_constant
+            _log.debug('Reported time: ' + str(now))
+            _log.info('Current ilc load: {}'.format(self.average_power))
+            _log.info('Current window load: {}'.format(window_power))
 
             if self.reset_curtail_count_time is not None:
                 if self.reset_curtail_count_time <= now:
                     _log.debug('Resetting curtail count')
+                    self.average_power = None
                     clusters.reset_curtail_count()
 
             if self.running_ahp:
@@ -685,14 +692,15 @@ def ilc_agent(config_path, **kwargs):
                     self.end_curtail()
 
                 elif now >= self.next_curtail_confirm:
-                    self.curtail_confirm(average_power, now)
+
+                    self.curtail_confirm(self.average_power, now)
                 return
 
             elif self.break_end is not None and now < self.break_end:
                 _log.debug('Skipping load check, still on curtailment break.')
                 return
 
-            self.check_load(average_power, now)
+            self.check_load(self.average_power, now)
 
         def check_load(self, bldg_power, now):
             '''Check whole building power and if the value is above the
@@ -722,6 +730,7 @@ def ilc_agent(config_path, **kwargs):
             for device in self.devices_curtailed:
                 if device in remaining_devices:
                     remaining_devices.remove(device)
+                    self.average_power = 0
 
             if not self.running_ahp:
                 _log.info('Starting AHP')
