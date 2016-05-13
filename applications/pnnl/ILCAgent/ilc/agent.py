@@ -670,25 +670,20 @@ def ilc_agent(config_path, **kwargs):
                 self.power_data_count += 1
 
             smoothing_constant = 4.4/ (self.power_data_count + 1)
+            alpha_smoothing = 0.125
             window_power = 0
 
-            for n in xrange(len(self.bldg_power)):
-                window_power += self.bldg_power[n][1]*smoothing_constant*(1-smoothing_constant)**n
-            if self.average_power is None:
-                self.average_power = current_power
-            self.average_power = self.average_power*(1-smoothing_constant) + current_power*smoothing_constant
-            _log.debug('Reported time: ' + str(now))
-            _log.info('Current ilc load: {}'.format(self.average_power))
-            _log.info('Current window load: {}'.format(window_power))
-            smoothing_constant = 2.0 / (self.power_data_count + 1.0)
-            average_power = 0
             power_sort = list(self.bldg_power)
             power_sort.sort(reverse=True)
             for n in xrange(len(self.bldg_power)):
-                average_power += power_sort[n][1]*smoothing_constant*(1-smoothing_constant)**n
+                window_power += power_sort[n][1] * smoothing_constant * (1 - smoothing_constant) ** n
+            if self.average_power is None:
+                self.average_power = current_power
+            self.average_power = self.average_power*(1-smoothing_constant) + current_power*smoothing_constant
 
-            _log.debug('Reported time: '+str(now))
-            _log.info('Current load: {}'.format(average_power))
+            _log.debug('Reported time: ' + str(now))
+            _log.info('Current ilc load: {}'.format(self.average_power))
+            _log.info('Current window load: {}'.format(window_power))
 
             if self.reset_curtail_count_time is not None:
                 if self.reset_curtail_count_time <= now:
