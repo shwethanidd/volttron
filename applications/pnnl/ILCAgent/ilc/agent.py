@@ -679,7 +679,7 @@ def ilc_agent(config_path, **kwargs):
                 window_power += power_sort[n][1] * smoothing_constant * (1 - smoothing_constant) ** n
             if self.average_power is None:
                 self.average_power = current_power
-            self.average_power = self.average_power*(1-smoothing_constant) + current_power*smoothing_constant
+            self.average_power = self.average_power*(1-alpha_smoothing) + current_power*alpha_smoothing
 
             _log.debug('Reported time: ' + str(now))
             _log.info('Current ilc load: {}'.format(self.average_power))
