@@ -27,13 +27,9 @@ var PlatformCharts = React.createClass({
 
         return state;
     },
-    componentWillMount: function () {
-        
-    },
     componentDidMount: function () {
         chartStore.addChangeListener(this._onChartStoreChange);
         platformsStore.addChangeListener(this._onPlatformStoreChange);
-        // modalStore.addChangeListener(this._onModalStoreChange);
 
         if (!this.state.platform)
         {
@@ -43,7 +39,6 @@ var PlatformCharts = React.createClass({
     componentWillUnmount: function () {
         chartStore.removeChangeListener(this._onChartStoreChange);
         platformsStore.removeChangeListener(this._onPlatformStoreChange);
-        // modalStore.removeChangeListener(this._onModalStoreChange);
     },
     _onChartStoreChange: function () {
         this.setState({chartData: chartStore.getData()});
@@ -64,14 +59,6 @@ var PlatformCharts = React.createClass({
 
         this.setState({historianRunning: platformsStore.getHistorianRunning(platform)});
     },
-    // _onModalStoreChange: function () {
-    //     var modalContent = modalStore.getModalContent();
-
-    //     if (modalContent.hasOwnProperty("charts"))
-    //     {
-    //         this.setState({modalContent: modalContent.charts});
-    //     }
-    // },
     _onAddChartClick: function (platform) {
 
         if (this.state.historianRunning)
@@ -114,56 +101,27 @@ var PlatformCharts = React.createClass({
 
         if (platformCharts.length === 0)
         {
-            var noCharts = <div>No charts have been loaded. Add charts by selecting points in the side panel.</div>
+            var noCharts = <p className="empty-help">No charts have been loaded.</p>
             platformCharts.push(noCharts);
         }
 
-        // if (this.state.modalContent) {
-        //     classes.push('platform-manager--modal-open');
-        //     modal = (
-        //         <Modal targetArea="charts" targetRef="view">{this.state.modalContent}</Modal>
-        //     );
-        // }
-    
-        return (
-                <div>
-                    <div className="view">
-                        <div>
-                            <button
-                                className="button"
-                                onClick={this._onAddChartClick.bind(null, this.state.platform)}
-                            >
-                                Add chart
-                            </button>
-                        </div>
-                        <h2>Charts</h2>
-                        {platformCharts}
+        return (                
+            <div className="view">
+                <div className="absolute_anchor">
+                    <div className="view__actions">
+                        <button
+                            className="button"
+                            onClick={this._onAddChartClick.bind(null, this.state.platform)}
+                        >
+                            Add chart
+                        </button>
                     </div>
+                    <h2>Charts</h2>
+                    {platformCharts}                        
                 </div>
+            </div>
         );
     },
 });
-
-// function getChartsFromStores() {
-
-//     return chartStore.getData();
-// }
-
-// function getHistorian()
-// {
-//     var platform = platformsStore.getHistorian();
-
-//     var historian;
-
-//     if (platform.agents)
-//     {
-//         historian = platform.agents.find(function (agent) {
-     
-//             return agent.name.indexOf("historian") > -1;
-//         });        
-//     }
- 
-//     return historian;
-// } 
 
 module.exports = PlatformCharts;

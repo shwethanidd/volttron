@@ -95,6 +95,10 @@ var ComboBox = React.createClass({
             display: (this.state.hideMenu ? 'none' : 'block')
         };
 
+        var inputStyle = {
+            width: "390px"
+        };
+
         var items = this.state.itemsList.map(function (item, index) {
             return (
                 <div className="combobox-item">
@@ -111,6 +115,7 @@ var ComboBox = React.createClass({
 		
         	<div className="combobox-control">
                 <input 
+                    style={inputStyle}
                     type="text" 
                     onFocus={this._onFocus} 
                     onChange={this._onChange}

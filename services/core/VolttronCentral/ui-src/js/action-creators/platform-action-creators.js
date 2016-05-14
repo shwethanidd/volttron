@@ -2,6 +2,7 @@
 
 var ACTION_TYPES = require('../constants/action-types');
 var authorizationStore = require('../stores/authorization-store');
+var platformsStore = require('../stores/platforms-store');
 var dispatcher = require('../dispatcher');
 var rpc = require('../lib/rpc');
 var statusIndicatorActionCreators = require('../action-creators/status-indicator-action-creators');
@@ -203,14 +204,67 @@ var platformActionCreators = {
         }).promise
             .then(function (topics) {
                 
-                var topicsList = topics.map(function (topic, index) {
-                    return { path: topic, label: getLabelFromTopic(topic), key: index};
+                // var topicsList = topics.map(function (topic, index) {
+                //     return { path: topic, label: getLabelFromTopic(topic), key: index};
+                // });
+
+                var filteredTopics = [];
+
+                topics.forEach(function (topic, index) {
+                    
+                    if (topic.indexOf("datalogger/platform/status") < 0) // ignore -- they're local platform topics that are in 
+                    {                                                      // the list twice, also at datalogger/platform/<uuid>
+                        var item = {};
+                        var topicParts = topic.split("/");
+
+                        if (topicParts.length > 2)
+                        {
+                            var name;
+                            var parentPath;
+                            var label;
+                            // var name;
+
+                            if (topic.indexOf("datalogger/platform") > -1) // if a platform instance
+                            {
+                                var platformUuid = topicParts[2];
+                                var platform = platformsStore.getPlatform(platformUuid);
+                                parentPath = (platform ? platform.name : "Unknown Platform");
+                                label = topicParts[topicParts.length - 2] + "/" + topicParts[topicParts.length - 1] + " (" + parentPath + ")";
+                                name = topicParts[topicParts.length - 2] + " / " + topicParts[topicParts.length - 1]; // the name is the 
+                                                                                                                    // last two path parts
+                            }                                                                                      // ex.: times_percent / idle
+                            else // else a device point
+                            {
+                                parentPath = topicParts[0];
+
+                                for (var i = 1; i < topicParts.length - 1; i++)
+                                {
+                                    parentPath = parentPath + " > " + topicParts[i];
+                                }
+
+                                label = topicParts[topicParts.length - 1] + " (" + parentPath + ")";
+                                name = topicParts[topicParts.length - 1]; // the name is the column name
+                            }
+                            
+                            item.path = topic;
+                            item.label = label;
+                            item.key = index;
+                            item.name = name;
+                            // item.uuid = this.state.selectedTopic;
+                            // item.topic = this.state.selectedTopic;
+                            // item.pinned = (this.state.pin ? true : false);
+                            item.parentPath = parentPath;
+                            // item.parentUuid = this.props.platform.uuid;
+
+                            filteredTopics.push(item);
+                        }
+                    }                
                 });
 
                 dispatcher.dispatch({
                     type: ACTION_TYPES.RECEIVE_CHART_TOPICS,
                     platform: platform,
-                    topics: topicsList
+                    topics: filteredTopics
                 });
             })
             .catch(rpc.Error, function (error) {
@@ -228,22 +282,6 @@ var platformActionCreators = {
                 statusIndicatorActionCreators.openStatusIndicator("error", message);
                 handle401(error);
             });     
-
-        function getLabelFromTopic(topic) {
-
-            var topicLabel = topic;
-
-            var topicParts = topic.split("/");
-
-            var len = topicParts.length; 
-
-            if (len > 2)
-            {
-                topicLabel = topicParts[len - 2] + " / " + topicParts[len - 1];
-            }
-
-            return topicLabel;
-        }      
     },
     loadCharts: function (platform) {
         var authorization = authorizationStore.getAuthorization();
@@ -254,18 +292,37 @@ var platformActionCreators = {
             authorization: authorization,
         }).promise
             .then(function (charts) {
-                if (charts && charts.length) {
-                    platform.charts = charts;
-                } else {
-                    platform.charts = [];
-                }
+
+                var notifyRouter = false;
+
+                charts.forEach(function (chart) {
+                    platformChartActionCreators.addToChart(chart, notifyRouter);
+                });
+
+                // if (charts && charts.length) {
+                //     platform.charts = charts;
+                // } else {
+                //     platform.charts = [];
+                // }
+
+                // dispatcher.dispatch({
+                //     type: ACTION_TYPES.RECEIVE_PLATFORM,
+                //     platform: platform,
+                // });
+
+
 
                 dispatcher.dispatch({
-                    type: ACTION_TYPES.RECEIVE_PLATFORM,
-                    platform: platform,
+                    type: ACTION_TYPES.ADD_TO_CHART,
+                    chart: charts,
                 });
             })
-            .catch(rpc.Error, handle401);
+            .catch(rpc.Error, function (error) {
+
+                statusIndicatorActionCreators.openStatusIndicator("error", error.message + ": Unable to load charts.");
+
+                handle401(error);
+            });
     },
     getTopicData: function (platform, topic) {
         var authorization = authorizationStore.getAuthorization();
@@ -294,7 +351,8 @@ var platformActionCreators = {
         var newCharts;
 
         if (!oldChart) {
-            newCharts = platform.charts.concat([newChart]);
+            // newCharts = platform.charts.concat([newChart]);
+            newCharts = [newChart];
         } else {
             newCharts = platform.charts.map(function (chart) {
                 if (chart === oldChart) {
@@ -311,16 +369,17 @@ var platformActionCreators = {
             authorization: authorization,
         }).promise
             .then(function () {
-                platform.charts = newCharts;
 
-                dispatcher.dispatch({
-                    type: ACTION_TYPES.CLOSE_MODAL,
-                });
+                // platform.charts = newCharts;
 
-                dispatcher.dispatch({
-                    type: ACTION_TYPES.RECEIVE_PLATFORM,
-                    platform: platform,
-                });
+                // dispatcher.dispatch({
+                //     type: ACTION_TYPES.CLOSE_MODAL,
+                // });
+
+                // dispatcher.dispatch({
+                //     type: ACTION_TYPES.RECEIVE_PLATFORM,
+                //     platform: platform,
+                // });
             });
     },
     deleteChart: function (platform, chartToDelete) {

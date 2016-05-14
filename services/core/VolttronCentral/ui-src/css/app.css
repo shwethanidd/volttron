@@ -211,7 +211,7 @@ br + .form__control-help {
     max-height: 75%;
     max-width: 75%;
     box-sizing: border-box;
-    overflow: auto;
+    overflow-y: auto;
     text-align: left;
     border-radius: 0.3333rem;
     background-color: #fff;
@@ -1197,7 +1197,8 @@ a.view__item:hover::before {
 }
 
 .combobox-menu {
-    width: 200px;
+    width: 400px;
+    z-index: 100;
 
     border: 1px solid black;
 

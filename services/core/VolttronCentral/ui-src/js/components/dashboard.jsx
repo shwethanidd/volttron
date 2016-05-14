@@ -94,13 +94,13 @@ var Dashboard = React.createClass({
         //                 }, this);
         //         }, this);
 
-        //     if (pinnedCharts.length === 0) {
-        //         platformCharts = (
-        //             <p className="empty-help">
-        //                 Pin a platform chart to have it appear on the dashboard
-        //             </p>
-        //         );
-        //     }
+            if (pinnedCharts.length === 0) {
+                platformCharts = (
+                    <p className="empty-help">
+                        Pin a platform chart to have it appear on the dashboard
+                    </p>
+                );
+            }
         // }
 
         return (

@@ -55,44 +55,31 @@ var EditChartForm = React.createClass({
         this.setState(state);
     },
     _onTopicChange: function (value) {
-
         this.setState({ selectedTopic: value });
-
     },
     _onCancelClick: function () {
         modalActionCreators.closeModal();
     },
     _onSubmit: function () {
-        // platformActionCreators.saveChart(this.props.platform, this.props.chart, this.state);
+        
+        var selectedTopic = this.state.topics.find(function (topic) {
+            return topic.path === this.state.selectedTopic;
+        }, this);
 
-        var topicParts = this.state.selectedTopic.split("/");
-
-        var chartItem = {};
-
-        if (topicParts.length > 3)
+        if (selectedTopic)
         {
-            var name = topicParts[topicParts.length - 2] + " / " + topicParts[topicParts.length - 1];
-
-            var parentPath = topicParts[0];
-
-            for (var i = 1; i < topicParts.length - 2; i++)
-            {
-                parentPath = parentPath + " > " + topicParts[i];
-            }
-
-            chartItem = {
-                name: name,
-                uuid: this.state.selectedTopic,
-                topic: this.state.selectedTopic,
-                pinned: (this.state.pin ? true : false),
-                parentPath: parentPath,
-                parentUuid: this.props.platform.uuid
-            };
+            selectedTopic.uuid = selectedTopic.path;
+            selectedTopic.topic = selectedTopic.path;
+            selectedTopic.pinned = (this.state.pin ? true : false);
+            selectedTopic.refreshInterval = this.state.refreshInterval;
+            selectedTopic.type = this.state.type;
+            selectedTopic.parentUuid = this.props.platform.uuid;
         }
 
         var notifyRouter = false;
 
-        platformChartActionCreators.addToChart(chartItem, notifyRouter);
+        platformChartActionCreators.addToChart(selectedTopic, notifyRouter);
+        platformActionCreators.saveChart(this.props.platform, null, selectedTopic);
         modalActionCreators.closeModal();
     },
     render: function () {
@@ -127,12 +114,6 @@ var EditChartForm = React.createClass({
                 </div>
             );
         }
-
-        var topics = (
-            this.state.topics.map(function (topic) {
-                return <option value={topic}>{topic}</option>
-            })
-        );
 
         var topicsSelector;
 
