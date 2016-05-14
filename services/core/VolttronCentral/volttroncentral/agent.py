@@ -300,7 +300,7 @@ class VolttronCentralAgent(Agent):
         platform = self._registry.get_platform(platform_uuid)
         if platform:
             self._registry.unregister(platform.vip_address)
-            self._store_registry()
+            self._store('registry', self._registry.package())
 
             if platform_uuid in self._pa_agents.keys():
                 pa_agent = self._pa_agents[platform_uuid]
@@ -334,8 +334,7 @@ class VolttronCentralAgent(Agent):
         self._register_instance(discovery_address,
                                 display_name=discovery_address)
 
-    def _register_instance(self, discovery_address, display_name=None,
-                           provisional=False):
+    def _register_instance(self, discovery_address, display_name=None):
         """ Register an instance with VOLTTRON Central based on jsonrpc.
 
         NOTE: This method is meant to be called from the jsonrpc method.
@@ -439,9 +438,6 @@ class VolttronCentralAgent(Agent):
 
         return {'status': 'SUCCESS', 'context': context}
 
-    def _store_registry(self):
-        self._store('registry', self._registry.package())
-
     @Core.receiver('onsetup')
     def setup(self, sender, **kwargs):
         if not os.environ.get('VOLTTRON_HOME', None):
@@ -462,13 +458,6 @@ class VolttronCentralAgent(Agent):
         if registered:
             self._registry.unpackage(registered)
 
-    def _to_jsonrpc_obj(self, jsonrpcstr):
-        """ Convert data string into a JsonRpcData named tuple.
-
-        :param object data: Either a string or a dictionary representing a json document.
-        """
-        return jsonrpc.JsonRpcData.parse(jsonrpcstr)
-
     @RPC.export
     def jsonrpc(self, env, data):
         """ The main entry point for ^jsonrpc data
@@ -488,7 +477,7 @@ class VolttronCentralAgent(Agent):
                                       'Invalid request method')
 
         try:
-            rpcdata = self._to_jsonrpc_obj(data)
+            rpcdata = jsonrpc.JsonRpcData.parse(data)
             _log.info('rpc method: {}'.format(rpcdata.method))
             if rpcdata.method == 'get_authorization':
                 args = {'username': rpcdata.params['username'],

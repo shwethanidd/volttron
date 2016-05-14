@@ -227,24 +227,6 @@ class VolttronCentralPlatform(Agent):
         return self._settings.get(key, None)
 
     @RPC.export
-    def publish_to_peers(self, topic, message, headers=None):
-        spawned = []
-        _log.debug("Should publish to peers: " + str(self._sibling_cache))
-        for key, item in self._sibling_cache.items():
-            for peer_address in item:
-                try:
-                    agent = self._get_rpc_agent(peer_address)
-                    _log.debug("about to publish to peers: {}".format(
-                        agent.core.identity))
-                    agent.vip.pubsub.publish(peer='pubsub', headers=headers,
-                                             topic=topic,
-                                             message=message)
-
-                except Unreachable:
-                    _log.error("Count not publish to peer: {}".
-                               format(peer_address))
-
-    @RPC.export
     # @RPC.allow("manager") #TODO: uncomment allow decorator
     def list_agents(self):
         """ List the agents that are installed on the platform.
@@ -421,11 +403,6 @@ class VolttronCentralPlatform(Agent):
         return result
 
     @RPC.export
-    def list_agent_methods(self, method, params, id, agent_uuid):
-        return jsonrpc.json_error(ident=id, code=INTERNAL_ERROR,
-                                  message='Not implemented')
-
-    @RPC.export
     def manage(self, address, vcserverkey, vcpublickey):
         """ Allows the `VolttronCentralPlatform` to be managed.
 
@@ -509,31 +486,14 @@ class VolttronCentralPlatform(Agent):
     def _store_settings(self):
         with open('platform.settings', 'wb') as f:
             f.write(jsonapi.dumps(self._settings))
-            f.close()
 
     def _load_settings(self):
         try:
             with open('platform.settings', 'rb') as f:
-                self._settings = self._settings = jsonapi.loads(f.read())
-            f.close()
+                self._settings = jsonapi.loads(f.read())
         except Exception as e:
             _log.debug('Exception ' + e.message)
             self._settings = {}
-
-    def _get_rpc_agent(self, address):
-        if address == self.core.address:
-            agent = self
-        elif address not in self._vip_channels:
-            agent = Agent(address=address)
-            event = gevent.event.Event()
-            agent.core.onstart.connect(lambda *a, **kw: event.set(), event)
-            gevent.spawn(agent.core.run)
-            event.wait()
-            self._vip_channels[address] = agent
-
-        else:
-            agent = self._vip_channels[address]
-        return agent
 
     def _register_with_vc(self):
         """ Handle the process of registering with volttron central.
@@ -571,13 +531,16 @@ class VolttronCentralPlatform(Agent):
         try:
             self._get_my_discovery_address()
             self._get_vc_discovery_address()
+
             # this is a local platform.
             if self._my_discovery_address == self._vc_discovery_address:
                 return
 
             if not self._managed and self._vc_discovery_address:
                 self._register_with_vc()
+
             _log.debug('Auto register compelete')
+
         except (DiscoveryError, gevent.Timeout, AlreadyManagedError,
                     CannotConnectError) as e:
                 if self._vc_discovery_address:
