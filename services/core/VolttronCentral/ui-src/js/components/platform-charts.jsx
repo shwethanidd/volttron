@@ -73,17 +73,17 @@ var PlatformCharts = React.createClass({
             statusIndicatorActionCreators.openStatusIndicator("error", message);
         }
     },
-    _onDeleteChartClick: function (platform, chart) {
-        modalActionCreators.openModal(
-            <ConfirmForm
-                targetArea="charts"
-                promptTitle="Delete chart"
-                promptText={'Delete ' + chart.type + ' chart for ' + chart.topic + '?'}
-                confirmText="Delete"
-                onConfirm={platformActionCreators.deleteChart.bind(null, platform, chart)}>
-            </ConfirmForm>
-        );
-    },
+    // _onDeleteChartClick: function (platform, chart) {
+    //     modalActionCreators.openModal(
+    //         <ConfirmForm
+    //             targetArea="charts"
+    //             promptTitle="Delete chart"
+    //             promptText={'Delete ' + chart.type + ' chart for ' + chart.topic + '?'}
+    //             confirmText="Delete"
+    //             onConfirm={platformActionCreators.deleteChart.bind(null, platform, chart)}>
+    //         </ConfirmForm>
+    //     );
+    // },
     render: function () {
 
         var chartData = this.state.chartData; 

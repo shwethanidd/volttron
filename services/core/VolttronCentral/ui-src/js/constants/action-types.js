@@ -46,6 +46,7 @@ module.exports = keyMirror({
     CHANGE_CHART_TYPE: null,
     CHANGE_CHART_REFRESH: null,
     REFRESH_CHART: null,
+    REMOVE_CHART: null,
 
     EXPAND_ALL: null,
     TOGGLE_ITEM: null,

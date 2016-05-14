@@ -72,20 +72,25 @@ var EditChartForm = React.createClass({
             selectedTopic.topic = selectedTopic.path;
             selectedTopic.pinned = (this.state.pin ? true : false);
             selectedTopic.refreshInterval = this.state.refreshInterval;
-            selectedTopic.type = this.state.type;
+            selectedTopic.chartType = this.state.chartType;
             selectedTopic.parentUuid = this.props.platform.uuid;
         }
 
         var notifyRouter = false;
 
         platformChartActionCreators.addToChart(selectedTopic, notifyRouter);
-        platformActionCreators.saveChart(this.props.platform, null, selectedTopic);
+
+        if (selectedTopic.pinned)
+        {
+            platformActionCreators.saveChart(this.props.platform, null, selectedTopic);
+        }    
+        
         modalActionCreators.closeModal();
     },
     render: function () {
         var typeOptions;
 
-        switch (this.state.type) {
+        switch (this.state.chartType) {
         case 'line':
             typeOptions = (
                 <div className="form__control-group">
@@ -163,11 +168,11 @@ var EditChartForm = React.createClass({
                     </span>
                 </div>
                 <div className="form__control-group">
-                    <label htmlFor="type">Chart type</label>
+                    <label htmlFor="chartType">Chart type</label>
                     <select
-                        id="type"
+                        id="chartType"
                         onChange={this._onPropChange}
-                        value={this.state.type}
+                        value={this.state.chartType}
                         autoFocus
                         required
                     >
@@ -189,7 +194,7 @@ var EditChartForm = React.createClass({
                     </button>
                     <button
                         className="button"
-                        disabled={!this.state.selectedTopic || !this.state.type}
+                        disabled={!this.state.selectedTopic || !this.state.chartType}
                     >
                         Save
                     </button>

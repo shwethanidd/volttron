@@ -115,6 +115,14 @@ var platformChartActionCreators = {
             panelItem: panelItem
         });  
 
+    },
+    removeChart: function(chartName) {
+
+        dispatcher.dispatch({
+            type: ACTION_TYPES.REMOVE_CHART,
+            name: chartName
+        });  
+
     }
 };
 

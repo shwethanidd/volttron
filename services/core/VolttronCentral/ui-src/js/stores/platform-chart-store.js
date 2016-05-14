@@ -31,26 +31,29 @@ chartStore.getLastError = function (uuid) {
 };
 
 chartStore.getData = function () {
-    return _chartData;
+    return JSON.parse(JSON.stringify(_chartData));
 }
 
 chartStore.getPinned = function (chartKey) {
-    return _chartData[chartKey].pinned;
+    return (_chartData.hasOwnProperty(chartKey) ? _chartData[chartKey].pinned : null);
 }
 
 chartStore.getType = function (chartKey) {
     var type = "line";
 
-    if (_chartData[chartKey].hasOwnProperty("type"))
+    if (_chartData.hasOwnProperty(chartKey))
     {
-        type = _chartData[chartKey].type;
+        if (_chartData[chartKey].hasOwnProperty("type"))
+        {
+            type = _chartData[chartKey].type;
+        }
     }
 
     return type;
 }
 
 chartStore.getRefreshRate = function (chartKey) {
-    return _chartData[chartKey].refreshInterval;
+    return (_chartData.hasOwnProperty(chartKey) ? _chartData[chartKey].refreshInterval : null);
 }
 
 chartStore.showCharts = function () {
@@ -92,18 +95,9 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
                     var chartObj = {
                         refreshInterval: (action.panelItem.hasOwnProperty("refreshInterval") ? action.panelItem.refreshInterval :15000),
                         pinned: (action.panelItem.hasOwnProperty("pinned") ? action.panelItem.pinned : false), 
-                        type: (action.panelItem.hasOwnProperty("type") ? action.panelItem.type : "line"), 
+                        type: (action.panelItem.hasOwnProperty("chartType") ? action.panelItem.chartType : "line"), 
                         data: convertTimeToSeconds(action.panelItem.data),
-                        series: [
-                            { 
-                                name: action.panelItem.name, 
-                                uuid: action.panelItem.uuid, 
-                                parentUuid: action.panelItem.parentUuid,
-                                parentType: action.panelItem.parentType,
-                                parentPath: action.panelItem.parentPath,
-                                topic: action.panelItem.topic 
-                            }
-                        ]
+                        series: [ setChartItem(action.panelItem) ]
                     };
 
                     _chartData[action.panelItem.name] = chartObj;
@@ -209,7 +203,42 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
 
             chartStore.emitChange();
             break;
+
+        case ACTION_TYPES.REMOVE_CHART:
+            
+            var name = action.name;
+
+            if (_chartData.hasOwnProperty(name))
+            {
+                // _chartData[name].series.forEach(function (series) {            
+                //     if (series.hasOwnProperty("path"))
+                //     {
+                //         platformsPanelActionCreators.checkItem(series.path, false);
+                //     }
+                // });
+
+                delete _chartData[name];
+
+                chartStore.emitChange();
+            }
+
+            break;
     } 
+
+    function setChartItem(item) {
+        
+        var chartItem = {
+            name: item.name,
+            uuid: item.uuid,
+            path: item.path,
+            parentUuid: item.parentUuid,
+            parentType: item.parentType,
+            parentPath: item.parentPath,
+            topic: item.topic
+        }
+
+        return chartItem;
+    }
 
     function insertSeries(item) {
 
@@ -222,16 +251,7 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
             if (item.hasOwnProperty("data"))
             {
                 _chartData[item.name].data = _chartData[item.name].data.concat(convertTimeToSeconds(item.data));
-                _chartData[item.name].series.push(
-                    { 
-                        name: item.name, 
-                        uuid: item.uuid, 
-                        parentUuid: item.parentUuid,
-                        parentType: item.parentType,
-                        parentPath: item.parentPath,
-                        topic: item.topic  
-                    }
-                );
+                _chartData[item.name].series.push(setChartItem(item));
             }
         }
 

@@ -10,6 +10,9 @@ var moment = require('moment');
 var chartStore = require('../stores/platform-chart-store');
 var platformChartStore = require('../stores/platform-chart-store');
 var platformChartActionCreators = require('../action-creators/platform-chart-action-creators');
+var platformsPanelActionCreators = require('../action-creators/platforms-panel-action-creators');
+var modalActionCreators = require('../action-creators/modal-action-creators');
+var ConfirmForm = require('./confirm-form');
 var ControlButton = require('./control-button');
 
 var PlatformChart = React.createClass({
@@ -58,27 +61,68 @@ var PlatformChart = React.createClass({
             }    
         }
     },
+    _removeChart: function () {
+
+        var deleteChart = function () {
+          // platformActionCreators.deleteChart.bind(null, platform, chart);
+          modalActionCreators.closeModal();
+
+          this.props.chart.series.forEach(function (series) {            
+              if (series.hasOwnProperty("path"))
+              {
+                  platformsPanelActionCreators.checkItem(series.path, false);
+              }
+          });
+
+          platformChartActionCreators.removeChart(this.props.chartKey);      
+        }
+
+        modalActionCreators.openModal(
+            <ConfirmForm
+                promptTitle="Delete chart"
+                preText="Remove "
+                promptText={this.props.chartKey}
+                postText=" chart from here and from Dashboard?"
+                confirmText="Delete"
+                onConfirm={deleteChart.bind(this)}>
+            </ConfirmForm>
+        );        
+    },
     render: function () {
         var chartData = this.props.chart; 
         var platformChart;
 
+        var removeButton;
+
+        if (!this.props.hideControls)
+        {
+            removeButton = (
+              <div className="remove-chart"
+                  onClick={this._removeChart}>
+                <i className="fa fa-remove"></i>
+              </div>
+            );
+        }
+        
         if (chartData)
         {
             if (chartData.data.length > 0)
             {
                 platformChart = (
-                  <div className="platform-chart with-3d-shadow with-transitions">
-                      <label className="chart-title">{chartData.data[0].name}</label>                      
+                  <div className="platform-chart with-3d-shadow with-transitions absolute_anchor">
+                      <label className="chart-title">{chartData.data[0].name}</label>  
+                      {removeButton}                    
                       <div>
                           <div className='viz'>        
                               { chartData.data.length != 0 ? 
                                     <GraphLineChart 
+                                        key={this.props.chartKey}
                                         data={chartData.data} 
-                                        name={chartData.data[0].name }
+                                        name={this.props.chartKey}
                                         hideControls={this.props.hideControls}
                                         refreshInterval={this.props.chart.refreshInterval}
                                         pinned={this.props.chart.pinned}
-                                        type={this.props.chart.type} /> : null }
+                                        chartType={this.props.chart.type} /> : null }
                           </div>
 
                           <br/>
@@ -104,7 +148,7 @@ var GraphLineChart = React.createClass({
       // state.type = platformChartStore.getType(this.props.name);
       state.lineChart = null;
       state.pinned = this.props.pinned;
-      state.type = this.props.type;
+      state.chartType = this.props.chartType;
       state.showTaptip = false;
       state.taptipX = 0;
       state.taptipY = 0;
@@ -113,11 +157,15 @@ var GraphLineChart = React.createClass({
   },
   componentDidMount: function() {
       platformChartStore.addChangeListener(this._onStoresChange);
-      var lineChart = this._drawLineChart(this.state.chartName, this.state.type, this._lineData(this._getNested(this.props.data)));
+      var lineChart = this._drawLineChart(this.state.chartName, this.state.chartType, this._lineData(this._getNested(this.props.data)));
       this.setState({lineChart: lineChart});
   },
   componentWillUnmount: function () {
       platformChartStore.removeChangeListener(this._onStoresChange);
+      if (this.lineChart)
+      {
+        delete this.lineChart;
+      }
   },
   componentDidUpdate: function() {
       if (this.state.lineChart)
@@ -127,7 +175,7 @@ var GraphLineChart = React.createClass({
   },
   _onStoresChange: function () {
       this.setState({pinned: platformChartStore.getPinned(this.props.name)});
-      this.setState({type: platformChartStore.getType(this.props.name)});
+      this.setState({chartType: platformChartStore.getType(this.props.name)});
   },
   _onChartChange: function (e) {
       var chartType = e.target.value;
@@ -177,7 +225,7 @@ var GraphLineChart = React.createClass({
         var chartTypeSelect = (
             <select
                 onChange={this._onChartChange}
-                value={this.state.type}
+                value={this.state.chartType}
                 autoFocus
                 required
             >
@@ -296,34 +344,34 @@ var GraphLineChart = React.createClass({
       </div>
     );
   },
-  _drawLineChart: function (elementParent, type, data) {
+  _drawLineChart: function (elementParent, chartType, data) {
       
       var tickCount = 0;
-      var lineChart;
+      // var lineChart;
 
-      switch (type)
+      switch (chartType)
       {
           case "line":
-              lineChart = nv.models.lineChart();
+              this.lineChart = nv.models.lineChart();
               break;
           case "lineWithFocus":
-              lineChart = nv.models.lineWithFocusChart();
+              this.lineChart = nv.models.lineWithFocusChart();
               break;
           case "stackedArea":
-              lineChart = nv.models.stackedAreaChart();
+              this.lineChart = nv.models.stackedAreaChart();
               break;
           case "cumulativeLine":
-              lineChart = nv.models.cumulativeLineChart();
+              this.lineChart = nv.models.cumulativeLineChart();
               break;
       }
 
-      lineChart.margin({left: 25, right: 25})
+      this.lineChart.margin({left: 25, right: 25})
           .x(function(d) {return d.x})
           .y(function(d) {return d.y})
           .useInteractiveGuideline(true)
           .showYAxis(true)
           .showXAxis(true);
-      lineChart.xAxis
+      this.lineChart.xAxis
         .tickFormat(function (d, i) {
 
             var tickValue;
@@ -349,13 +397,13 @@ var GraphLineChart = React.createClass({
             return tickValue;
         })
         .staggerLabels(false);
-      lineChart.yAxis
+      this.lineChart.yAxis
         .tickFormat(d3.format('.1f'));
 
-      switch (type)
+      switch (chartType)
       {        
           case "lineWithFocus":            
-              lineChart.x2Axis
+              this.lineChart.x2Axis
                 .tickFormat(function (d) {
                     return d3.time.format('%X')(new Date(d));
                 });
@@ -365,14 +413,19 @@ var GraphLineChart = React.createClass({
       d3.selectAll('#' + elementParent + ' > *').remove();
       d3.select('#' + elementParent)
         .datum(data)
-        .call(lineChart);
-      nv.utils.windowResize(function() { lineChart.update() });
-
-      nv.addGraph(function() {
-        return lineChart;
+        .call(this.lineChart);
+      nv.utils.windowResize(function() { 
+        if (this.lineChart)
+        {
+           this.lineChart.update();
+        }
       });
 
-      return lineChart;
+      nv.addGraph(function() {
+        return this.lineChart;
+      });
+
+      return this.lineChart;
     },
     _updateLineChart: function (lineChart, elementParent, data) {
       d3.select('#' + elementParent)

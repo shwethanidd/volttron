@@ -79,7 +79,7 @@ router.run(function (Handler) {
     platformChartsStore.addChangeListener(function () {
         if (platformChartsStore.showCharts() && authorizationStore.getAuthorization())
         {
-            !router.isActive('charts')
+            if (!router.isActive('charts'))
             {
                 router.replaceWith('/platform-charts');
             }
@@ -91,7 +91,7 @@ router.run(function (Handler) {
 });
 
 
-},{"./components/dashboard":17,"./components/login-form":22,"./components/page-not-found":25,"./components/platform":29,"./components/platform-charts":27,"./components/platform-manager":28,"./components/platforms":32,"./stores/authorization-store":45,"./stores/platform-chart-store":50,"react":undefined,"react-router":undefined}],2:[function(require,module,exports){
+},{"./components/dashboard":17,"./components/login-form":21,"./components/page-not-found":24,"./components/platform":28,"./components/platform-charts":26,"./components/platform-manager":27,"./components/platforms":31,"./stores/authorization-store":44,"./stores/platform-chart-store":49,"react":undefined,"react-router":undefined}],2:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -118,7 +118,7 @@ var consoleActionCreators = {
 module.exports = consoleActionCreators;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/rpc/exchange":39}],3:[function(require,module,exports){
+},{"../constants/action-types":35,"../dispatcher":36,"../lib/rpc/exchange":38}],3:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -144,7 +144,7 @@ var controlButtonActionCreators = {
 module.exports = controlButtonActionCreators;
 
 
-},{"../constants/action-types":36,"../dispatcher":37}],4:[function(require,module,exports){
+},{"../constants/action-types":35,"../dispatcher":36}],4:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -167,13 +167,15 @@ var modalActionCreators = {
 module.exports = modalActionCreators;
 
 
-},{"../constants/action-types":36,"../dispatcher":37}],5:[function(require,module,exports){
+},{"../constants/action-types":35,"../dispatcher":36}],5:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
 var authorizationStore = require('../stores/authorization-store');
+var platformsStore = require('../stores/platforms-store');
 var dispatcher = require('../dispatcher');
 var rpc = require('../lib/rpc');
+var statusIndicatorActionCreators = require('../action-creators/status-indicator-action-creators');
 
 var platformActionCreators = {
     loadPlatform: function (platform) {
@@ -363,6 +365,94 @@ var platformActionCreators = {
             })
             .catch(rpc.Error, handle401);
     },
+    loadChartTopics: function (platform) {
+        var authorization = authorizationStore.getAuthorization();
+
+        new rpc.Exchange({
+            method: 'historian.get_topic_list',
+            authorization: authorization,
+        }).promise
+            .then(function (topics) {
+                
+                // var topicsList = topics.map(function (topic, index) {
+                //     return { path: topic, label: getLabelFromTopic(topic), key: index};
+                // });
+
+                var filteredTopics = [];
+
+                topics.forEach(function (topic, index) {
+                    
+                    if (topic.indexOf("datalogger/platform/status") < 0) // ignore -- they're local platform topics that are in 
+                    {                                                      // the list twice, also at datalogger/platform/<uuid>
+                        var item = {};
+                        var topicParts = topic.split("/");
+
+                        if (topicParts.length > 2)
+                        {
+                            var name;
+                            var parentPath;
+                            var label;
+                            // var name;
+
+                            if (topic.indexOf("datalogger/platform") > -1) // if a platform instance
+                            {
+                                var platformUuid = topicParts[2];
+                                var platform = platformsStore.getPlatform(platformUuid);
+                                parentPath = (platform ? platform.name : "Unknown Platform");
+                                label = topicParts[topicParts.length - 2] + "/" + topicParts[topicParts.length - 1] + " (" + parentPath + ")";
+                                name = topicParts[topicParts.length - 2] + " / " + topicParts[topicParts.length - 1]; // the name is the 
+                                                                                                                    // last two path parts
+                            }                                                                                      // ex.: times_percent / idle
+                            else // else a device point
+                            {
+                                parentPath = topicParts[0];
+
+                                for (var i = 1; i < topicParts.length - 1; i++)
+                                {
+                                    parentPath = parentPath + " > " + topicParts[i];
+                                }
+
+                                label = topicParts[topicParts.length - 1] + " (" + parentPath + ")";
+                                name = topicParts[topicParts.length - 1]; // the name is the column name
+                            }
+                            
+                            item.path = topic;
+                            item.label = label;
+                            item.key = index;
+                            item.name = name;
+                            // item.uuid = this.state.selectedTopic;
+                            // item.topic = this.state.selectedTopic;
+                            // item.pinned = (this.state.pin ? true : false);
+                            item.parentPath = parentPath;
+                            // item.parentUuid = this.props.platform.uuid;
+
+                            filteredTopics.push(item);
+                        }
+                    }                
+                });
+
+                dispatcher.dispatch({
+                    type: ACTION_TYPES.RECEIVE_CHART_TOPICS,
+                    platform: platform,
+                    topics: filteredTopics
+                });
+            })
+            .catch(rpc.Error, function (error) {
+                
+                var message = error.message;
+
+                if (error.code === -32602)
+                {
+                    if (error.message === "historian unavailable")
+                    {
+                        message = "Charts can't be added. The historian agent is unavailable."
+                    }
+                }
+
+                statusIndicatorActionCreators.openStatusIndicator("error", message);
+                handle401(error);
+            });     
+    },
     loadCharts: function (platform) {
         var authorization = authorizationStore.getAuthorization();
 
@@ -372,18 +462,37 @@ var platformActionCreators = {
             authorization: authorization,
         }).promise
             .then(function (charts) {
-                if (charts && charts.length) {
-                    platform.charts = charts;
-                } else {
-                    platform.charts = [];
-                }
+
+                var notifyRouter = false;
+
+                charts.forEach(function (chart) {
+                    platformChartActionCreators.addToChart(chart, notifyRouter);
+                });
+
+                // if (charts && charts.length) {
+                //     platform.charts = charts;
+                // } else {
+                //     platform.charts = [];
+                // }
+
+                // dispatcher.dispatch({
+                //     type: ACTION_TYPES.RECEIVE_PLATFORM,
+                //     platform: platform,
+                // });
+
+
 
                 dispatcher.dispatch({
-                    type: ACTION_TYPES.RECEIVE_PLATFORM,
-                    platform: platform,
+                    type: ACTION_TYPES.ADD_TO_CHART,
+                    chart: charts,
                 });
             })
-            .catch(rpc.Error, handle401);
+            .catch(rpc.Error, function (error) {
+
+                statusIndicatorActionCreators.openStatusIndicator("error", error.message + ": Unable to load charts.");
+
+                handle401(error);
+            });
     },
     getTopicData: function (platform, topic) {
         var authorization = authorizationStore.getAuthorization();
@@ -412,7 +521,8 @@ var platformActionCreators = {
         var newCharts;
 
         if (!oldChart) {
-            newCharts = platform.charts.concat([newChart]);
+            // newCharts = platform.charts.concat([newChart]);
+            newCharts = [newChart];
         } else {
             newCharts = platform.charts.map(function (chart) {
                 if (chart === oldChart) {
@@ -429,16 +539,17 @@ var platformActionCreators = {
             authorization: authorization,
         }).promise
             .then(function () {
-                platform.charts = newCharts;
 
-                dispatcher.dispatch({
-                    type: ACTION_TYPES.CLOSE_MODAL,
-                });
+                // platform.charts = newCharts;
 
-                dispatcher.dispatch({
-                    type: ACTION_TYPES.RECEIVE_PLATFORM,
-                    platform: platform,
-                });
+                // dispatcher.dispatch({
+                //     type: ACTION_TYPES.CLOSE_MODAL,
+                // });
+
+                // dispatcher.dispatch({
+                //     type: ACTION_TYPES.RECEIVE_PLATFORM,
+                //     platform: platform,
+                // });
             });
     },
     deleteChart: function (platform, chartToDelete) {
@@ -482,12 +593,13 @@ function handle401(error) {
 module.exports = platformActionCreators;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/rpc":40,"../stores/authorization-store":45}],6:[function(require,module,exports){
+},{"../action-creators/status-indicator-action-creators":9,"../constants/action-types":35,"../dispatcher":36,"../lib/rpc":39,"../stores/authorization-store":44,"../stores/platforms-store":53}],6:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
 var dispatcher = require('../dispatcher');
 var authorizationStore = require('../stores/authorization-store');
+var statusIndicatorActionCreators = require('../action-creators/status-indicator-action-creators');
 var rpc = require('../lib/rpc');
 
 var platformChartActionCreators = {
@@ -516,69 +628,98 @@ var platformChartActionCreators = {
 		var authorization = authorizationStore.getAuthorization();
 
 		series.forEach(function (item) {
+            var authorization = authorizationStore.getAuthorization();
 
-			if (item.parentType === "platform")
-	        {
-	            var authorization = authorizationStore.getAuthorization();
+            new rpc.Exchange({
+                method: 'platforms.uuid.' + item.parentUuid + '.historian.query',
+                params: {
+                    topic: item.topic,
+                    count: 20,
+                    order: 'LAST_TO_FIRST',
+                },
+                authorization: authorization,
+            }).promise
+                .then(function (result) {
+                	item.data = result.values;
 
-	            new rpc.Exchange({
-	                method: 'platforms.uuid.' + item.parentUuid + '.historian.query',
-	                params: {
-	                    topic: item.topic,
-	                    count: 20,
-	                    order: 'LAST_TO_FIRST',
-	                },
-	                authorization: authorization,
-	            }).promise
-	                .then(function (result) {
-	                	item.data = result.values;
-
-	                    item.data.forEach(function (datum) {
-	                        datum.name = item.name;
-	                        datum.parent = item.parentPath;
-                        	datum.uuid = item.uuid;
-	                    });
-	                    dispatcher.dispatch({
-	                        type: ACTION_TYPES.REFRESH_CHART,
-	                        item: item
-	                    });
-	                })
-	                .catch(rpc.Error, handle401);
-	        }  
-	        else
-	        {
-	            if (item.uuid === "5461fedc-65ba-43fe-21dc-098765bafedl")
-	            {
-	                item.data = [['2016-02-19T01:00:31.630626',31.4],['2016-02-19T01:00:16.632151',23],['2016-02-19T01:00:01.627188',16.5],['2016-02-19T00:59:46.641500',42.8],['2016-02-19T00:59:31.643573',21.2],['2016-02-19T00:59:16.643254',9.3],['2016-02-19T00:59:01.639104',8.5],['2016-02-19T00:58:46.638238',16],['2016-02-19T00:58:31.633733',12.4],['2016-02-19T00:58:16.632418',23],['2016-02-19T00:58:01.630463',16.7],['2016-02-19T00:57:46.648439',9.1],['2016-02-19T00:57:31.640824',10.5],['2016-02-19T00:57:16.636578',8.2],['2016-02-19T00:57:01.644842',2.2],['2016-02-19T00:56:46.635059',2.5],['2016-02-19T00:56:31.639332',2.4],['2016-02-19T00:56:16.647604',2.3],['2016-02-19T00:56:01.643571',11.2],['2016-02-19T00:55:46.644522',9.8]];
-	                item.data.forEach(function (datum) {
-	                    datum.name = item.name;
-	                    datum.parent = item.parentPath;
-	                    datum.uuid = item.uuid;
-	                });
-
-	                dispatcher.dispatch({
-	                    type: ACTION_TYPES.REFRESH_CHART,
-	                    item: item
-	                });
-	            }
-	            else if (item.uuid === "5461fedc-65ba-43fe-21dc-111765bafedl")
-	            {
-	                item.data = [['2016-02-19T01:00:31.630626',73.6],['2016-02-19T01:00:16.632151',71],['2016-02-19T01:00:01.627188',69.4],['2016-02-19T00:59:46.641500',60],['2016-02-19T00:59:31.643573',67],['2016-02-19T00:59:16.643254',68.6],['2016-02-19T00:59:01.639104',77],['2016-02-19T00:58:46.638238',83.5],['2016-02-19T00:58:31.633733',57.2],['2016-02-19T00:58:16.632418',78.7],['2016-02-19T00:58:01.630463',90.7],['2016-02-19T00:57:46.648439',91.5],['2016-02-19T00:57:31.640824',84],['2016-02-19T00:57:16.636578',87.6],['2016-02-19T00:57:01.644842',77],['2016-02-19T00:56:46.635059',83.3],['2016-02-19T00:56:31.639332',90.9],['2016-02-19T00:56:16.647604',89.5],['2016-02-19T00:56:01.643571',91.8],['2016-02-19T00:55:46.644522',97.7]];
-	                item.data.forEach(function (datum) {
-	                    datum.name = item.name;
-	                    datum.parent = item.parentPath;
-	                    datum.uuid = item.uuid;
-	                });
-
-	                dispatcher.dispatch({
-	                    type: ACTION_TYPES.REFRESH_CHART,
-	                    item: item
-	                });
-	            }
-	        }
+                    item.data.forEach(function (datum) {
+                        datum.name = item.name;
+                        datum.parent = item.parentPath;
+                    	datum.uuid = item.uuid;
+                    });
+                    dispatcher.dispatch({
+                        type: ACTION_TYPES.REFRESH_CHART,
+                        item: item
+                    });
+                })
+                .catch(rpc.Error, handle401);
 		});
 		
 	},
+	addToChart: function(panelItem, emitChange) {
+
+        var authorization = authorizationStore.getAuthorization();
+
+        new rpc.Exchange({
+            method: 'platforms.uuid.' + panelItem.parentUuid + '.historian.query',
+            params: {
+                topic: panelItem.topic,
+                count: 20,
+                order: 'LAST_TO_FIRST',
+            },
+            authorization: authorization,
+        }).promise
+            .then(function (result) {
+                panelItem.data = result.values;
+
+                panelItem.data.forEach(function (datum) {
+                    datum.name = panelItem.name;
+                    datum.parent = panelItem.parentPath;
+                    datum.uuid = panelItem.uuid;
+                });
+
+                dispatcher.dispatch({
+                    type: ACTION_TYPES.SHOW_CHARTS,
+                    emitChange: (emitChange === null || typeof emitChange === "undefined" ? true : emitChange)
+                });
+
+                dispatcher.dispatch({
+                    type: ACTION_TYPES.ADD_TO_CHART,
+                    panelItem: panelItem
+                });
+            })
+            .catch(rpc.Error, function (error) {
+                
+                var message = error.message;
+
+                if (error.code === -32602)
+                {
+                    if (error.message === "historian unavailable")
+                    {
+                        message = "Data could not be fetched. The historian agent is unavailable."
+                    }
+                }
+
+                statusIndicatorActionCreators.openStatusIndicator("error", message);
+                handle401(error);
+            });
+    },
+    removeFromChart: function(panelItem) {
+
+        dispatcher.dispatch({
+            type: ACTION_TYPES.REMOVE_FROM_CHART,
+            panelItem: panelItem
+        });  
+
+    },
+    removeChart: function(chartName) {
+
+        dispatcher.dispatch({
+            type: ACTION_TYPES.REMOVE_CHART,
+            name: chartName
+        });  
+
+    }
 };
 
 function handle401(error) {
@@ -595,7 +736,7 @@ function handle401(error) {
 module.exports = platformChartActionCreators;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/rpc":40,"../stores/authorization-store":45}],7:[function(require,module,exports){
+},{"../action-creators/status-indicator-action-creators":9,"../constants/action-types":35,"../dispatcher":36,"../lib/rpc":39,"../stores/authorization-store":44}],7:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -673,6 +814,8 @@ var platformManagerActionCreators = {
 
                 managerPlatforms.forEach(function (platform, i) {
                     platformActionCreators.loadAgents(platform);
+
+                    platformActionCreators.loadCharts(platform);
                 });
             })
             .catch(rpc.Error, function (error) {
@@ -837,7 +980,7 @@ function handle401(error) {
 module.exports = platformManagerActionCreators;
 
 
-},{"../action-creators/modal-action-creators":4,"../action-creators/platform-action-creators":5,"../action-creators/platforms-panel-action-creators":8,"../action-creators/status-indicator-action-creators":9,"../constants/action-types":36,"../dispatcher":37,"../lib/rpc":40,"../stores/authorization-store":45}],8:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":4,"../action-creators/platform-action-creators":5,"../action-creators/platforms-panel-action-creators":8,"../action-creators/status-indicator-action-creators":9,"../constants/action-types":35,"../dispatcher":36,"../lib/rpc":39,"../stores/authorization-store":44}],8:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -1021,64 +1164,7 @@ var platformsPanelActionCreators = {
             itemPath: itemPath,
             checked: checked
         });
-    },
-
-    addToChart: function(panelItem) {
-
-        var authorization = authorizationStore.getAuthorization();
-
-        new rpc.Exchange({
-            method: 'platforms.uuid.' + panelItem.parentUuid + '.historian.query',
-            params: {
-                topic: panelItem.topic,
-                count: 20,
-                order: 'LAST_TO_FIRST',
-            },
-            authorization: authorization,
-        }).promise
-            .then(function (result) {
-                panelItem.data = result.values;
-
-                panelItem.data.forEach(function (datum) {
-                    datum.name = panelItem.name;
-                    datum.parent = panelItem.parentPath;
-                    datum.uuid = panelItem.uuid;
-                });
-
-                dispatcher.dispatch({
-                    type: ACTION_TYPES.SHOW_CHARTS
-                });
-
-                dispatcher.dispatch({
-                    type: ACTION_TYPES.ADD_TO_CHART,
-                    panelItem: panelItem
-                });
-            })
-            .catch(rpc.Error, function (error) {
-                
-                var message = error.message;
-
-                if (error.code === -32602)
-                {
-                    if (error.message === "historian unavailable")
-                    {
-                        message = "Data could not be fetched. The historian agent is unavailable."
-                    }
-                }
-
-                statusIndicatorActionCreators.openStatusIndicator("error", message);
-                handle401(error);
-            });
-    },
-
-    removeFromChart: function(panelItem) {
-
-        dispatcher.dispatch({
-            type: ACTION_TYPES.REMOVE_FROM_CHART,
-            panelItem: panelItem
-        });  
-
-    }
+    }    
 }
 
 
@@ -1100,7 +1186,7 @@ function handle401(error) {
 module.exports = platformsPanelActionCreators;
 
 
-},{"../action-creators/status-indicator-action-creators":9,"../constants/action-types":36,"../dispatcher":37,"../lib/rpc":40,"../stores/authorization-store":45,"../stores/platforms-panel-items-store":52}],9:[function(require,module,exports){
+},{"../action-creators/status-indicator-action-creators":9,"../constants/action-types":35,"../dispatcher":36,"../lib/rpc":39,"../stores/authorization-store":44,"../stores/platforms-panel-items-store":51}],9:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -1124,7 +1210,7 @@ var actionStatusCreators = {
 module.exports = actionStatusCreators;
 
 
-},{"../constants/action-types":36,"../dispatcher":37}],10:[function(require,module,exports){
+},{"../constants/action-types":35,"../dispatcher":36}],10:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1234,71 +1320,188 @@ var AgentRow = React.createClass({displayName: "AgentRow",
 module.exports = AgentRow;
 
 
-},{"../action-creators/modal-action-creators":4,"../action-creators/platform-action-creators":5,"./remove-agent-form":34,"react":undefined}],11:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":4,"../action-creators/platform-action-creators":5,"./remove-agent-form":33,"react":undefined}],11:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
 
-var topicDataStore = require('../stores/topic-data-store');
-var platformActionCreators = require('../action-creators/platform-action-creators');
-var LineChart = require('./line-chart');
+var ComboBox = React.createClass({displayName: "ComboBox",
+    mixins: [
+        require('react-onclickoutside')
+    ],
+	getInitialState: function () {
 
-var chartTypes = {
-    'line': LineChart,
-};
+        var preppedItems = prepItems(this.props.itemskey, this.props.itemsvalue, this.props.itemslabel, this.props.items);
 
-var Chart = React.createClass({displayName: "Chart",
-    getInitialState: function () {
-        return getStateFromStores(this.props.platform, this.props.chart);
+        var state = {
+            selectedKey: "",
+            selectedLabel: "",
+            selectedValue: "",
+            inputValue: "",
+            hideMenu: true,
+            preppedItems: preppedItems,
+            itemsList: preppedItems
+        };
+
+        this.forceHide = false;
+
+        return state;
     },
-    componentDidMount: function () {
-        topicDataStore.addChangeListener(this._onStoreChange);
-
-        if (!this._getTopicDataTimeout) {
-            this._getTopicDataTimeout = setTimeout(this._getTopicData, 0);
+    componentDidUpdate: function () {
+        if (this.forceHide)
+        {
+            React.findDOMNode(this.refs.comboInput).blur();
+            this.forceHide = false;
         }
     },
-    componentWillUnmount: function () {
-        topicDataStore.removeChangeListener(this._onStoreChange);
-        clearTimeout(this._getTopicDataTimeout);
-    },
-    _initTopicData: function () {
-
-    },
-    _onStoreChange: function () {
-        this.setState(getStateFromStores(this.props.platform, this.props.chart));
-    },
-    _getTopicData: function () {
-        platformActionCreators.getTopicData(
-            this.props.platform,
-            this.props.chart.topic
-        );
-
-        if (this.props.chart.refreshInterval) {
-            this._getTopicDataTimeout = setTimeout(this._getTopicData, this.props.chart.refreshInterval);
+    handleClickOutside: function () {
+        if (!this.state.hideMenu)
+        {
+            var validValue = this._validateValue(this.state.inputValue);
+            this.props.onselect(validValue);
+            this.setState({hideMenu: true});
         }
     },
-    render: function () {
-        var ChartClass = chartTypes[this.props.chart.type];
+    _validateValue: function (inputValue) {
 
-        return (
-            React.createElement(ChartClass, {
-                className: "chart", 
-                chart: this.props.chart, 
-                data: this.state.data || []}
+        var validInput = this.props.items.find(function (item) {
+            return item.label === inputValue;
+        });
+
+        var validKey = (validInput ? validInput.key : "");
+        var validValue = (validInput ? validInput.value : "");
+        var validLabel = (validInput ? validInput.label : "");
+        
+        this.setState({selectedKey: validKey});
+        this.setState({selectedValue: validValue});
+        this.setState({selectedLabel: validLabel});
+
+        return validValue;
+    },
+    _onClick: function (e) {
+        this.setState({selectedKey: e.target.dataset.key});
+        this.setState({selectedLabel: e.target.dataset.label});
+        this.setState({selectedValue: e.target.dataset.value});
+        this.setState({inputValue: e.target.dataset.label});
+        this.setState({hideMenu: true});
+
+        this.props.onselect(e.target.dataset.value);
+    },
+    _onFocus: function () {
+        this.setState({hideMenu: false});
+    },
+    _onKeyup: function (e) {
+        if (e.keyCode === 13)
+        {
+            this.forceHide = true;
+            this.setState({hideMenu: true});
+
+            var validValue = this._validateValue(this.state.inputValue);
+            this.props.onselect(validValue);
+        }
+    },
+    _onChange: function (e) {
+
+        var inputValue = e.target.value;
+
+        var itemsList = filterItems(inputValue, this.state.preppedItems);
+
+        this.setState({itemsList: itemsList});
+
+        this.setState({inputValue: inputValue}); 
+                
+    },
+
+	render: function () {
+		
+        var menuStyle = {
+            display: (this.state.hideMenu ? 'none' : 'block')
+        };
+
+        var inputStyle = {
+            width: "390px"
+        };
+
+        var items = this.state.itemsList.map(function (item, index) {
+            return (
+                React.createElement("div", {className: "combobox-item"}, 
+                    React.createElement("div", {
+                        onClick: this._onClick, 
+                        "data-label": item.label, 
+                        "data-value": item.value, 
+                        "data-key": item.key}, item.label)
+                )
             )
-        );
-    },
+        }, this);
+
+		return (
+		
+        	React.createElement("div", {className: "combobox-control"}, 
+                React.createElement("input", {
+                    style: inputStyle, 
+                    type: "text", 
+                    onFocus: this._onFocus, 
+                    onChange: this._onChange, 
+                    onKeyUp: this._onKeyup, 
+                    ref: "comboInput", 
+                    value: this.state.inputValue}), 
+
+                React.createElement("div", {className: "combobox-menu", style: menuStyle}, 
+				    items
+                )
+			)
+		);
+	},
 });
 
-function getStateFromStores(platform, chart) {
-    return { data: topicDataStore.getTopicData(platform, chart.topic) };
+function prepItems(itemsKey, itemsValue, itemsLabel, itemsList)
+{
+    var props = {
+        itemsKey: itemsKey,
+        itemsValue: itemsValue,
+        itemsLabel: itemsLabel
+    };
+
+    var list = itemsList.map(function (item, index) {
+
+        var preppedItem = {
+            key: (this.itemsKey ? item[this.itemsKey] : index),
+            value: (this.itemsValue ? item[this.itemsValue] : item),
+            label: (this.itemsLabel ? item[this.itemsLabel] : item)
+        };
+
+        return preppedItem;
+    }, props);
+
+    return JSON.parse(JSON.stringify(list));
 }
 
-module.exports = Chart;
+function filterItems(filterTerm, itemsList)
+{
+    var listCopy = JSON.parse(JSON.stringify(itemsList));
+
+    var filteredItems = listCopy;
+
+    if (filterTerm)
+    {
+        filteredItems = [];
+
+        listCopy.forEach(function (item) {
+            if (item.label.toUpperCase().indexOf(filterTerm.toUpperCase()) > -1)
+            {
+                filteredItems.push(item);
+            }
+        });
+    }
+
+    return filteredItems;
+}
 
 
-},{"../action-creators/platform-action-creators":5,"../stores/topic-data-store":56,"./line-chart":21,"react":undefined}],12:[function(require,module,exports){
+module.exports = ComboBox;
+
+
+},{"react":undefined,"react-onclickoutside":undefined}],12:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1368,7 +1571,7 @@ function getStateFromStores() {
 module.exports = Composer;
 
 
-},{"../action-creators/console-action-creators":2,"../stores/console-store":46,"react":undefined}],13:[function(require,module,exports){
+},{"../action-creators/console-action-creators":2,"../stores/console-store":45,"react":undefined}],13:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1381,11 +1584,19 @@ var ConfirmForm = React.createClass({displayName: "ConfirmForm",
         this.props.onConfirm();
     },
     render: function () {
+
+        var promptText = this.props.promptText;
+
+        if (this.props.hasOwnProperty("preText") && this.props.hasOwnProperty("postText"))
+        {
+            promptText = React.createElement("b", null, promptText)
+        }
+
         return (
             React.createElement("form", {className: "confirmation-form", onSubmit: this._onSubmit}, 
                 React.createElement("h1", null, this.props.promptTitle), 
                 React.createElement("p", null, 
-                    this.props.promptText
+                    this.props.preText, promptText, this.props.postText
                 ), 
                 React.createElement("div", {className: "form__actions"}, 
                     React.createElement("button", {
@@ -1623,7 +1834,7 @@ var ControlButton = React.createClass({displayName: "ControlButton",
 module.exports = ControlButton;
 
 
-},{"../action-creators/control-button-action-creators":3,"../stores/control-button-store":47,"react":undefined,"react-router":undefined}],16:[function(require,module,exports){
+},{"../action-creators/control-button-action-creators":3,"../stores/control-button-store":46,"react":undefined,"react-router":undefined}],16:[function(require,module,exports){
 'use strict';
 
 var $ = require('jquery');
@@ -1674,38 +1885,38 @@ function getStateFromStores() {
 module.exports = Conversation;
 
 
-},{"../stores/console-store":46,"./exchange":20,"jquery":undefined,"react":undefined}],17:[function(require,module,exports){
+},{"../stores/console-store":45,"./exchange":20,"jquery":undefined,"react":undefined}],17:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
 var Router = require('react-router');
 
-var platformsStore = require('../stores/platforms-store');
+// var platformsStore = require('../stores/platforms-store');
 var platformChartStore = require('../stores/platform-chart-store');
-var Chart = require('./chart');
-var EditChartForm = require('./edit-chart-form');
-var modalActionCreators = require('../action-creators/modal-action-creators');
+// var Chart = require('./chart');
+// var EditChartForm = require('./edit-chart-form');
+// var modalActionCreators = require('../action-creators/modal-action-creators');
 
 var PlatformChart = require('./platform-chart');
 
 var Dashboard = React.createClass({displayName: "Dashboard",
     getInitialState: getStateFromStores,
     componentDidMount: function () {
-        platformsStore.addChangeListener(this._onStoreChange);
+        // platformsStore.addChangeListener(this._onStoreChange);
         platformChartStore.addChangeListener(this._onStoreChange);
     },
     componentWillUnmount: function () {
-        platformsStore.removeChangeListener(this._onStoreChange);
+        // platformsStore.removeChangeListener(this._onStoreChange);
         platformChartStore.removeChangeListener(this._onStoreChange);
     },
     _onStoreChange: function () {
         this.setState(getStateFromStores());
     },
-    _onEditChartClick: function (platform, chart) {
-        modalActionCreators.openModal(React.createElement(EditChartForm, {platform: platform, chart: chart}));
-    },
+    // _onEditChartClick: function (platform, chart) {
+    //     modalActionCreators.openModal("platforms", <EditChartForm platform={platform} chart={chart} />);
+    // },
     render: function () {
-        var charts;
+        // var charts;
         
         var pinnedCharts = this.state.platformCharts; 
 
@@ -1720,56 +1931,56 @@ var Dashboard = React.createClass({displayName: "Dashboard",
             }
         }
 
-        if (!this.state.platforms) {
-            charts = (
-                React.createElement("p", null, "Loading charts...")
-            );
-        } else {
-            charts = [];
+        // if (!this.state.platforms) {
+        //     charts = (
+        //         <p>Loading charts...</p>
+        //     );
+        // } else {
+        //     charts = [];
 
-            this.state.platforms
-                .sort(function (a, b) {
-                    return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
-                })
-                .forEach(function (platform) {
-                    if (!platform.charts) { return; }
+        //     this.state.platforms
+        //         .sort(function (a, b) {
+        //             return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+        //         })
+        //         .forEach(function (platform) {
+        //             if (!platform.charts) { return; }
 
-                    platform.charts
-                        .filter(function (chart) { return chart.pin; })
-                        .forEach(function (chart) {
-                            var key = [
-                                platform.uuid,
-                                chart.topic,
-                                chart.type,
-                            ].join('::');
+        //             platform.charts
+        //                 .filter(function (chart) { return chart.pin; })
+        //                 .forEach(function (chart) {
+        //                     var key = [
+        //                         platform.uuid,
+        //                         chart.topic,
+        //                         chart.type,
+        //                     ].join('::');
 
-                            charts.push(
-                                React.createElement("div", {key: key, className: "view__item view__item--tile chart"}, 
-                                    React.createElement("h3", {className: "chart__title"}, 
-                                        React.createElement(Router.Link, {
-                                            to: "platform", 
-                                            params: {uuid: platform.uuid}
-                                        }, 
-                                            platform.name
-                                        ), 
-                                        ": ", chart.topic
-                                    ), 
-                                    React.createElement(Chart, {
-                                        platform: platform, 
-                                        chart: chart}
-                                    ), 
-                                    React.createElement("div", {className: "chart__actions"}, 
-                                        React.createElement("a", {
-                                            className: "chart__edit", 
-                                            onClick: this._onEditChartClick.bind(this, platform, chart)
-                                        }, 
-                                            "Edit"
-                                        )
-                                    )
-                                )
-                            );
-                        }, this);
-                }, this);
+        //                     charts.push(
+        //                         <div key={key} className="view__item view__item--tile chart">
+        //                             <h3 className="chart__title">
+        //                                 <Router.Link
+        //                                     to="platform"
+        //                                     params={{uuid: platform.uuid}}
+        //                                 >
+        //                                     {platform.name}
+        //                                 </Router.Link>
+        //                                 : {chart.topic}
+        //                             </h3>
+        //                             <Chart
+        //                                 platform={platform}
+        //                                 chart={chart}
+        //                             />
+        //                             <div className="chart__actions">
+        //                                 <a
+        //                                     className="chart__edit"
+        //                                     onClick={this._onEditChartClick.bind(this, platform, chart)}
+        //                                 >
+        //                                     Edit
+        //                                 </a>
+        //                             </div>
+        //                         </div>
+        //                     );
+        //                 }, this);
+        //         }, this);
 
             if (pinnedCharts.length === 0) {
                 platformCharts = (
@@ -1778,7 +1989,7 @@ var Dashboard = React.createClass({displayName: "Dashboard",
                     )
                 );
             }
-        }
+        // }
 
         return (
             React.createElement("div", {className: "view"}, 
@@ -1792,7 +2003,7 @@ var Dashboard = React.createClass({displayName: "Dashboard",
 
 function getStateFromStores() {
     return {
-        platforms: platformsStore.getPlatforms(),
+        // platforms: platformsStore.getPlatforms(),
         platformCharts: platformChartStore.getPinnedCharts()
     };
 }
@@ -1800,7 +2011,7 @@ function getStateFromStores() {
 module.exports = Dashboard;
 
 
-},{"../action-creators/modal-action-creators":4,"../stores/platform-chart-store":50,"../stores/platforms-store":54,"./chart":11,"./edit-chart-form":19,"./platform-chart":26,"react":undefined,"react-router":undefined}],18:[function(require,module,exports){
+},{"../stores/platform-chart-store":49,"./platform-chart":25,"react":undefined,"react-router":undefined}],18:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1856,13 +2067,16 @@ function getStateFromStores() {
 module.exports = RegisterPlatformForm;
 
 
-},{"../action-creators/modal-action-creators":4,"../action-creators/platform-manager-action-creators":7,"../stores/platform-registration-store":51,"react":undefined}],19:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":4,"../action-creators/platform-manager-action-creators":7,"../stores/platform-registration-store":50,"react":undefined}],19:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
 
 var modalActionCreators = require('../action-creators/modal-action-creators');
 var platformActionCreators = require('../action-creators/platform-action-creators');
+var platformChartActionCreators = require('../action-creators/platform-chart-action-creators');
+var chartStore = require('../stores/platform-chart-store');
+var ComboBox = require('./combo-box');
 
 var EditChartForm = React.createClass({displayName: "EditChartForm",
     getInitialState: function () {
@@ -1872,32 +2086,81 @@ var EditChartForm = React.createClass({displayName: "EditChartForm",
             state[prop] = this.props.chart[prop];
         }
 
+        state.topics = chartStore.getChartTopics(this.props.platform.uuid);
+
+        state.selectedTopic = "";
+
         return state;
+    },
+    componentDidMount: function () {
+        chartStore.addChangeListener(this._onStoresChange);
+    },
+    componentWillUnmount: function () {
+        chartStore.removeChangeListener(this._onStoresChange);
+    },
+    _onStoresChange: function () {
+        this.setState({ topics: chartStore.getChartTopics(this.props.platform.uuid)});
     },
     _onPropChange: function (e) {
         var state = {};
 
+        for (key in this.state)
+        {
+            state[key] = this.state[key];
+        }
+
+        var key = e.target.id;
+
         switch (e.target.type) {
         case 'checkbox':
-            state[e.target.id] = e.target.checked;
+            state[key] = e.target.checked;
             break;
         case 'number':
-            state[e.target.id] = parseFloat(e.target.value);
+            state[key] = parseFloat(e.target.value);
             break;
         default:
-            state[e.target.id] = e.target.value;
+            state[key] = e.target.value;
         }
 
         this.setState(state);
     },
-    _onCancelClick: modalActionCreators.closeModal,
+    _onTopicChange: function (value) {
+        this.setState({ selectedTopic: value });
+    },
+    _onCancelClick: function () {
+        modalActionCreators.closeModal();
+    },
     _onSubmit: function () {
-        platformActionCreators.saveChart(this.props.platform, this.props.chart, this.state);
+        
+        var selectedTopic = this.state.topics.find(function (topic) {
+            return topic.path === this.state.selectedTopic;
+        }, this);
+
+        if (selectedTopic)
+        {
+            selectedTopic.uuid = selectedTopic.path;
+            selectedTopic.topic = selectedTopic.path;
+            selectedTopic.pinned = (this.state.pin ? true : false);
+            selectedTopic.refreshInterval = this.state.refreshInterval;
+            selectedTopic.chartType = this.state.chartType;
+            selectedTopic.parentUuid = this.props.platform.uuid;
+        }
+
+        var notifyRouter = false;
+
+        platformChartActionCreators.addToChart(selectedTopic, notifyRouter);
+
+        if (selectedTopic.pinned)
+        {
+            platformActionCreators.saveChart(this.props.platform, null, selectedTopic);
+        }    
+        
+        modalActionCreators.closeModal();
     },
     render: function () {
         var typeOptions;
 
-        switch (this.state.type) {
+        switch (this.state.chartType) {
         case 'line':
             typeOptions = (
                 React.createElement("div", {className: "form__control-group"}, 
@@ -1927,27 +2190,25 @@ var EditChartForm = React.createClass({displayName: "EditChartForm",
             );
         }
 
+        var topicsSelector;
+
+        if (this.state.topics.length)
+        {
+            topicsSelector = (
+                React.createElement(ComboBox, {items: this.state.topics, itemskey: "key", itemsvalue: "path", itemslabel: "label", onselect: this._onTopicChange}
+                )
+            )
+        }
+
         return (
             React.createElement("form", {className: "edit-chart-form", onSubmit: this._onSubmit}, 
-                React.createElement("h1", null, this.props.chart ? 'Edit' : 'Add', " chart"), 
+                React.createElement("h1", null, this.props.chart ? 'Edit' : 'Add', " Chart"), 
                 this.state.error && (
                     React.createElement("div", {className: "error"}, this.state.error.message)
                 ), 
                 React.createElement("div", {className: "form__control-group"}, 
-                    React.createElement("label", {htmlFor: "topic"}, "Platform"), 
-                    this.props.platform.name, " (", this.props.platform.uuid, ")"
-                ), 
-                React.createElement("div", {className: "form__control-group"}, 
                     React.createElement("label", {htmlFor: "topic"}, "Topic"), 
-                    React.createElement("input", {
-                        className: "form__control form__control--block", 
-                        type: "text", 
-                        id: "topic", 
-                        onChange: this._onPropChange, 
-                        value: this.state.topic, 
-                        placeholder: "e.g. some/published/topic", 
-                        required: true}
-                    )
+                    topicsSelector
                 ), 
                 React.createElement("div", {className: "form__control-group"}, 
                     React.createElement("label", null, "Dashboard"), 
@@ -1977,16 +2238,19 @@ var EditChartForm = React.createClass({displayName: "EditChartForm",
                     )
                 ), 
                 React.createElement("div", {className: "form__control-group"}, 
-                    React.createElement("label", {htmlFor: "type"}, "Chart type"), 
+                    React.createElement("label", {htmlFor: "chartType"}, "Chart type"), 
                     React.createElement("select", {
-                        id: "type", 
+                        id: "chartType", 
                         onChange: this._onPropChange, 
-                        value: this.state.type, 
+                        value: this.state.chartType, 
                         autoFocus: true, 
                         required: true
                     }, 
                         React.createElement("option", {value: ""}, "-- Select type --"), 
-                        React.createElement("option", {value: "line"}, "Line")
+                        React.createElement("option", {value: "line"}, "Line"), 
+                        React.createElement("option", {value: "lineWithFocus"}, "Line with View Finder"), 
+                        React.createElement("option", {value: "stackedArea"}, "Stacked Area"), 
+                        React.createElement("option", {value: "cumulativeLine"}, "Cumulative Line")
                     )
                 ), 
                 typeOptions, 
@@ -2000,7 +2264,7 @@ var EditChartForm = React.createClass({displayName: "EditChartForm",
                     ), 
                     React.createElement("button", {
                         className: "button", 
-                        disabled: !this.state.topic || !this.state.type
+                        disabled: !this.state.selectedTopic || !this.state.chartType
                     }, 
                         "Save"
                     )
@@ -2013,7 +2277,7 @@ var EditChartForm = React.createClass({displayName: "EditChartForm",
 module.exports = EditChartForm;
 
 
-},{"../action-creators/modal-action-creators":4,"../action-creators/platform-action-creators":5,"react":undefined}],20:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":4,"../action-creators/platform-action-creators":5,"../action-creators/platform-chart-action-creators":6,"../stores/platform-chart-store":49,"./combo-box":11,"react":undefined}],20:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2067,195 +2331,6 @@ module.exports = Exchange;
 
 
 },{"react":undefined}],21:[function(require,module,exports){
-'use strict';
-
-var d3 = require('d3');
-var moment = require('moment');
-var React = require('react');
-
-var LineChart = React.createClass({displayName: "LineChart",
-    getInitialState: function () {
-        var initialState = {
-            data: this.props.data,
-            xDates: false,
-        };
-
-        if (this.props.data.length &&
-            typeof this.props.data[0][0] === 'string' &&
-            Date.parse(this.props.data[0][0] + 'Z')) {
-            initialState.data = this.props.data.map(function (value) {
-                return[Date.parse(value[0] + 'Z'), value[1]];
-            });
-            initialState.xDates = true;
-        }
-
-        return initialState;
-    },
-    componentDidMount: function () {
-        this._updateSize();
-        window.addEventListener('resize', this._onResize);
-    },
-    componentWillReceiveProps: function (newProps) {
-        var newState = {
-            data: newProps.data,
-            xDates: false,
-        };
-
-        if (newProps.data.length &&
-            typeof newProps.data[0][0] === 'string' &&
-            Date.parse(newProps.data[0][0] + 'Z')) {
-            newState.data = newProps.data.map(function (value) {
-                return[Date.parse(value[0] + 'Z'), value[1]];
-            });
-            newState.xDates = true;
-        }
-
-        this.setState(newState);
-    },
-    componentWillUpdate: function () {
-        this._updateSize();
-    },
-    componentWillUnmount: function () {
-        window.removeEventListener('resize', this._onResize);
-    },
-    _onResize: function () {
-        this.forceUpdate();
-    },
-    _updateSize: function () {
-        var computedStyles = window.getComputedStyle(React.findDOMNode(this.refs.svg));
-        this._width = parseInt(computedStyles.width, 10);
-        this._height = parseInt(computedStyles.height, 10);
-    },
-    render: function () {
-        var contents = [];
-
-        if (this._width && this._height) {
-            contents.push(
-                React.createElement("path", {
-                    key: "xAxis", 
-                    className: "axis", 
-                    strokeLinecap: "square", 
-                    d: 'M3,' + (this._height - 19) + 'L' + (this._width - 3) + ',' + (this._height - 19)}
-                )
-            );
-
-            contents.push(
-                React.createElement("path", {
-                    key: "yAxis", 
-                    className: "axis", 
-                    strokeLinecap: "square", 
-                    d: 'M3,17L3,' + (this._height - 19)}
-                )
-            );
-
-            if (!this.state.data.length) {
-                contents.push(
-                    React.createElement("text", {
-                        key: "noData", 
-                        className: "no-data-text", 
-                        x: this._width / 2, 
-                        y: this._height / 2, 
-                        textAnchor: "middle"
-                    }, 
-                        "No data available"
-                    )
-                );
-            } else {
-                var xRange = d3.extent(this.state.data, function (d) { return d[0]; });
-                var yMin = (this.props.chart.min === 0 || this.props.chart.min) ?
-                    this.props.chart.min : d3.min(this.state.data, function (d) { return d[1]; });
-                var yMax = (this.props.chart.max === 0 || this.props.chart.max) ?
-                    this.props.chart.max : d3.max(this.state.data, function (d) { return d[1]; });
-
-                var x = d3.scale.linear()
-                    .range([4, this._width - 4])
-                    .domain(xRange);
-                var y = d3.scale.linear()
-                    .range([this._height - 20, 18])
-                    .domain([yMin, yMax]);
-
-                var line = d3.svg.line()
-                    .x(function (d) { return x(d[0]); })
-                    .y(function (d) { return y(d[1]); });
-
-                contents.push(
-                    React.createElement("text", {
-                        key: "xMinLabel", 
-                        className: "label", 
-                        x: "2", 
-                        y: this._height - 4
-                    }, 
-                        this.state.xDates ? moment(xRange[0]).fromNow() : xRange[0]
-                    )
-                );
-
-                contents.push(
-                    React.createElement("text", {
-                        key: "xMaxLabel", 
-                        className: "label", 
-                        x: this._width - 2, 
-                        y: this._height - 4, 
-                        textAnchor: "end"
-                    }, 
-                        this.state.xDates ? moment(xRange[1]).fromNow() : xRange[1]
-                    )
-                );
-
-                contents.push(
-                    React.createElement("text", {
-                        key: "yMaxLabel", 
-                        className: "label", x: "2", y: "10"}, 
-                        yMax
-                    )
-                );
-
-                contents.push(
-                    React.createElement("path", {
-                        key: "line", 
-                        className: "line", 
-                        strokeLinecap: "round", 
-                        d: line(this.state.data)}
-                    )
-                );
-
-                this.state.data.forEach(function (d, index) {
-                    var text;
-
-                    if (this.state.xDates) {
-                        text = d[1]  + ' @ ' + moment(d[0]).format('MMM D, YYYY h:mm:ss A');
-                    } else {
-                        text = d.join(', ');
-                    }
-
-                    contents.push(
-                        React.createElement("g", {key: 'point' + index, className: "dot"}, 
-                            React.createElement("circle", {className: "outer", cx: x(d[0]), cy: y(d[1]), r: "4"}), 
-                            React.createElement("circle", {className: "inner", cx: x(d[0]), cy: y(d[1]), r: "2"}), 
-                            React.createElement("text", {
-                                x: this._width / 2, 
-                                y: "10", 
-                                textAnchor: "middle"
-                            }, 
-                                text
-                            )
-                        )
-                    );
-                }, this);
-            }
-        }
-
-        return (
-            React.createElement("svg", {className: "chart__svg chart__svg--line", ref: "svg"}, 
-                contents
-            )
-        );
-    },
-});
-
-module.exports = LineChart;
-
-
-},{"d3":undefined,"moment":undefined,"react":undefined}],22:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2333,14 +2408,37 @@ function getStateFromStores() {
 module.exports = LoginForm;
 
 
-},{"../action-creators/platform-manager-action-creators":7,"../stores/login-form-store":48,"react":undefined,"react-router":undefined}],23:[function(require,module,exports){
+},{"../action-creators/platform-manager-action-creators":7,"../stores/login-form-store":47,"react":undefined,"react-router":undefined}],22:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
+var $ = require('jquery');
 
 var modalActionCreators = require('../action-creators/modal-action-creators');
 
 var Modal = React.createClass({displayName: "Modal",
+    mixins: [
+        require('react-onclickoutside')
+    ],
+    componentDidMount: function () {
+        window.addEventListener('keydown', this._closeModal);
+        this._focusDisabled = $('input,select,textarea,button,a', React.findDOMNode(this.refs.main)).attr('tabIndex', -1);
+    },
+    componentWillUnmount: function () {
+        window.removeEventListener('keydown', this._closeModal);
+        if (this._focusDisabled) {
+            this._focusDisabled.removeAttr('tabIndex');
+            delete this._focusDisabled;
+        }
+    },
+    handleClickOutside: function () {
+        modalActionCreators.closeModal();
+    },
+    _closeModal: function (e) {
+        if (e.keyCode === 27) {
+            modalActionCreators.closeModal();
+        }
+    },
 	_onClick: function (e) {
 		if (e.target === e.currentTarget) {
 			modalActionCreators.closeModal();
@@ -2360,7 +2458,7 @@ var Modal = React.createClass({displayName: "Modal",
 module.exports = Modal;
 
 
-},{"../action-creators/modal-action-creators":4,"react":undefined}],24:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":4,"jquery":undefined,"react":undefined,"react-onclickoutside":undefined}],23:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2439,7 +2537,7 @@ function getStateFromStores() {
 module.exports = Navigation;
 
 
-},{"../action-creators/platform-manager-action-creators":7,"../action-creators/platforms-panel-action-creators":8,"../stores/authorization-store":45,"react":undefined,"react-router":undefined}],25:[function(require,module,exports){
+},{"../action-creators/platform-manager-action-creators":7,"../action-creators/platforms-panel-action-creators":8,"../stores/authorization-store":44,"react":undefined,"react-router":undefined}],24:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2457,7 +2555,7 @@ var PageNotFound = React.createClass({displayName: "PageNotFound",
 module.exports = PageNotFound;
 
 
-},{"react":undefined}],26:[function(require,module,exports){
+},{"react":undefined}],25:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2470,6 +2568,9 @@ var moment = require('moment');
 var chartStore = require('../stores/platform-chart-store');
 var platformChartStore = require('../stores/platform-chart-store');
 var platformChartActionCreators = require('../action-creators/platform-chart-action-creators');
+var platformsPanelActionCreators = require('../action-creators/platforms-panel-action-creators');
+var modalActionCreators = require('../action-creators/modal-action-creators');
+var ConfirmForm = require('./confirm-form');
 var ControlButton = require('./control-button');
 
 var PlatformChart = React.createClass({displayName: "PlatformChart",
@@ -2477,6 +2578,7 @@ var PlatformChart = React.createClass({displayName: "PlatformChart",
         var state = {};
 
         state.refreshInterval = this.props.chart.refreshInterval;
+        state.pinned = this.props.chart.pinned;
 
         return state;
     },
@@ -2517,25 +2619,68 @@ var PlatformChart = React.createClass({displayName: "PlatformChart",
             }    
         }
     },
+    _removeChart: function () {
+
+        var deleteChart = function () {
+          // platformActionCreators.deleteChart.bind(null, platform, chart);
+          modalActionCreators.closeModal();
+
+          this.props.chart.series.forEach(function (series) {            
+              if (series.hasOwnProperty("path"))
+              {
+                  platformsPanelActionCreators.checkItem(series.path, false);
+              }
+          });
+
+          platformChartActionCreators.removeChart(this.props.chartKey);      
+        }
+
+        modalActionCreators.openModal(
+            React.createElement(ConfirmForm, {
+                promptTitle: "Delete chart", 
+                preText: "Remove ", 
+                promptText: this.props.chartKey, 
+                postText: " chart from here and from Dashboard?", 
+                confirmText: "Delete", 
+                onConfirm: deleteChart.bind(this)}
+            )
+        );        
+    },
     render: function () {
         var chartData = this.props.chart; 
         var platformChart;
 
+        var removeButton;
+
+        if (!this.props.hideControls)
+        {
+            removeButton = (
+              React.createElement("div", {className: "remove-chart", 
+                  onClick: this._removeChart}, 
+                React.createElement("i", {className: "fa fa-remove"})
+              )
+            );
+        }
+        
         if (chartData)
         {
             if (chartData.data.length > 0)
             {
                 platformChart = (
-                  React.createElement("div", {className: "platform-chart with-3d-shadow with-transitions"}, 
+                  React.createElement("div", {className: "platform-chart with-3d-shadow with-transitions absolute_anchor"}, 
                       React.createElement("label", {className: "chart-title"}, chartData.data[0].name), 
+                      removeButton, 
                       React.createElement("div", null, 
                           React.createElement("div", {className: "viz"}, 
                                chartData.data.length != 0 ? 
                                     React.createElement(GraphLineChart, {
+                                        key: this.props.chartKey, 
                                         data: chartData.data, 
-                                        name: chartData.data[0].name, 
+                                        name: this.props.chartKey, 
                                         hideControls: this.props.hideControls, 
-                                        refreshInterval: this.props.chart.refreshInterval}) : null
+                                        refreshInterval: this.props.chart.refreshInterval, 
+                                        pinned: this.props.chart.pinned, 
+                                        chartType: this.props.chart.type}) : null
                           ), 
 
                           React.createElement("br", null)
@@ -2558,9 +2703,10 @@ var GraphLineChart = React.createClass({displayName: "GraphLineChart",
   getInitialState: function () {
       var state = {};
       state.chartName = this.props.name.replace(" / ", "_") + '_chart';
-      state.type = platformChartStore.getType(this.props.name);
+      // state.type = platformChartStore.getType(this.props.name);
       state.lineChart = null;
-      state.pinned = false;
+      state.pinned = this.props.pinned;
+      state.chartType = this.props.chartType;
       state.showTaptip = false;
       state.taptipX = 0;
       state.taptipY = 0;
@@ -2569,11 +2715,15 @@ var GraphLineChart = React.createClass({displayName: "GraphLineChart",
   },
   componentDidMount: function() {
       platformChartStore.addChangeListener(this._onStoresChange);
-      var lineChart = this._drawLineChart(this.state.chartName, this.state.type, this._lineData(this._getNested(this.props.data)));
+      var lineChart = this._drawLineChart(this.state.chartName, this.state.chartType, this._lineData(this._getNested(this.props.data)));
       this.setState({lineChart: lineChart});
   },
   componentWillUnmount: function () {
       platformChartStore.removeChangeListener(this._onStoresChange);
+      if (this.lineChart)
+      {
+        delete this.lineChart;
+      }
   },
   componentDidUpdate: function() {
       if (this.state.lineChart)
@@ -2583,7 +2733,7 @@ var GraphLineChart = React.createClass({displayName: "GraphLineChart",
   },
   _onStoresChange: function () {
       this.setState({pinned: platformChartStore.getPinned(this.props.name)});
-      this.setState({type: platformChartStore.getType(this.props.name)});
+      this.setState({chartType: platformChartStore.getType(this.props.name)});
   },
   _onChartChange: function (e) {
       var chartType = e.target.value;
@@ -2633,7 +2783,7 @@ var GraphLineChart = React.createClass({displayName: "GraphLineChart",
         var chartTypeSelect = (
             React.createElement("select", {
                 onChange: this._onChartChange, 
-                value: this.state.type, 
+                value: this.state.chartType, 
                 autoFocus: true, 
                 required: true
             }, 
@@ -2752,34 +2902,34 @@ var GraphLineChart = React.createClass({displayName: "GraphLineChart",
       )
     );
   },
-  _drawLineChart: function (elementParent, type, data) {
+  _drawLineChart: function (elementParent, chartType, data) {
       
       var tickCount = 0;
-      var lineChart;
+      // var lineChart;
 
-      switch (type)
+      switch (chartType)
       {
           case "line":
-              lineChart = nv.models.lineChart();
+              this.lineChart = nv.models.lineChart();
               break;
           case "lineWithFocus":
-              lineChart = nv.models.lineWithFocusChart();
+              this.lineChart = nv.models.lineWithFocusChart();
               break;
           case "stackedArea":
-              lineChart = nv.models.stackedAreaChart();
+              this.lineChart = nv.models.stackedAreaChart();
               break;
           case "cumulativeLine":
-              lineChart = nv.models.cumulativeLineChart();
+              this.lineChart = nv.models.cumulativeLineChart();
               break;
       }
 
-      lineChart.margin({left: 25, right: 25})
+      this.lineChart.margin({left: 25, right: 25})
           .x(function(d) {return d.x})
           .y(function(d) {return d.y})
           .useInteractiveGuideline(true)
           .showYAxis(true)
           .showXAxis(true);
-      lineChart.xAxis
+      this.lineChart.xAxis
         .tickFormat(function (d, i) {
 
             var tickValue;
@@ -2805,13 +2955,13 @@ var GraphLineChart = React.createClass({displayName: "GraphLineChart",
             return tickValue;
         })
         .staggerLabels(false);
-      lineChart.yAxis
+      this.lineChart.yAxis
         .tickFormat(d3.format('.1f'));
 
-      switch (type)
+      switch (chartType)
       {        
           case "lineWithFocus":            
-              lineChart.x2Axis
+              this.lineChart.x2Axis
                 .tickFormat(function (d) {
                     return d3.time.format('%X')(new Date(d));
                 });
@@ -2821,14 +2971,19 @@ var GraphLineChart = React.createClass({displayName: "GraphLineChart",
       d3.selectAll('#' + elementParent + ' > *').remove();
       d3.select('#' + elementParent)
         .datum(data)
-        .call(lineChart);
-      nv.utils.windowResize(function() { lineChart.update() });
-
-      nv.addGraph(function() {
-        return lineChart;
+        .call(this.lineChart);
+      nv.utils.windowResize(function() { 
+        if (this.lineChart)
+        {
+           this.lineChart.update();
+        }
       });
 
-      return lineChart;
+      nv.addGraph(function() {
+        return this.lineChart;
+      });
+
+      return this.lineChart;
     },
     _updateLineChart: function (lineChart, elementParent, data) {
       d3.select('#' + elementParent)
@@ -2876,37 +3031,93 @@ var GraphLineChart = React.createClass({displayName: "GraphLineChart",
 module.exports = PlatformChart;
 
 
-},{"../action-creators/platform-chart-action-creators":6,"../stores/platform-chart-store":50,"./control-button":15,"d3":undefined,"moment":undefined,"nvd3":undefined,"react":undefined,"react-router":undefined}],27:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":4,"../action-creators/platform-chart-action-creators":6,"../action-creators/platforms-panel-action-creators":8,"../stores/platform-chart-store":49,"./confirm-form":13,"./control-button":15,"d3":undefined,"moment":undefined,"nvd3":undefined,"react":undefined,"react-router":undefined}],26:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
 var Router = require('react-router');
 var PlatformChart = require('./platform-chart');
-
+// var Modal = require('./modal');
+var modalActionCreators = require('../action-creators/modal-action-creators');
+// var modalStore = require('../stores/modal-store');
+var platformActionCreators = require('../action-creators/platform-action-creators');
+var EditChartForm = require('./edit-chart-form');
+var platformsStore = require('../stores/platforms-store');
 var chartStore = require('../stores/platform-chart-store');
+var statusIndicatorActionCreators = require('../action-creators/status-indicator-action-creators');
+var platformManagerActionCreators = require('../action-creators/platform-manager-action-creators');
 
 var PlatformCharts = React.createClass({displayName: "PlatformCharts",
     getInitialState: function () {
+
+        var vc = platformsStore.getVcInstance();
+
         var state = {
-            chartData: getChartsFromStores()
+            platform: vc,
+            chartData: chartStore.getData(),
+            historianRunning: platformsStore.getHistorianRunning(vc),
+            modalContent: null
         };
 
         return state;
     },
-    componentWillMount: function () {
-        
-    },
     componentDidMount: function () {
-        chartStore.addChangeListener(this._onStoreChange);
+        chartStore.addChangeListener(this._onChartStoreChange);
+        platformsStore.addChangeListener(this._onPlatformStoreChange);
+
+        if (!this.state.platform)
+        {
+            platformManagerActionCreators.loadPlatforms();
+        }
     },
     componentWillUnmount: function () {
-        chartStore.removeChangeListener(this._onStoreChange);
+        chartStore.removeChangeListener(this._onChartStoreChange);
+        platformsStore.removeChangeListener(this._onPlatformStoreChange);
     },
-    _onStoreChange: function () {
-        var platformCharts = getChartsFromStores();
+    _onChartStoreChange: function () {
+        this.setState({chartData: chartStore.getData()});
+    },
+    _onPlatformStoreChange: function () {
 
-        this.setState({chartData: platformCharts});
+        var platform = this.state.platform;
+
+        if (!platform)
+        {
+            platform = platformsStore.getVcInstance();
+
+            if (platform)
+            {
+                this.setState({platform: platform});
+            }
+        }
+
+        this.setState({historianRunning: platformsStore.getHistorianRunning(platform)});
     },
+    _onAddChartClick: function (platform) {
+
+        if (this.state.historianRunning)
+        {
+            platformActionCreators.loadChartTopics(this.state.platform);
+
+            modalActionCreators.openModal(React.createElement(EditChartForm, {platform: this.state.platform}));            
+        }
+        else
+        {
+            var message = "Charts can't be added. The historian agent is unavailable."
+            statusIndicatorActionCreators.openStatusIndicator("error", message);
+        }
+    },
+    // _onDeleteChartClick: function (platform, chart) {
+    //     modalActionCreators.openModal(
+    //         <ConfirmForm
+    //             targetArea="charts"
+    //             promptTitle="Delete chart"
+    //             promptText={'Delete ' + chart.type + ' chart for ' + chart.topic + '?'}
+    //             confirmText="Delete"
+    //             onConfirm={platformActionCreators.deleteChart.bind(null, platform, chart)}>
+    //         </ConfirmForm>
+    //     );
+    // },
     render: function () {
 
         var chartData = this.state.chartData; 
@@ -2924,33 +3135,36 @@ var PlatformCharts = React.createClass({displayName: "PlatformCharts",
 
         if (platformCharts.length === 0)
         {
-            var noCharts = React.createElement("div", null, "No charts have been loaded. Add charts by selecting points in the side panel.")
+            var noCharts = React.createElement("p", {className: "empty-help"}, "No charts have been loaded.")
             platformCharts.push(noCharts);
         }
 
-        return (
-                React.createElement("div", null, 
-                    React.createElement("div", {className: "view"}, 
-                        React.createElement("h2", null, "Charts"), 
-                        platformCharts
-                    )
+        return (                
+            React.createElement("div", {className: "view"}, 
+                React.createElement("div", {className: "absolute_anchor"}, 
+                    React.createElement("div", {className: "view__actions"}, 
+                        React.createElement("button", {
+                            className: "button", 
+                            onClick: this._onAddChartClick.bind(null, this.state.platform)
+                        }, 
+                            "Add chart"
+                        )
+                    ), 
+                    React.createElement("h2", null, "Charts"), 
+                    platformCharts
                 )
+            )
         );
     },
 });
 
-function getChartsFromStores() {
-
-    return chartStore.getData();
-}
-
 module.exports = PlatformCharts;
 
 
-},{"../stores/platform-chart-store":50,"./platform-chart":26,"react":undefined,"react-router":undefined}],28:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":4,"../action-creators/platform-action-creators":5,"../action-creators/platform-manager-action-creators":7,"../action-creators/status-indicator-action-creators":9,"../stores/platform-chart-store":49,"../stores/platforms-store":53,"./edit-chart-form":19,"./platform-chart":25,"react":undefined,"react-router":undefined}],27:[function(require,module,exports){
 'use strict';
 
-var $ = require('jquery');
+// var $ = require('jquery');
 var React = require('react');
 var Router = require('react-router');
 
@@ -2971,8 +3185,7 @@ var statusIndicatorStore = require('../stores/status-indicator-store');
 var PlatformManager = React.createClass({displayName: "PlatformManager",
     mixins: [Router.Navigation, Router.State],
     getInitialState: function () {
-        var state = getStateFromStores(); 
-        // state.expanded = false;
+        var state = getStateFromStores();
 
         return state;
     },
@@ -2985,29 +3198,29 @@ var PlatformManager = React.createClass({displayName: "PlatformManager",
         modalStore.addChangeListener(this._onStoreChange);
         platformsPanelStore.addChangeListener(this._onStoreChange);
         statusIndicatorStore.addChangeListener(this._onStoreChange);
-        this._doModalBindings();
+        // this._doModalBindings();
     },
-    componentDidUpdate: function () {
-        this._doModalBindings();
-    },
-    _doModalBindings: function () {
-        if (this.state.modalContent) {
-            window.addEventListener('keydown', this._closeModal);
-            this._focusDisabled = $('input,select,textarea,button,a', React.findDOMNode(this.refs.main)).attr('tabIndex', -1);
-        } else {
-            window.removeEventListener('keydown', this._closeModal);
-            if (this._focusDisabled) {
-                this._focusDisabled.removeAttr('tabIndex');
-                delete this._focusDisabled;
-            }
-        }
-    },
+    // componentDidUpdate: function () {
+    //     // this._doModalBindings();
+    // },
+    // _doModalBindings: function () {
+        // if (this.state.modalContent) {
+        //     // window.addEventListener('keydown', this._closeModal);
+        //     this._focusDisabled = $('input,select,textarea,button,a', React.findDOMNode(this.refs.main)).attr('tabIndex', -1);
+        // } else {
+        //     // window.removeEventListener('keydown', this._closeModal);
+        //     if (this._focusDisabled) {
+        //         this._focusDisabled.removeAttr('tabIndex');
+        //         delete this._focusDisabled;
+        //     }
+        // }
+    // },
     componentWillUnmount: function () {
         authorizationStore.removeChangeListener(this._onStoreChange);
         consoleStore.removeChangeListener(this._onStoreChange);
         modalStore.removeChangeListener(this._onStoreChange);
         statusIndicatorStore.removeChangeListener(this._onStoreChange);
-        this._modalCleanup();
+        // this._modalCleanup();
     },
     _onStoreChange: function () {
         this.setState(getStateFromStores());
@@ -3015,11 +3228,11 @@ var PlatformManager = React.createClass({displayName: "PlatformManager",
     _onToggleClick: function () {
         consoleActionCreators.toggleConsole();
     },
-    _closeModal: function (e) {
-        if (e.keyCode === 27) {
-            modalActionCreators.closeModal();
-        }
-    },
+    // _closeModal: function (e) {
+    //     if (e.keyCode === 27) {
+    //         modalActionCreators.closeModal();
+    //     }
+    // },
     render: function () {
         var classes = ['platform-manager'];
         var modal;
@@ -3099,18 +3312,17 @@ function getStateFromStores() {
 module.exports = PlatformManager;
 
 
-},{"../action-creators/console-action-creators":2,"../action-creators/modal-action-creators":4,"../action-creators/platform-manager-action-creators":7,"../stores/authorization-store":45,"../stores/console-store":46,"../stores/modal-store":49,"../stores/platforms-panel-store":53,"../stores/status-indicator-store":55,"./console":14,"./modal":23,"./navigation":24,"./platforms-panel":31,"./status-indicator":35,"jquery":undefined,"react":undefined,"react-router":undefined}],29:[function(require,module,exports){
+},{"../action-creators/console-action-creators":2,"../action-creators/modal-action-creators":4,"../action-creators/platform-manager-action-creators":7,"../stores/authorization-store":44,"../stores/console-store":45,"../stores/modal-store":48,"../stores/platforms-panel-store":52,"../stores/status-indicator-store":54,"./console":14,"./modal":22,"./navigation":23,"./platforms-panel":30,"./status-indicator":34,"react":undefined,"react-router":undefined}],28:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
 var Router = require('react-router');
 
 var AgentRow = require('./agent-row');
-var Chart = require('./chart');
-var EditChartForm = require('./edit-chart-form');
-var ConfirmForm = require('./confirm-form');
-var modalActionCreators = require('../action-creators/modal-action-creators');
+// var ConfirmForm = require('./confirm-form');
+// var modalActionCreators = require('../action-creators/modal-action-creators');
 var platformActionCreators = require('../action-creators/platform-action-creators');
+var statusIndicatorActionCreators = require('../action-creators/status-indicator-action-creators');
 var platformsStore = require('../stores/platforms-store');
 
 var Platform = React.createClass({displayName: "Platform",
@@ -3130,22 +3342,20 @@ var Platform = React.createClass({displayName: "Platform",
     _onStoresChange: function () {
         this.setState(getStateFromStores(this));
     },
-    _onEditChartClick: function (platform, chart) {
-        modalActionCreators.openModal(React.createElement(EditChartForm, {platform: platform, chart: chart}));
-    },
-    _onDeleteChartClick: function (platform, chart) {
-        modalActionCreators.openModal(
-            React.createElement(ConfirmForm, {
-                promptTitle: "Delete chart", 
-                promptText: 'Delete ' + chart.type + ' chart for ' + chart.topic + '?', 
-                confirmText: "Delete", 
-                onConfirm: platformActionCreators.deleteChart.bind(null, platform, chart)}
-            )
-        );
-    },
-    _onAddChartClick: function (platform) {
-        modalActionCreators.openModal(React.createElement(EditChartForm, {platform: platform}));
-    },
+    // _onEditChartClick: function (platform, chart) {
+
+    //     if (this.state.historian)
+    //     {
+    //         platformActionCreators.loadChartTopics(platform, this.state.historian);
+
+    //         modalActionCreators.openModal("platforms", <EditChartForm platform={platform} chart={chart} />);            
+    //     }
+    //     else
+    //     {
+    //         var message = "Charts can't be added. The historian agent is unavailable."
+    //         statusIndicatorActionCreators.openStatusIndicator("error", message);
+    //     }
+    // },    
     _onFileChange: function (e) {
         if (!e.target.files.length) { return; }
 
@@ -3188,7 +3398,7 @@ var Platform = React.createClass({displayName: "Platform",
                 )
             );
         }
-        
+
         var agents;
         
         if (!platform.agents) {
@@ -3241,6 +3451,7 @@ var Platform = React.createClass({displayName: "Platform",
                     " / ", 
                     platform.name, " (", platform.uuid, ")"
                 ), 
+
                 
                 React.createElement("br", null), 
                 React.createElement("br", null), 
@@ -3254,16 +3465,17 @@ var Platform = React.createClass({displayName: "Platform",
 });
 
 function getStateFromStores(component) {
+
     return {
         platform: platformsStore.getPlatform(component.getParams().uuid),
-        error: platformsStore.getLastError(component.getParams().uuid),
+        error: platformsStore.getLastError(component.getParams().uuid)
     };
 }
 
 module.exports = Platform;
 
 
-},{"../action-creators/modal-action-creators":4,"../action-creators/platform-action-creators":5,"../stores/platforms-store":54,"./agent-row":10,"./chart":11,"./confirm-form":13,"./edit-chart-form":19,"react":undefined,"react-router":undefined}],30:[function(require,module,exports){
+},{"../action-creators/platform-action-creators":5,"../action-creators/status-indicator-action-creators":9,"../stores/platforms-store":53,"./agent-row":10,"react":undefined,"react-router":undefined}],29:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -3271,6 +3483,7 @@ var Router = require('react-router');
 
 var platformsPanelItemsStore = require('../stores/platforms-panel-items-store');
 var platformsPanelActionCreators = require('../action-creators/platforms-panel-action-creators');
+var platformChartActionCreators = require('../action-creators/platform-chart-action-creators');
 
 
 var PlatformsPanelItem = React.createClass({displayName: "PlatformsPanelItem",
@@ -3338,11 +3551,11 @@ var PlatformsPanelItem = React.createClass({displayName: "PlatformsPanelItem",
 
         if (checked)
         {
-            platformsPanelActionCreators.addToChart(this.props.panelItem);
+            platformChartActionCreators.addToChart(this.props.panelItem);
         }
         else
         {
-            platformsPanelActionCreators.removeFromChart(this.props.panelItem);
+            platformChartActionCreators.removeFromChart(this.props.panelItem);
         }
     },
     _showTooltip: function (evt) {
@@ -3503,7 +3716,7 @@ var PlatformsPanelItem = React.createClass({displayName: "PlatformsPanelItem",
 module.exports = PlatformsPanelItem;
 
 
-},{"../action-creators/platforms-panel-action-creators":8,"../stores/platforms-panel-items-store":52,"react":undefined,"react-router":undefined}],31:[function(require,module,exports){
+},{"../action-creators/platform-chart-action-creators":6,"../action-creators/platforms-panel-action-creators":8,"../stores/platforms-panel-items-store":51,"react":undefined,"react-router":undefined}],30:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -3520,14 +3733,11 @@ var PlatformsPanel = React.createClass({displayName: "PlatformsPanel",
     getInitialState: function () {
         var state = {};
         state.platforms = [];     
-        state.expanded = getExpandedFromStore();
+        state.expanded = platformsPanelStore.getExpanded();
         state.filterValue = "";
         state.filterStatus = "";
 
         return state;
-    },
-    componentWillMount: function () {
-        
     },
     componentDidMount: function () {
         platformsPanelStore.addChangeListener(this._onPanelStoreChange);
@@ -3538,11 +3748,14 @@ var PlatformsPanel = React.createClass({displayName: "PlatformsPanel",
         platformsPanelItemsStore.removeChangeListener(this._onPanelItemsStoreChange);
     },
     _onPanelStoreChange: function () {
-        var expanded = getExpandedFromStore();
+        var expanded = platformsPanelStore.getExpanded();
 
-        this.setState({expanded: expanded});
+        if (expanded !== this.state.expanded)
+        {
+            this.setState({expanded: expanded});
+        }        
 
-        var platformsList = getPlatformsFromStore();
+        var platformsList = platformsPanelItemsStore.getChildren("platforms", null);
         
         if (expanded !== null)
         {
@@ -3552,7 +3765,7 @@ var PlatformsPanel = React.createClass({displayName: "PlatformsPanel",
     _onPanelItemsStoreChange: function () {
         if (this.state.expanded !== null)
         {
-            this.setState({platforms: getPlatformsFromStore()});
+            this.setState({platforms: platformsPanelItemsStore.getChildren("platforms", null)});
         }
     },
     _onFilterBoxChange: function (e) {
@@ -3749,23 +3962,11 @@ var PlatformsPanel = React.createClass({displayName: "PlatformsPanel",
     },
 });
 
-function getPlatformsFromStore() {
-    return platformsPanelItemsStore.getChildren("platforms", null);
-};
-
-function getExpandedFromStore() {
-    return platformsPanelStore.getExpanded();
-};
-
-function getFilteredPlatforms(filterTerm, filterStatus, platforms) {
-    return platformsPanelItemsStore.getFilteredItems(filterTerm, filterStatus, platforms);
-}
-
 
 module.exports = PlatformsPanel;
 
 
-},{"../action-creators/platforms-panel-action-creators":8,"../stores/platforms-panel-items-store":52,"../stores/platforms-panel-store":53,"./control-button":15,"./platforms-panel-item":30,"react":undefined,"react-router":undefined}],32:[function(require,module,exports){
+},{"../action-creators/platforms-panel-action-creators":8,"../stores/platforms-panel-items-store":51,"../stores/platforms-panel-store":52,"./control-button":15,"./platforms-panel-item":29,"react":undefined,"react-router":undefined}],31:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -3887,7 +4088,7 @@ function getStateFromStores() {
 module.exports = Platforms;
 
 
-},{"../action-creators/modal-action-creators":4,"../action-creators/status-indicator-action-creators":9,"../components/deregister-platform-confirmation":18,"../components/register-platform-form":33,"../components/status-indicator":35,"../stores/platforms-store":54,"react":undefined,"react-router":undefined}],33:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":4,"../action-creators/status-indicator-action-creators":9,"../components/deregister-platform-confirmation":18,"../components/register-platform-form":32,"../components/status-indicator":34,"../stores/platforms-store":53,"react":undefined,"react-router":undefined}],32:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -4202,7 +4403,7 @@ function getStateFromStores() {
 module.exports = RegisterPlatformForm;
 
 
-},{"../action-creators/modal-action-creators":4,"../action-creators/platform-manager-action-creators":7,"../stores/platform-registration-store":51,"react":undefined}],34:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":4,"../action-creators/platform-manager-action-creators":7,"../stores/platform-registration-store":50,"react":undefined}],33:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -4261,7 +4462,7 @@ var RemoveAgentForm = React.createClass({displayName: "RemoveAgentForm",
 module.exports = RemoveAgentForm;
 
 
-},{"../action-creators/modal-action-creators":4,"../action-creators/platform-action-creators":5,"react":undefined}],35:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":4,"../action-creators/platform-action-creators":5,"react":undefined}],34:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -4395,7 +4596,7 @@ function getStateFromStores() {
 module.exports = StatusIndicator;
 
 
-},{"../action-creators/status-indicator-action-creators":9,"../stores/status-indicator-store":55,"react":undefined}],36:[function(require,module,exports){
+},{"../action-creators/status-indicator-action-creators":9,"../stores/status-indicator-store":54,"react":undefined}],35:[function(require,module,exports){
 'use strict';
 
 var keyMirror = require('react/lib/keyMirror');
@@ -4444,6 +4645,7 @@ module.exports = keyMirror({
     CHANGE_CHART_TYPE: null,
     CHANGE_CHART_REFRESH: null,
     REFRESH_CHART: null,
+    REMOVE_CHART: null,
 
     EXPAND_ALL: null,
     TOGGLE_ITEM: null,
@@ -4457,10 +4659,11 @@ module.exports = keyMirror({
 
 
     RECEIVE_PLATFORM_TOPIC_DATA: null,
+    RECEIVE_CHART_TOPICS: null
 });
 
 
-},{"react/lib/keyMirror":undefined}],37:[function(require,module,exports){
+},{"react/lib/keyMirror":undefined}],36:[function(require,module,exports){
 'use strict';
 
 var Dispatcher = require('flux').Dispatcher;
@@ -4480,7 +4683,7 @@ dispatcher.dispatch = function (action) {
 module.exports = dispatcher;
 
 
-},{"../constants/action-types":36,"flux":undefined}],38:[function(require,module,exports){
+},{"../constants/action-types":35,"flux":undefined}],37:[function(require,module,exports){
 'use strict';
 
 function RpcError(error) {
@@ -4495,7 +4698,7 @@ RpcError.prototype.constructor = RpcError;
 module.exports = RpcError;
 
 
-},{}],39:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 'use strict';
 
 var uuid = require('node-uuid');
@@ -4583,7 +4786,7 @@ function RpcExchange(request, redactedParams) {
 module.exports = RpcExchange;
 
 
-},{"../../constants/action-types":36,"../../dispatcher":37,"../xhr":43,"./error":38,"node-uuid":undefined}],40:[function(require,module,exports){
+},{"../../constants/action-types":35,"../../dispatcher":36,"../xhr":42,"./error":37,"node-uuid":undefined}],39:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -4592,7 +4795,7 @@ module.exports = {
 };
 
 
-},{"./error":38,"./exchange":39}],41:[function(require,module,exports){
+},{"./error":37,"./exchange":38}],40:[function(require,module,exports){
 'use strict';
 
 var EventEmitter = require('events').EventEmitter;
@@ -4620,7 +4823,7 @@ Store.prototype.removeChangeListener = function (callback) {
 module.exports = Store;
 
 
-},{"events":undefined}],42:[function(require,module,exports){
+},{"events":undefined}],41:[function(require,module,exports){
 'use strict';
 
 function XhrError(message, response) {
@@ -4634,7 +4837,7 @@ XhrError.prototype.constructor = XhrError;
 module.exports = XhrError;
 
 
-},{}],43:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -4643,7 +4846,7 @@ module.exports = {
 };
 
 
-},{"./error":42,"./request":44}],44:[function(require,module,exports){
+},{"./error":41,"./request":43}],43:[function(require,module,exports){
 'use strict';
 
 var jQuery = require('jquery');
@@ -4674,7 +4877,7 @@ function XhrRequest(opts) {
 module.exports = XhrRequest;
 
 
-},{"./error":42,"bluebird":undefined,"jquery":undefined}],45:[function(require,module,exports){
+},{"./error":41,"bluebird":undefined,"jquery":undefined}],44:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4712,7 +4915,7 @@ authorizationStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = authorizationStore;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41}],46:[function(require,module,exports){
+},{"../constants/action-types":35,"../dispatcher":36,"../lib/store":40}],45:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4805,7 +5008,7 @@ consoleStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = consoleStore;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"../stores/authorization-store":45}],47:[function(require,module,exports){
+},{"../constants/action-types":35,"../dispatcher":36,"../lib/store":40,"../stores/authorization-store":44}],46:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4893,7 +5096,7 @@ controlButtonStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = controlButtonStore;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"../stores/authorization-store":45}],48:[function(require,module,exports){
+},{"../constants/action-types":35,"../dispatcher":36,"../lib/store":40,"../stores/authorization-store":44}],47:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4928,7 +5131,7 @@ loginFormStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = loginFormStore;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"./authorization-store":45}],49:[function(require,module,exports){
+},{"../constants/action-types":35,"../dispatcher":36,"../lib/store":40,"./authorization-store":44}],48:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4961,7 +5164,7 @@ modalStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = modalStore;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41}],50:[function(require,module,exports){
+},{"../constants/action-types":35,"../dispatcher":36,"../lib/store":40}],49:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -4972,6 +5175,7 @@ var Store = require('../lib/store');
 
 var _chartData = {};
 var _showCharts = false;
+var _chartTopics = {};
 
 var chartStore = new Store();
 
@@ -4994,26 +5198,29 @@ chartStore.getLastError = function (uuid) {
 };
 
 chartStore.getData = function () {
-    return _chartData;
+    return JSON.parse(JSON.stringify(_chartData));
 }
 
 chartStore.getPinned = function (chartKey) {
-    return _chartData[chartKey].pinned;
+    return (_chartData.hasOwnProperty(chartKey) ? _chartData[chartKey].pinned : null);
 }
 
 chartStore.getType = function (chartKey) {
     var type = "line";
 
-    if (_chartData[chartKey].hasOwnProperty("type"))
+    if (_chartData.hasOwnProperty(chartKey))
     {
-        type = _chartData[chartKey].type;
+        if (_chartData[chartKey].hasOwnProperty("type"))
+        {
+            type = _chartData[chartKey].type;
+        }
     }
 
     return type;
 }
 
 chartStore.getRefreshRate = function (chartKey) {
-    return _chartData[chartKey].refreshInterval;
+    return (_chartData.hasOwnProperty(chartKey) ? _chartData[chartKey].refreshInterval : null);
 }
 
 chartStore.showCharts = function () {
@@ -5023,6 +5230,17 @@ chartStore.showCharts = function () {
     _showCharts = false;
 
     return showCharts;
+}
+
+chartStore.getChartTopics = function (uuid) {
+    var topics = [];
+
+    if (_chartTopics.hasOwnProperty(uuid))
+    {
+        topics = _chartTopics[uuid];
+    }
+
+    return topics;
 }
 
 chartStore.dispatchToken = dispatcher.register(function (action) {
@@ -5042,19 +5260,11 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
                     // _chartData[action.panelItem.name] = JSON.parse(JSON.stringify(action.panelItem.data));
                     
                     var chartObj = {
-                        refreshInterval: 15000,
-                        pinned: false, 
+                        refreshInterval: (action.panelItem.hasOwnProperty("refreshInterval") ? action.panelItem.refreshInterval :15000),
+                        pinned: (action.panelItem.hasOwnProperty("pinned") ? action.panelItem.pinned : false), 
+                        type: (action.panelItem.hasOwnProperty("chartType") ? action.panelItem.chartType : "line"), 
                         data: convertTimeToSeconds(action.panelItem.data),
-                        series: [
-                            { 
-                                name: action.panelItem.name, 
-                                uuid: action.panelItem.uuid, 
-                                parentUuid: action.panelItem.parentUuid,
-                                parentType: action.panelItem.parentType,
-                                parentPath: action.panelItem.parentPath,
-                                topic: action.panelItem.topic 
-                            }
-                        ]
+                        series: [ setChartItem(action.panelItem) ]
                     };
 
                     _chartData[action.panelItem.name] = chartObj;
@@ -5116,14 +5326,86 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
 
             break;
 
-        case ACTION_TYPES.SHOW_CHARTS:
+        case ACTION_TYPES.SHOW_CHARTS:            
 
-            _showCharts = true;
+            if (action.emitChange)
+            {
+                _showCharts = true;
+                chartStore.emitChange();    
+            }
+
+            break;
+
+        case ACTION_TYPES.RECEIVE_CHART_TOPICS:
+            _chartTopics = {};
+            
+            var chartTopics = JSON.parse(JSON.stringify(action.topics));
+
+            _chartTopics[action.platform.uuid] = chartTopics;
+
+            // var filteredTopics = [];
+
+            // _chartTopics[action.platform.uuid] = chartTopics.forEach(function (topic) {
+            //     if (topic.path.indexOf("datalogger/platform/status") < 0)
+            //     {
+            //         var name = topicParts[topicParts.length - 2] + " / " + topicParts[topicParts.length - 1];
+
+            //         var parentPath = topicParts[0];
+
+            //         for (var i = 1; i < topicParts.length - 2; i++)
+            //         {
+            //             parentPath = parentPath + " > " + topicParts[i];
+            //         }
+
+            //         topic.name = name;
+            //         topic.uuid = this.state.selectedTopic;
+            //         topic.topic = this.state.selectedTopic;
+            //         topic.pinned = (this.state.pin ? true : false);
+            //         topic.parentPath = parentPath;
+            //         topic.parentUuid = this.props.platform.uuid;
+
+            //         filteredTopics.push(topic);
+            //     }                
+            // });
 
             chartStore.emitChange();
+            break;
+
+        case ACTION_TYPES.REMOVE_CHART:
+            
+            var name = action.name;
+
+            if (_chartData.hasOwnProperty(name))
+            {
+                // _chartData[name].series.forEach(function (series) {            
+                //     if (series.hasOwnProperty("path"))
+                //     {
+                //         platformsPanelActionCreators.checkItem(series.path, false);
+                //     }
+                // });
+
+                delete _chartData[name];
+
+                chartStore.emitChange();
+            }
 
             break;
     } 
+
+    function setChartItem(item) {
+        
+        var chartItem = {
+            name: item.name,
+            uuid: item.uuid,
+            path: item.path,
+            parentUuid: item.parentUuid,
+            parentType: item.parentType,
+            parentPath: item.parentPath,
+            topic: item.topic
+        }
+
+        return chartItem;
+    }
 
     function insertSeries(item) {
 
@@ -5136,16 +5418,7 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
             if (item.hasOwnProperty("data"))
             {
                 _chartData[item.name].data = _chartData[item.name].data.concat(convertTimeToSeconds(item.data));
-                _chartData[item.name].series.push(
-                    { 
-                        name: item.name, 
-                        uuid: item.uuid, 
-                        parentUuid: item.parentUuid,
-                        parentType: item.parentType,
-                        parentPath: item.parentPath,
-                        topic: item.topic  
-                    }
-                );
+                _chartData[item.name].series.push(setChartItem(item));
             }
         }
 
@@ -5213,7 +5486,7 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = chartStore;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"../stores/authorization-store":45}],51:[function(require,module,exports){
+},{"../constants/action-types":35,"../dispatcher":36,"../lib/store":40,"../stores/authorization-store":44}],50:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -5259,7 +5532,7 @@ platformRegistrationStore.dispatchToken = dispatcher.register(function (action) 
 module.exports = platformRegistrationStore;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"./authorization-store":45}],52:[function(require,module,exports){
+},{"../constants/action-types":35,"../dispatcher":36,"../lib/store":40,"./authorization-store":44}],51:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -5950,7 +6223,7 @@ platformsPanelItemsStore.dispatchToken = dispatcher.register(function (action) {
 
                     deviceProps.legendInfo = parentDevice.legendInfo + " > " + deviceProps.name;
 
-                    checkForPoints(deviceProps, device, building.name, campus);
+                    checkForPoints(deviceProps, device);
 
                     parentDevice.devices.children.push(deviceProps.uuid);
                     parentDevice.devices[deviceProps.uuid] = deviceProps;  
@@ -6137,7 +6410,7 @@ platformsPanelItemsStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = platformsPanelItemsStore;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41}],53:[function(require,module,exports){
+},{"../constants/action-types":35,"../dispatcher":36,"../lib/store":40}],52:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -6170,11 +6443,11 @@ platformsPanelStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = platformsPanelStore;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41}],54:[function(require,module,exports){
+},{"../constants/action-types":35,"../dispatcher":36,"../lib/store":40}],53:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
-var authorizationStore = require('../stores/authorization-store');
+var authorizationStore = require('./authorization-store');
 var dispatcher = require('../dispatcher');
 var Store = require('../lib/store');
 
@@ -6204,6 +6477,60 @@ platformsStore.getPlatforms = function () {
 
 platformsStore.getLastError = function (uuid) {
     return _lastErrors[uuid] || null;
+};
+
+platformsStore.getVcInstance = function () 
+{
+    var vc;
+
+    if (_platforms)
+    {
+        if (_platforms.length)
+        {
+            vc = _platforms.find(function (platform) {
+
+                var hasVcAgent = false;
+
+                if (platform.agents)
+                {
+                    if (platform.agents.length)
+                    {
+                        var vcAgent = platform.agents.find(function (agent) {     
+                            return agent.name.toLowerCase().indexOf("volttroncentral") > -1;
+                        });
+
+                        if (vcAgent)
+                        {
+                            hasVcAgent = true;
+                        }
+                    }
+                }
+
+                return hasVcAgent;
+            });
+        }
+    }
+
+    return vc;
+};
+
+platformsStore.getHistorianRunning = function (platform) {
+
+    var historianRunning = false;
+
+    if (platform)
+    {
+        var historian = platform.agents.find(function (agent) {     
+            return agent.name.toLowerCase().indexOf("historian") > -1;
+        });
+
+        if (historian)
+        {
+            historianRunning = ((historian.process_id !== null) && (historian.return_code === null));
+        }
+    }
+
+    return historianRunning;
 };
 
 platformsStore.dispatchToken = dispatcher.register(function (action) {
@@ -6239,7 +6566,7 @@ platformsStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = platformsStore;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"../stores/authorization-store":45}],55:[function(require,module,exports){
+},{"../constants/action-types":35,"../dispatcher":36,"../lib/store":40,"./authorization-store":44}],54:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
@@ -6279,44 +6606,4 @@ statusIndicatorStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = statusIndicatorStore;
 
 
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41}],56:[function(require,module,exports){
-'use strict';
-
-var ACTION_TYPES = require('../constants/action-types');
-var authorizationStore = require('./authorization-store');
-var dispatcher = require('../dispatcher');
-var Store = require('../lib/store');
-
-var topicData = {};
-
-var topicDataStore = new Store();
-
-topicDataStore.getTopicData = function (platform, topic) {
-    if (topicData[platform.uuid] && topicData[platform.uuid][topic]) {
-        return topicData[platform.uuid][topic];
-    }
-
-    return null;
-};
-
-topicDataStore.dispatchToken = dispatcher.register(function (action) {
-    dispatcher.waitFor([authorizationStore.dispatchToken]);
-
-    switch (action.type) {
-        case ACTION_TYPES.RECEIVE_PLATFORM_TOPIC_DATA:
-            topicData[action.platform.uuid] = topicData[action.platform.uuid] || {};
-            topicData[action.platform.uuid][action.topic] = action.data;
-            topicDataStore.emitChange();
-            break;
-
-        case ACTION_TYPES.CLEAR_AUTHORIZATION:
-            topicData= {};
-            topicDataStore.emitChange();
-            break;
-    }
-});
-
-module.exports = topicDataStore;
-
-
-},{"../constants/action-types":36,"../dispatcher":37,"../lib/store":41,"./authorization-store":45}]},{},[1]);
+},{"../constants/action-types":35,"../dispatcher":36,"../lib/store":40}]},{},[1]);
