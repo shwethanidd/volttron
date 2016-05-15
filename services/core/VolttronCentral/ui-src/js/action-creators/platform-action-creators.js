@@ -224,7 +224,7 @@ var platformActionCreators = {
                             var label;
                             // var name;
 
-                            if (topic.indexOf("datalogger/platform") > -1) // if a platform instance
+                            if (topic.indexOf("datalogger/platforms") > -1) // if a platform instance
                             {
                                 var platformUuid = topicParts[2];
                                 var platform = platformsStore.getPlatform(platformUuid);

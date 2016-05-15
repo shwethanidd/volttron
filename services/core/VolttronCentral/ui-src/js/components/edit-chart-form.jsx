@@ -5,6 +5,8 @@ var React = require('react');
 var modalActionCreators = require('../action-creators/modal-action-creators');
 var platformActionCreators = require('../action-creators/platform-action-creators');
 var platformChartActionCreators = require('../action-creators/platform-chart-action-creators');
+var platformsPanelActionCreators = require('../action-creators/platforms-panel-action-creators');
+var platformsPanelItemsStore = require('../stores/platforms-panel-items-store');
 var chartStore = require('../stores/platform-chart-store');
 var ComboBox = require('./combo-box');
 
@@ -74,17 +76,23 @@ var EditChartForm = React.createClass({
             selectedTopic.refreshInterval = this.state.refreshInterval;
             selectedTopic.chartType = this.state.chartType;
             selectedTopic.parentUuid = this.props.platform.uuid;
+            selectedTopic.path = platformsPanelItemsStore.findTopicInTree(selectedTopic.topic);
         }
 
         var notifyRouter = false;
 
         platformChartActionCreators.addToChart(selectedTopic, notifyRouter);
 
+        if (selectedTopic.path)
+        {
+            platformsPanelActionCreators.checkItem(selectedTopic.path, true);
+        }
+
         if (selectedTopic.pinned)
         {
             platformActionCreators.saveChart(this.props.platform, null, selectedTopic);
         }    
-        
+
         modalActionCreators.closeModal();
     },
     render: function () {

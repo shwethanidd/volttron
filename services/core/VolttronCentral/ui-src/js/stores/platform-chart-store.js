@@ -76,6 +76,23 @@ chartStore.getChartTopics = function (uuid) {
     return topics;
 }
 
+chartStore.getTopicInCharts = function (topic, topicName)
+{
+    var itemInChart;
+
+    if (_chartData.hasOwnProperty(topicName))
+    {
+        _chartData[topicName].series.find(function (series) {
+            
+            itemInChart = (series.topic === topic);
+
+            return itemInChart;
+        });
+    }    
+
+    return itemInChart;
+}
+
 chartStore.dispatchToken = dispatcher.register(function (action) {
     switch (action.type) {
 

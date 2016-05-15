@@ -394,7 +394,7 @@ var platformActionCreators = {
                             var label;
                             // var name;
 
-                            if (topic.indexOf("datalogger/platform") > -1) // if a platform instance
+                            if (topic.indexOf("datalogger/platforms") > -1) // if a platform instance
                             {
                                 var platformUuid = topicParts[2];
                                 var platform = platformsStore.getPlatform(platformUuid);
@@ -1042,9 +1042,11 @@ var platformsPanelActionCreators = {
 
                                 points.forEach(function (point) {
 
+                                    var pointName = (point === "percent" ? "cpu / percent" : point.replace("/", " / "));
+
                                     pointsList.push({
                                         "topic": platformPerformance.performance.topic + "/" + point,
-                                        "name": point.replace("/", " / ")
+                                        "name": pointName
                                     });
                                 });                                
                             }
@@ -2075,6 +2077,8 @@ var React = require('react');
 var modalActionCreators = require('../action-creators/modal-action-creators');
 var platformActionCreators = require('../action-creators/platform-action-creators');
 var platformChartActionCreators = require('../action-creators/platform-chart-action-creators');
+var platformsPanelActionCreators = require('../action-creators/platforms-panel-action-creators');
+var platformsPanelItemsStore = require('../stores/platforms-panel-items-store');
 var chartStore = require('../stores/platform-chart-store');
 var ComboBox = require('./combo-box');
 
@@ -2144,17 +2148,23 @@ var EditChartForm = React.createClass({displayName: "EditChartForm",
             selectedTopic.refreshInterval = this.state.refreshInterval;
             selectedTopic.chartType = this.state.chartType;
             selectedTopic.parentUuid = this.props.platform.uuid;
+            selectedTopic.path = platformsPanelItemsStore.findTopicInTree(selectedTopic.topic);
         }
 
         var notifyRouter = false;
 
         platformChartActionCreators.addToChart(selectedTopic, notifyRouter);
 
+        if (selectedTopic.path)
+        {
+            platformsPanelActionCreators.checkItem(selectedTopic.path, true);
+        }
+
         if (selectedTopic.pinned)
         {
             platformActionCreators.saveChart(this.props.platform, null, selectedTopic);
         }    
-        
+
         modalActionCreators.closeModal();
     },
     render: function () {
@@ -2277,7 +2287,7 @@ var EditChartForm = React.createClass({displayName: "EditChartForm",
 module.exports = EditChartForm;
 
 
-},{"../action-creators/modal-action-creators":4,"../action-creators/platform-action-creators":5,"../action-creators/platform-chart-action-creators":6,"../stores/platform-chart-store":49,"./combo-box":11,"react":undefined}],20:[function(require,module,exports){
+},{"../action-creators/modal-action-creators":4,"../action-creators/platform-action-creators":5,"../action-creators/platform-chart-action-creators":6,"../action-creators/platforms-panel-action-creators":8,"../stores/platform-chart-store":49,"../stores/platforms-panel-items-store":51,"./combo-box":11,"react":undefined}],20:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -5243,6 +5253,23 @@ chartStore.getChartTopics = function (uuid) {
     return topics;
 }
 
+chartStore.getTopicInCharts = function (topic, topicName)
+{
+    var itemInChart;
+
+    if (_chartData.hasOwnProperty(topicName))
+    {
+        _chartData[topicName].series.find(function (series) {
+            
+            itemInChart = (series.topic === topic);
+
+            return itemInChart;
+        });
+    }    
+
+    return itemInChart;
+}
+
 chartStore.dispatchToken = dispatcher.register(function (action) {
     switch (action.type) {
 
@@ -5538,6 +5565,7 @@ module.exports = platformRegistrationStore;
 var ACTION_TYPES = require('../constants/action-types');
 var dispatcher = require('../dispatcher');
 var Store = require('../lib/store');
+var chartStore = require('../stores/platform-chart-store');
 
 var _pointsOrder = 0;
 var _devicesOrder = 1;
@@ -5558,6 +5586,105 @@ var _unknownLabel = "Unknown Status";
 var _loadingDataComplete = true;
 
 var platformsPanelItemsStore = new Store();
+
+platformsPanelItemsStore.findTopicInTree = function (topic)
+{
+    var path = [];
+
+    var topicParts = topic.split("/");
+
+    if (topic.indexOf("datalogger/platforms") > -1) // if a platform instance
+    {
+        for (var key in _items.platforms)
+        {
+            if (key === topicParts[2])
+            {
+                // path = ["platforms", uuid];
+
+                if (_items.platforms[key].hasOwnProperty("points"))
+                {
+                    _items.platforms[key].points.children.find(function (point) {
+
+                        var found = (point === topic);
+
+                        if (found)
+                        {
+                            path = _items.platforms[key].points[point].path;
+                        }
+
+                        return found;
+                    });
+                }
+
+                break;
+            }
+        }
+    }
+    else // else a device point
+    {        
+        var buildingName = topicParts[1];
+
+        _items.platforms.children.find(function (platform) {
+
+            var foundPlatform = false;
+
+            if (platform.hasOwnProperty("buildings"))
+            {
+                platform.buildings.children.find(function (buildingUuid) {
+
+                    var foundBuilding = (platform.buildings[buildingUuid].name === buildingName);
+
+                    if (foundBuilding)
+                    {
+                        var parent = platform.buildings[buildingUuid];
+
+                        for (var i = 2; i < topicParts.length - 2; i++)
+                        {
+                            var deviceName = topicParts[i];
+
+                            if (parent.hasOwnProperty("devices"))
+                            {
+                                parent.devices.children.find(function (deviceUuid) {
+
+                                    var foundDevice = (parent.devices[deviceUuid].name === deviceName);
+
+                                    if (foundDevice) 
+                                    {
+                                        parent = parent.devices[deviceUuid];
+                                    }
+
+                                    return foundDevice;
+                                });
+                            }
+                        }
+                        
+                        if (parent.hasOwnProperty("points"))
+                        {
+                            parent.points.children.find(function (point) {
+                                var foundPoint = (point === topic);
+
+                                if (foundPoint)
+                                {
+                                    path = parent.points[point].path;
+
+                                    foundPlatform = true;
+                                }
+
+                                return foundPoint;
+                            });
+                        }                        
+                    }
+
+                    return foundBuilding;
+                });                
+            }
+
+            return foundPlatform;
+        });
+    }
+
+    return JSON.parse(JSON.stringify(path));
+} 
 
 platformsPanelItemsStore.getItem = function (itemPath)
 {
@@ -5907,8 +6034,10 @@ platformsPanelItemsStore.dispatchToken = dispatcher.register(function (action) {
                             pointProps.parentType = platform.type;
                             pointProps.parentUuid = platform.uuid;
 
-                            point.status = platform.status;
-                            point.statusLabel = getStatusLabel(platform.status);
+                            pointProps.checked = chartStore.getTopicInCharts(pointProps.topic, pointProps.name);
+
+                            pointProps.status = platform.status;
+                            pointProps.statusLabel = getStatusLabel(platform.status);
                             pointProps.children = [];
                             pointProps.type = "point";
                             pointProps.sortOrder = 0;
@@ -6410,7 +6539,7 @@ platformsPanelItemsStore.dispatchToken = dispatcher.register(function (action) {
 module.exports = platformsPanelItemsStore;
 
 
-},{"../constants/action-types":35,"../dispatcher":36,"../lib/store":40}],52:[function(require,module,exports){
+},{"../constants/action-types":35,"../dispatcher":36,"../lib/store":40,"../stores/platform-chart-store":49}],52:[function(require,module,exports){
 'use strict';
 
 var ACTION_TYPES = require('../constants/action-types');
