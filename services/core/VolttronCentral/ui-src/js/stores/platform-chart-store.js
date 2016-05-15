@@ -114,6 +114,7 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
                         pinned: (action.panelItem.hasOwnProperty("pinned") ? action.panelItem.pinned : false), 
                         type: (action.panelItem.hasOwnProperty("chartType") ? action.panelItem.chartType : "line"), 
                         data: convertTimeToSeconds(action.panelItem.data),
+                        chartKey: action.panelItem.name,
                         series: [ setChartItem(action.panelItem) ]
                     };
 

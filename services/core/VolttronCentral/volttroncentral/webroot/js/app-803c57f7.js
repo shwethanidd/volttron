@@ -1924,14 +1924,20 @@ var Dashboard = React.createClass({displayName: "Dashboard",
 
         var platformCharts = [];
 
-        for (var key in pinnedCharts)
-        {
-            if (pinnedCharts[key].data.length > 0)
+        pinnedCharts.forEach(function (pinnedChart) {
+            if (pinnedChart.data.length > 0)
             {
-                var platformChart = React.createElement(PlatformChart, {chart: pinnedCharts[key], chartKey: key, hideControls: true})
+                var platformChart = React.createElement(PlatformChart, {chart: pinnedChart, chartKey: pinnedChart.chartKey, hideControls: true})
                 platformCharts.push(platformChart);
             }
-        }
+        });
+        // {
+        //     if (pinnedCharts[key].data.length > 0)
+        //     {
+        //         var platformChart = <PlatformChart chart={pinnedCharts[key]} chartKey={key} hideControls={true}/>
+        //         platformCharts.push(platformChart);
+        //     }
+        // }
 
         // if (!this.state.platforms) {
         //     charts = (
@@ -5291,6 +5297,7 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
                         pinned: (action.panelItem.hasOwnProperty("pinned") ? action.panelItem.pinned : false), 
                         type: (action.panelItem.hasOwnProperty("chartType") ? action.panelItem.chartType : "line"), 
                         data: convertTimeToSeconds(action.panelItem.data),
+                        chartKey: action.panelItem.name,
                         series: [ setChartItem(action.panelItem) ]
                     };
 
@@ -5624,8 +5631,10 @@ platformsPanelItemsStore.findTopicInTree = function (topic)
     {        
         var buildingName = topicParts[1];
 
-        _items.platforms.children.find(function (platform) {
+        for (var key in _items.platforms)
+        { //_items.platforms.children.find(function (platform) {
 
+            var platform = _items.platforms[key];       
             var foundPlatform = false;
 
             if (platform.hasOwnProperty("buildings"))
@@ -5638,7 +5647,7 @@ platformsPanelItemsStore.findTopicInTree = function (topic)
                     {
                         var parent = platform.buildings[buildingUuid];
 
-                        for (var i = 2; i < topicParts.length - 2; i++)
+                        for (var i = 2; i <= topicParts.length - 2; i++)
                         {
                             var deviceName = topicParts[i];
 
@@ -5661,7 +5670,7 @@ platformsPanelItemsStore.findTopicInTree = function (topic)
                         if (parent.hasOwnProperty("points"))
                         {
                             parent.points.children.find(function (point) {
-                                var foundPoint = (point === topic);
+                                var foundPoint = (parent.points[point].topic === topic);
 
                                 if (foundPoint)
                                 {
@@ -5679,8 +5688,11 @@ platformsPanelItemsStore.findTopicInTree = function (topic)
                 });                
             }
 
-            return foundPlatform;
-        });
+            if (foundPlatform)
+            {
+                break;
+            }
+        }
     }
 
     return JSON.parse(JSON.stringify(path));
@@ -6100,21 +6112,6 @@ platformsPanelItemsStore.dispatchToken = dispatcher.register(function (action) {
         platform.agents.statusLabel = getStatusLabel(agentsHealth);
     }
 
-    // function loadAgents(platform)
-    // {
-    //     if (platform.agents)
-    //     {
-    //         if (platform.agents.length > 0)
-    //         {
-    //             insertAgents(platform, platform.agents);
-    //         }
-    //         else
-    //         {
-    //             delete platform.agents;
-    //         }
-    //     }
-    // }
-
     function insertBuilding(platform, uuid, name)
     {
         if (platform.children.indexOf("buildings") < 0)
@@ -6406,6 +6403,7 @@ platformsPanelItemsStore.dispatchToken = dispatcher.register(function (action) {
                 pointProps.children = [];
                 pointProps.type = "point";
                 pointProps.sortOrder = 0;
+                pointProps.checked = chartStore.getTopicInCharts(pointProps.topic, pointProps.name);
 
                 item.points.children.push(pointProps.uuid);
                 item.points[pointProps.uuid] = pointProps;

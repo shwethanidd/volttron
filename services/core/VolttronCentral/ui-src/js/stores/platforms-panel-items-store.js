@@ -62,8 +62,10 @@ platformsPanelItemsStore.findTopicInTree = function (topic)
     {        
         var buildingName = topicParts[1];
 
-        _items.platforms.children.find(function (platform) {
+        for (var key in _items.platforms)
+        { //_items.platforms.children.find(function (platform) {
 
+            var platform = _items.platforms[key];       
             var foundPlatform = false;
 
             if (platform.hasOwnProperty("buildings"))
@@ -76,7 +78,7 @@ platformsPanelItemsStore.findTopicInTree = function (topic)
                     {
                         var parent = platform.buildings[buildingUuid];
 
-                        for (var i = 2; i < topicParts.length - 2; i++)
+                        for (var i = 2; i <= topicParts.length - 2; i++)
                         {
                             var deviceName = topicParts[i];
 
@@ -99,7 +101,7 @@ platformsPanelItemsStore.findTopicInTree = function (topic)
                         if (parent.hasOwnProperty("points"))
                         {
                             parent.points.children.find(function (point) {
-                                var foundPoint = (point === topic);
+                                var foundPoint = (parent.points[point].topic === topic);
 
                                 if (foundPoint)
                                 {
@@ -117,8 +119,11 @@ platformsPanelItemsStore.findTopicInTree = function (topic)
                 });                
             }
 
-            return foundPlatform;
-        });
+            if (foundPlatform)
+            {
+                break;
+            }
+        }
     }
 
     return JSON.parse(JSON.stringify(path));
@@ -538,21 +543,6 @@ platformsPanelItemsStore.dispatchToken = dispatcher.register(function (action) {
         platform.agents.statusLabel = getStatusLabel(agentsHealth);
     }
 
-    // function loadAgents(platform)
-    // {
-    //     if (platform.agents)
-    //     {
-    //         if (platform.agents.length > 0)
-    //         {
-    //             insertAgents(platform, platform.agents);
-    //         }
-    //         else
-    //         {
-    //             delete platform.agents;
-    //         }
-    //     }
-    // }
-
     function insertBuilding(platform, uuid, name)
     {
         if (platform.children.indexOf("buildings") < 0)
@@ -844,6 +834,7 @@ platformsPanelItemsStore.dispatchToken = dispatcher.register(function (action) {
                 pointProps.children = [];
                 pointProps.type = "point";
                 pointProps.sortOrder = 0;
+                pointProps.checked = chartStore.getTopicInCharts(pointProps.topic, pointProps.name);
 
                 item.points.children.push(pointProps.uuid);
                 item.points[pointProps.uuid] = pointProps;
