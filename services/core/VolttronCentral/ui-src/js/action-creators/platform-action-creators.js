@@ -204,10 +204,6 @@ var platformActionCreators = {
         }).promise
             .then(function (topics) {
                 
-                // var topicsList = topics.map(function (topic, index) {
-                //     return { path: topic, label: getLabelFromTopic(topic), key: index};
-                // });
-
                 var filteredTopics = [];
 
                 topics.forEach(function (topic, index) {

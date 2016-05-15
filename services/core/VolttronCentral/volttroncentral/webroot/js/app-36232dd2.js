@@ -374,10 +374,6 @@ var platformActionCreators = {
         }).promise
             .then(function (topics) {
                 
-                // var topicsList = topics.map(function (topic, index) {
-                //     return { path: topic, label: getLabelFromTopic(topic), key: index};
-                // });
-
                 var filteredTopics = [];
 
                 topics.forEach(function (topic, index) {
@@ -5248,12 +5244,36 @@ chartStore.showCharts = function () {
     return showCharts;
 }
 
-chartStore.getChartTopics = function (uuid) {
+chartStore.getChartTopics = function (parentUuid) {
+    
     var topics = [];
 
-    if (_chartTopics.hasOwnProperty(uuid))
+    if (_chartTopics.hasOwnProperty(parentUuid))
     {
-        topics = _chartTopics[uuid];
+        topics = JSON.parse(JSON.stringify(_chartTopics[parentUuid]));
+
+        if (topics.length)
+        {    
+            if (_chartData !== {})
+            {
+                // Filter out any topics that are already in charts
+                topics = topics.filter(function (topic) {
+
+                    var topicInChart = false;
+
+                    if (_chartData.hasOwnProperty(topic.name))
+                    {
+                        var path = _chartData[topic.name].series.find(function (item) {
+                            return item.topic === topic.path;
+                        });
+
+                        topicInChart = (path ? true : false);
+                    }
+
+                    return !topicInChart;
+                });
+            }
+        }
     }
 
     return topics;
@@ -5375,32 +5395,7 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
             
             var chartTopics = JSON.parse(JSON.stringify(action.topics));
 
-            _chartTopics[action.platform.uuid] = chartTopics;
-
-            // var filteredTopics = [];
-
-            // _chartTopics[action.platform.uuid] = chartTopics.forEach(function (topic) {
-            //     if (topic.path.indexOf("datalogger/platform/status") < 0)
-            //     {
-            //         var name = topicParts[topicParts.length - 2] + " / " + topicParts[topicParts.length - 1];
-
-            //         var parentPath = topicParts[0];
-
-            //         for (var i = 1; i < topicParts.length - 2; i++)
-            //         {
-            //             parentPath = parentPath + " > " + topicParts[i];
-            //         }
-
-            //         topic.name = name;
-            //         topic.uuid = this.state.selectedTopic;
-            //         topic.topic = this.state.selectedTopic;
-            //         topic.pinned = (this.state.pin ? true : false);
-            //         topic.parentPath = parentPath;
-            //         topic.parentUuid = this.props.platform.uuid;
-
-            //         filteredTopics.push(topic);
-            //     }                
-            // });
+            _chartTopics[action.platform.uuid] = chartTopics;            
 
             chartStore.emitChange();
             break;
@@ -5411,13 +5406,6 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
 
             if (_chartData.hasOwnProperty(name))
             {
-                // _chartData[name].series.forEach(function (series) {            
-                //     if (series.hasOwnProperty("path"))
-                //     {
-                //         platformsPanelActionCreators.checkItem(series.path, false);
-                //     }
-                // });
-
                 delete _chartData[name];
 
                 chartStore.emitChange();
