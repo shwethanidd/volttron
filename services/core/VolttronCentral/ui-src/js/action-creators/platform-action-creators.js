@@ -203,12 +203,12 @@ var platformActionCreators = {
             authorization: authorization,
         }).promise
             .then(function (topics) {
-                
+
                 var filteredTopics = [];
 
                 topics.forEach(function (topic, index) {
-                    
-                    if (topic.indexOf("datalogger/platform/status") < 0) // ignore -- they're local platform topics that are in 
+
+                    if (topic.indexOf("datalogger/platform/status") < 0) // ignore -- they're local platform topics that are in
                     {                                                      // the list twice, also at datalogger/platform/<uuid>
                         var item = {};
                         var topicParts = topic.split("/");
@@ -226,7 +226,7 @@ var platformActionCreators = {
                                 var platform = platformsStore.getPlatform(platformUuid);
                                 parentPath = (platform ? platform.name : "Unknown Platform");
                                 label = topicParts[topicParts.length - 2] + "/" + topicParts[topicParts.length - 1] + " (" + parentPath + ")";
-                                name = topicParts[topicParts.length - 2] + " / " + topicParts[topicParts.length - 1]; // the name is the 
+                                name = topicParts[topicParts.length - 2] + " / " + topicParts[topicParts.length - 1]; // the name is the
                                                                                                                     // last two path parts
                             }                                                                                      // ex.: times_percent / idle
                             else // else a device point
@@ -241,7 +241,7 @@ var platformActionCreators = {
                                 label = topicParts[topicParts.length - 1] + " (" + parentPath + ")";
                                 name = topicParts[topicParts.length - 1]; // the name is the column name
                             }
-                            
+
                             item.path = topic;
                             item.label = label;
                             item.key = index;
@@ -254,7 +254,7 @@ var platformActionCreators = {
 
                             filteredTopics.push(item);
                         }
-                    }                
+                    }
                 });
 
                 dispatcher.dispatch({
@@ -264,7 +264,7 @@ var platformActionCreators = {
                 });
             })
             .catch(rpc.Error, function (error) {
-                
+
                 var message = error.message;
 
                 if (error.code === -32602)
@@ -277,7 +277,7 @@ var platformActionCreators = {
 
                 statusIndicatorActionCreators.openStatusIndicator("error", message);
                 handle401(error);
-            });     
+            });
     },
     loadCharts: function (platform) {
         var authorization = authorizationStore.getAuthorization();

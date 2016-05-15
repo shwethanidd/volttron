@@ -373,12 +373,12 @@ var platformActionCreators = {
             authorization: authorization,
         }).promise
             .then(function (topics) {
-                
+
                 var filteredTopics = [];
 
                 topics.forEach(function (topic, index) {
-                    
-                    if (topic.indexOf("datalogger/platform/status") < 0) // ignore -- they're local platform topics that are in 
+
+                    if (topic.indexOf("datalogger/platform/status") < 0) // ignore -- they're local platform topics that are in
                     {                                                      // the list twice, also at datalogger/platform/<uuid>
                         var item = {};
                         var topicParts = topic.split("/");
@@ -396,7 +396,7 @@ var platformActionCreators = {
                                 var platform = platformsStore.getPlatform(platformUuid);
                                 parentPath = (platform ? platform.name : "Unknown Platform");
                                 label = topicParts[topicParts.length - 2] + "/" + topicParts[topicParts.length - 1] + " (" + parentPath + ")";
-                                name = topicParts[topicParts.length - 2] + " / " + topicParts[topicParts.length - 1]; // the name is the 
+                                name = topicParts[topicParts.length - 2] + " / " + topicParts[topicParts.length - 1]; // the name is the
                                                                                                                     // last two path parts
                             }                                                                                      // ex.: times_percent / idle
                             else // else a device point
@@ -411,7 +411,7 @@ var platformActionCreators = {
                                 label = topicParts[topicParts.length - 1] + " (" + parentPath + ")";
                                 name = topicParts[topicParts.length - 1]; // the name is the column name
                             }
-                            
+
                             item.path = topic;
                             item.label = label;
                             item.key = index;
@@ -424,7 +424,7 @@ var platformActionCreators = {
 
                             filteredTopics.push(item);
                         }
-                    }                
+                    }
                 });
 
                 dispatcher.dispatch({
@@ -434,7 +434,7 @@ var platformActionCreators = {
                 });
             })
             .catch(rpc.Error, function (error) {
-                
+
                 var message = error.message;
 
                 if (error.code === -32602)
@@ -447,7 +447,7 @@ var platformActionCreators = {
 
                 statusIndicatorActionCreators.openStatusIndicator("error", message);
                 handle401(error);
-            });     
+            });
     },
     loadCharts: function (platform) {
         var authorization = authorizationStore.getAuthorization();
@@ -650,7 +650,7 @@ var platformChartActionCreators = {
                 })
                 .catch(rpc.Error, handle401);
 		});
-		
+
 	},
 	addToChart: function(panelItem, emitChange) {
 
@@ -685,7 +685,7 @@ var platformChartActionCreators = {
                 });
             })
             .catch(rpc.Error, function (error) {
-                
+
                 var message = error.message;
 
                 if (error.code === -32602)
@@ -705,7 +705,7 @@ var platformChartActionCreators = {
         dispatcher.dispatch({
             type: ACTION_TYPES.REMOVE_FROM_CHART,
             panelItem: panelItem
-        });  
+        });
 
     },
     removeChart: function(chartName) {
@@ -713,7 +713,7 @@ var platformChartActionCreators = {
         dispatcher.dispatch({
             type: ACTION_TYPES.REMOVE_CHART,
             name: chartName
-        });  
+        });
 
     }
 };
@@ -2137,7 +2137,7 @@ var EditChartForm = React.createClass({displayName: "EditChartForm",
         modalActionCreators.closeModal();
     },
     _onSubmit: function () {
-        
+
         var selectedTopic = this.state.topics.find(function (topic) {
             return topic.path === this.state.selectedTopic;
         }, this);
@@ -2165,7 +2165,7 @@ var EditChartForm = React.createClass({displayName: "EditChartForm",
         if (selectedTopic.pinned)
         {
             platformActionCreators.saveChart(this.props.platform, null, selectedTopic);
-        }    
+        }
 
         modalActionCreators.closeModal();
     },
@@ -2637,14 +2637,14 @@ var PlatformChart = React.createClass({displayName: "PlatformChart",
           // platformActionCreators.deleteChart.bind(null, platform, chart);
           modalActionCreators.closeModal();
 
-          this.props.chart.series.forEach(function (series) {            
+          this.props.chart.series.forEach(function (series) {
               if (series.hasOwnProperty("path"))
               {
                   platformsPanelActionCreators.checkItem(series.path, false);
               }
           });
 
-          platformChartActionCreators.removeChart(this.props.chartKey);      
+          platformChartActionCreators.removeChart(this.props.chartKey);
         }
 
         modalActionCreators.openModal(
@@ -2656,7 +2656,7 @@ var PlatformChart = React.createClass({displayName: "PlatformChart",
                 confirmText: "Delete", 
                 onConfirm: deleteChart.bind(this)}
             )
-        );        
+        );
     },
     render: function () {
         var chartData = this.props.chart; 
@@ -2673,7 +2673,7 @@ var PlatformChart = React.createClass({displayName: "PlatformChart",
               )
             );
         }
-        
+
         if (chartData)
         {
             if (chartData.data.length > 0)
@@ -2984,7 +2984,7 @@ var GraphLineChart = React.createClass({displayName: "GraphLineChart",
       d3.select('#' + elementParent)
         .datum(data)
         .call(this.lineChart);
-      nv.utils.windowResize(function() { 
+      nv.utils.windowResize(function() {
         if (this.lineChart)
         {
            this.lineChart.update();
@@ -3111,7 +3111,7 @@ var PlatformCharts = React.createClass({displayName: "PlatformCharts",
         {
             platformActionCreators.loadChartTopics(this.state.platform);
 
-            modalActionCreators.openModal(React.createElement(EditChartForm, {platform: this.state.platform}));            
+            modalActionCreators.openModal(React.createElement(EditChartForm, {platform: this.state.platform}));
         }
         else
         {
@@ -3119,17 +3119,17 @@ var PlatformCharts = React.createClass({displayName: "PlatformCharts",
             statusIndicatorActionCreators.openStatusIndicator("error", message);
         }
     },
-    // _onDeleteChartClick: function (platform, chart) {
-    //     modalActionCreators.openModal(
-    //         <ConfirmForm
-    //             targetArea="charts"
-    //             promptTitle="Delete chart"
-    //             promptText={'Delete ' + chart.type + ' chart for ' + chart.topic + '?'}
-    //             confirmText="Delete"
-    //             onConfirm={platformActionCreators.deleteChart.bind(null, platform, chart)}>
-    //         </ConfirmForm>
-    //     );
-    // },
+    _onDeleteChartClick: function (platform, chart) {
+        modalActionCreators.openModal(
+            React.createElement(ConfirmForm, {
+                targetArea: "charts", 
+                promptTitle: "Delete chart", 
+                promptText: 'Delete ' + chart.type + ' chart for ' + chart.topic + '?', 
+                confirmText: "Delete", 
+                onConfirm: platformActionCreators.deleteChart.bind(null, platform, chart)}
+            )
+        );
+    },
     render: function () {
 
         var chartData = this.state.chartData; 
@@ -3151,7 +3151,7 @@ var PlatformCharts = React.createClass({displayName: "PlatformCharts",
             platformCharts.push(noCharts);
         }
 
-        return (                
+        return (
             React.createElement("div", {className: "view"}, 
                 React.createElement("div", {className: "absolute_anchor"}, 
                     React.createElement("div", {className: "view__actions"}, 
@@ -5286,12 +5286,12 @@ chartStore.getTopicInCharts = function (topic, topicName)
     if (_chartData.hasOwnProperty(topicName))
     {
         _chartData[topicName].series.find(function (series) {
-            
+
             itemInChart = (series.topic === topic);
 
             return itemInChart;
         });
-    }    
+    }
 
     return itemInChart;
 }
@@ -5314,8 +5314,8 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
                     
                     var chartObj = {
                         refreshInterval: (action.panelItem.hasOwnProperty("refreshInterval") ? action.panelItem.refreshInterval :15000),
-                        pinned: (action.panelItem.hasOwnProperty("pinned") ? action.panelItem.pinned : false), 
-                        type: (action.panelItem.hasOwnProperty("chartType") ? action.panelItem.chartType : "line"), 
+                        pinned: (action.panelItem.hasOwnProperty("pinned") ? action.panelItem.pinned : false),
+                        type: (action.panelItem.hasOwnProperty("chartType") ? action.panelItem.chartType : "line"),
                         data: convertTimeToSeconds(action.panelItem.data),
                         chartKey: action.panelItem.name,
                         series: [ setChartItem(action.panelItem) ]
@@ -5380,19 +5380,19 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
 
             break;
 
-        case ACTION_TYPES.SHOW_CHARTS:            
+        case ACTION_TYPES.SHOW_CHARTS:
 
             if (action.emitChange)
             {
                 _showCharts = true;
-                chartStore.emitChange();    
+                chartStore.emitChange();
             }
 
             break;
 
         case ACTION_TYPES.RECEIVE_CHART_TOPICS:
             _chartTopics = {};
-            
+
             var chartTopics = JSON.parse(JSON.stringify(action.topics));
 
             _chartTopics[action.platform.uuid] = chartTopics;            
@@ -5401,21 +5401,22 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
             break;
 
         case ACTION_TYPES.REMOVE_CHART:
-            
+
             var name = action.name;
 
             if (_chartData.hasOwnProperty(name))
             {
+
                 delete _chartData[name];
 
                 chartStore.emitChange();
             }
 
             break;
-    } 
+    }
 
     function setChartItem(item) {
-        
+
         var chartItem = {
             name: item.name,
             uuid: item.uuid,
@@ -5431,8 +5432,8 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
 
     function insertSeries(item) {
 
-        var chartItems = _chartData[item.name].data.filter(function (datum) { 
-            return datum.uuid === item.uuid 
+        var chartItems = _chartData[item.name].data.filter(function (datum) {
+            return datum.uuid === item.uuid
         });
 
         if (chartItems.length === 0)

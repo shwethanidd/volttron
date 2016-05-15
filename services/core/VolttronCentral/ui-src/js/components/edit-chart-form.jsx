@@ -63,7 +63,7 @@ var EditChartForm = React.createClass({
         modalActionCreators.closeModal();
     },
     _onSubmit: function () {
-        
+
         var selectedTopic = this.state.topics.find(function (topic) {
             return topic.path === this.state.selectedTopic;
         }, this);
@@ -91,7 +91,7 @@ var EditChartForm = React.createClass({
         if (selectedTopic.pinned)
         {
             platformActionCreators.saveChart(this.props.platform, null, selectedTopic);
-        }    
+        }
 
         modalActionCreators.closeModal();
     },

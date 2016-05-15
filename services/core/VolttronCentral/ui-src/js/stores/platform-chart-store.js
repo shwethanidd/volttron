@@ -107,12 +107,12 @@ chartStore.getTopicInCharts = function (topic, topicName)
     if (_chartData.hasOwnProperty(topicName))
     {
         _chartData[topicName].series.find(function (series) {
-            
+
             itemInChart = (series.topic === topic);
 
             return itemInChart;
         });
-    }    
+    }
 
     return itemInChart;
 }
@@ -135,8 +135,8 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
                     
                     var chartObj = {
                         refreshInterval: (action.panelItem.hasOwnProperty("refreshInterval") ? action.panelItem.refreshInterval :15000),
-                        pinned: (action.panelItem.hasOwnProperty("pinned") ? action.panelItem.pinned : false), 
-                        type: (action.panelItem.hasOwnProperty("chartType") ? action.panelItem.chartType : "line"), 
+                        pinned: (action.panelItem.hasOwnProperty("pinned") ? action.panelItem.pinned : false),
+                        type: (action.panelItem.hasOwnProperty("chartType") ? action.panelItem.chartType : "line"),
                         data: convertTimeToSeconds(action.panelItem.data),
                         chartKey: action.panelItem.name,
                         series: [ setChartItem(action.panelItem) ]
@@ -201,19 +201,19 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
 
             break;
 
-        case ACTION_TYPES.SHOW_CHARTS:            
+        case ACTION_TYPES.SHOW_CHARTS:
 
             if (action.emitChange)
             {
                 _showCharts = true;
-                chartStore.emitChange();    
+                chartStore.emitChange();
             }
 
             break;
 
         case ACTION_TYPES.RECEIVE_CHART_TOPICS:
             _chartTopics = {};
-            
+
             var chartTopics = JSON.parse(JSON.stringify(action.topics));
 
             _chartTopics[action.platform.uuid] = chartTopics;            
@@ -222,21 +222,22 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
             break;
 
         case ACTION_TYPES.REMOVE_CHART:
-            
+
             var name = action.name;
 
             if (_chartData.hasOwnProperty(name))
             {
+
                 delete _chartData[name];
 
                 chartStore.emitChange();
             }
 
             break;
-    } 
+    }
 
     function setChartItem(item) {
-        
+
         var chartItem = {
             name: item.name,
             uuid: item.uuid,
@@ -252,8 +253,8 @@ chartStore.dispatchToken = dispatcher.register(function (action) {
 
     function insertSeries(item) {
 
-        var chartItems = _chartData[item.name].data.filter(function (datum) { 
-            return datum.uuid === item.uuid 
+        var chartItems = _chartData[item.name].data.filter(function (datum) {
+            return datum.uuid === item.uuid
         });
 
         if (chartItems.length === 0)

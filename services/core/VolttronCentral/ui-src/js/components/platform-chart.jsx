@@ -67,14 +67,14 @@ var PlatformChart = React.createClass({
           // platformActionCreators.deleteChart.bind(null, platform, chart);
           modalActionCreators.closeModal();
 
-          this.props.chart.series.forEach(function (series) {            
+          this.props.chart.series.forEach(function (series) {
               if (series.hasOwnProperty("path"))
               {
                   platformsPanelActionCreators.checkItem(series.path, false);
               }
           });
 
-          platformChartActionCreators.removeChart(this.props.chartKey);      
+          platformChartActionCreators.removeChart(this.props.chartKey);
         }
 
         modalActionCreators.openModal(
@@ -86,7 +86,7 @@ var PlatformChart = React.createClass({
                 confirmText="Delete"
                 onConfirm={deleteChart.bind(this)}>
             </ConfirmForm>
-        );        
+        );
     },
     render: function () {
         var chartData = this.props.chart; 
@@ -103,21 +103,21 @@ var PlatformChart = React.createClass({
               </div>
             );
         }
-        
+
         if (chartData)
         {
             if (chartData.data.length > 0)
             {
                 platformChart = (
                   <div className="platform-chart with-3d-shadow with-transitions absolute_anchor">
-                      <label className="chart-title">{chartData.data[0].name}</label>  
-                      {removeButton}                    
+                      <label className="chart-title">{chartData.data[0].name}</label>
+                      {removeButton}
                       <div>
                           <div className='viz'>        
                               { chartData.data.length != 0 ? 
                                     <GraphLineChart 
                                         key={this.props.chartKey}
-                                        data={chartData.data} 
+                                        data={chartData.data}
                                         name={this.props.chartKey}
                                         hideControls={this.props.hideControls}
                                         refreshInterval={this.props.chart.refreshInterval}
@@ -414,7 +414,7 @@ var GraphLineChart = React.createClass({
       d3.select('#' + elementParent)
         .datum(data)
         .call(this.lineChart);
-      nv.utils.windowResize(function() { 
+      nv.utils.windowResize(function() {
         if (this.lineChart)
         {
            this.lineChart.update();
