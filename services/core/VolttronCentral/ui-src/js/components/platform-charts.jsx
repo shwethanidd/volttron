@@ -65,7 +65,32 @@ var PlatformCharts = React.createClass({
         {
             platformActionCreators.loadChartTopics(this.state.platform);
 
-            modalActionCreators.openModal(<EditChartForm platform={this.state.platform}/>);            
+            modalActionCreators.openModal(<EditChartForm platform={this.state.platform}/>);
+        }
+        else
+        {
+            var message = "Charts can't be added. The historian agent is unavailable."
+            statusIndicatorActionCreators.openStatusIndicator("error", message);
+        }
+    },
+    _onDeleteChartClick: function (platform, chart) {
+        modalActionCreators.openModal(
+            <ConfirmForm
+                targetArea="charts"
+                promptTitle="Delete chart"
+                promptText={'Delete ' + chart.type + ' chart for ' + chart.topic + '?'}
+                confirmText="Delete"
+                onConfirm={platformActionCreators.deleteChart.bind(null, platform, chart)}>
+            </ConfirmForm>
+        );
+    },
+    _onAddChartClick: function (platform) {
+
+        if (this.state.historianRunning)
+        {
+            platformActionCreators.loadChartTopics(this.state.platform);
+
+            modalActionCreators.openModal(<EditChartForm platform={this.state.platform}/>);
         }
         else
         {
@@ -105,7 +130,7 @@ var PlatformCharts = React.createClass({
             platformCharts.push(noCharts);
         }
 
-        return (                
+        return (
             <div className="view">
                 <div className="absolute_anchor">
                     <div className="view__actions">
@@ -117,7 +142,7 @@ var PlatformCharts = React.createClass({
                         </button>
                     </div>
                     <h2>Charts</h2>
-                    {platformCharts}                        
+                    {platformCharts}
                 </div>
             </div>
         );

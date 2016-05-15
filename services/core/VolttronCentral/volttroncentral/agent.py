@@ -66,6 +66,7 @@ import gevent
 
 from authenticate import Authenticate
 from sessions import SessionHandler
+from volttron.utils.persistance import load_create_store
 from volttron.platform import jsonrpc
 from volttron.platform.agent import utils
 from volttron.platform.agent.utils import (
@@ -78,7 +79,8 @@ from volttron.platform.jsonrpc import (
     INVALID_REQUEST, METHOD_NOT_FOUND,
     UNHANDLED_EXCEPTION, UNAUTHORIZED,
     UNABLE_TO_REGISTER_INSTANCE, DISCOVERY_ERROR,
-    UNABLE_TO_UNREGISTER_INSTANCE, UNAVAILABLE_PLATFORM)
+    UNABLE_TO_UNREGISTER_INSTANCE, UNAVAILABLE_PLATFORM, INVALID_PARAMS,
+    UNAVAILABLE_AGENT)
 from volttron.platform.messaging.health import UNKNOWN_STATUS, Status, \
     BAD_STATUS
 from .resource_directory import ResourceDirectory
@@ -117,6 +119,13 @@ class VolttronCentralAgent(Agent):
         :return:
         """
         _log.info("{} constructing...".format(self.__name__))
+
+        # This is a special object so only use it's identity.
+        identity = kwargs.pop("identity", None)
+        identity = VOLTTRON_CENTRAL
+
+        super(VolttronCentralAgent, self).__init__(identity=identity,
+                                                   **kwargs)
         # Load the configuration into a dictionary
         self._config = utils.load_config(config_path)
 
@@ -133,14 +142,6 @@ class VolttronCentralAgent(Agent):
         _log.debug("User map is: {}".format(self._user_map))
         if self._user_map is None:
             raise ValueError('users not specified within the config file.')
-
-
-        # This is a special object so only use it's identity.
-        identity = kwargs.pop("identity", None)
-        identity = VOLTTRON_CENTRAL
-
-        super(VolttronCentralAgent, self).__init__(identity=identity,
-                                                   **kwargs)
 
         # Search and replace for topics
         # The difference between the list and the map is that the list
@@ -176,16 +177,31 @@ class VolttronCentralAgent(Agent):
         # time which could cause unpredicatable results.
         self._flag_updating_deviceregistry = False
 
+        self._setting_store = load_create_store(
+            os.path.join(os.environ['VOLTTRON_HOME'],
+                         'data', 'volttron.central.settings'))
+
+    @Core.periodic(60)
     def _reconnect_to_platforms(self):
         _log.info('Reconnecting to platforms')
         for entry in self._registry.get_platforms():
             try:
+                conn_to_instance = None
                 if entry.is_local:
                     _log.debug('connecting to vip address: {}'.format(
                         self._local_address
                     ))
                     conn_to_instance = self
-                else:
+                elif entry.platform_uuid in self._pa_agents.keys():
+                    conn_to_instance = self._pa_agents[entry.platform_uuid]
+                    try:
+                        if conn_to_instance.vip.peerlist().get(timeout=10):
+                            pass
+                    except gevent.Timeout:
+                        del self._pa_agents[entry.platform_uuid]
+                        conn_to_instance = None
+
+                if not conn_to_instance:
                     _log.debug('connecting to vip address: {}'.format(
                         entry.vip_address
                     ))
@@ -195,8 +211,9 @@ class VolttronCentralAgent(Agent):
                         publickey=self.core.publickey
                     )
 
-                self._pa_agents[entry.platform_uuid] = conn_to_instance
-                peers = conn_to_instance.vip.peerlist().get(timeout=30)
+                    self._pa_agents[entry.platform_uuid] = conn_to_instance
+
+                peers = conn_to_instance.vip.peerlist().get(timeout=10)
                 if VOLTTRON_CENTRAL_PLATFORM not in peers:
                     if entry.is_local:
                         addr = self._local_address
@@ -217,9 +234,14 @@ class VolttronCentralAgent(Agent):
                     agent = self._pa_agents[entry.platform_uuid]
                     agent.vip.rpc.call(VOLTTRON_CENTRAL_PLATFORM,
                                        "reconfigure",
-                                       platform_uuid=entry.platform_uuid)
+                                       platform_uuid=entry.platform_uuid).get(timeout=10)
             except gevent.Timeout:
                 self._pa_agents[entry.platform_uuid] = None
+
+    @PubSub.subscribe("pubsub", "heartbeat/volttroncentralplatform")
+    def _on_platform_heartbeat(self, peer, sender, bus, topic, headers,
+                               message):
+        _log.debug('Got Heartbeat from: {}'.format(topic))
 
     @PubSub.subscribe("pubsub", "datalogger/platforms")
     def _on_platoform_message(self, peer, sender, bus, topic, headers,
@@ -601,7 +623,7 @@ class VolttronCentralAgent(Agent):
         :param kwargs:
         :return:
         """
-        self.vip.heartbeat.start_with_period(30)
+        self.vip.heartbeat.start()
 
         q = query.Query(self.core)
         self._external_addresses = q.query('addresses').get(timeout=30)
@@ -786,9 +808,29 @@ class VolttronCentralAgent(Agent):
             return self._handle_list_platforms()
         elif method == 'unregister_platform':
             return self.unregister_platform(params['platform_uuid'])
+        elif method == 'get_setting':
+            if 'key' not in params or not params['key']:
+                return err('Invalid parameter key not set',
+                           INVALID_PARAMS)
+            return self._setting_store.get(params['key'], None)
+        elif method == 'get_setting_keys':
+            return self._setting_store.keys()
+        elif method == 'set_setting':
+            if 'key' not in params or not params['key'] :
+                return err('Invalid parameter key not set',
+                           INVALID_PARAMS)
+            if 'value' not in params or not params['value']:
+                return err('Invalid parameter value not set',
+                           INVALID_PARAMS)
+            self._setting_store[params['key']] = params['value']
+            self._setting_store.sync()
+            return 'SUCCESS'
         elif 'historian' in method:
             has_platform_historian = PLATFORM_HISTORIAN in \
                                      self.vip.peerlist().get(timeout=30)
+            if not has_platform_historian:
+                err('Platform historian not found on volttorn central',
+                    UNAVAILABLE_AGENT)
             _log.debug('Trapping platform.historian to vc.')
             _log.debug('has_platform_historian: {}'.format(
                 has_platform_historian))
@@ -808,7 +850,7 @@ class VolttronCentralAgent(Agent):
             return err('Unknown platform {}'.format(platform_uuid))
         platform_method = '.'.join(fields[3:])
         _log.debug(platform_uuid)
-        agent = self._pa_agents[platform_uuid]  # TODO: get from registry
+        agent = self._pa_agents.get(platform_uuid)  # TODO: get from registry
         if not agent:
             return jsonrpc.json_error(id,
                                       UNAVAILABLE_PLATFORM,
@@ -816,18 +858,28 @@ class VolttronCentralAgent(Agent):
                                       )
         _log.debug('Routing to {}'.format(VOLTTRON_CENTRAL_PLATFORM))
 
+        if platform_method == 'install':
+            if 'admin' not in session_user['groups']:
+                return jsonrpc.json_error(
+                    id, UNAUTHORIZED,
+                    "Admin access is required to install agents")
+
         if platform_method == 'list_agents':
+            _log.debug('Callling list_agents')
             agents = agent.vip.rpc.call(
                 VOLTTRON_CENTRAL_PLATFORM, 'route_request', id,
                 platform_method, params).get(timeout=30)
             for a in agents:
-                if not 'admin' in session_user['groups']:
+                if 'admin' not in session_user['groups']:
                     a['permissions'] = {
                         'can_stop': False,
                         'can_start': False,
                         'can_restart': False,
                         'can_remove': False
                     }
+                else:
+                    _log.debug('Permissionse for {} are {}'
+                               .format(a['name'], a['permissions']))
             return agents
         else:
             return agent.vip.rpc.call(
