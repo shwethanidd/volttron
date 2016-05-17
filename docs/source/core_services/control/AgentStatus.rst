@@ -9,8 +9,8 @@ Agent List Display
     2 testeragent-0.1  
 
 ``volttron-ctl list`` shows the agents which have been installed on the
-platform along with their uuid, associated `tag <AgentTag>`__, and
-`priority <AgentAutostart>`__.
+platform along with their uuid, associated :doc:`tag <AgentTag>`, and
+:doc:`priority <AgentAutostart>`.
 
 -  uuid is the first column of the display and is displayed as the
    shorted unique portion. Using this portion, agents can be started,
@@ -19,7 +19,7 @@ platform along with their uuid, associated `tag <AgentTag>`__, and
    which was installed. Agents can be controlled with this using "--name
    ". Note, if multiple instances of a wheel are installed they will all
    have the same name and can be controlled as a group.
--  `TAG <AgentTag>`__ is a user provided tag which makes it simpler to
+-  :doc:`TAG <AgentTag>`__ is a user provided tag which makes it simpler to
    track and refer to agents. Using "--tag " agents can be controlled
    using this
 -  PRI is the priority for agents which have been "enabled" using the
@@ -46,7 +46,7 @@ platform and their current status.
    which was installed. Agents can be controlled with this using "--name
    ". Note, if multiple instances of a wheel are installed they will all
    have the same name and can be controlled as a group.
--  `TAG <AgentTag>`__ is a user provided tag which makes it simpler to
+-  :doc:`TAG <AgentTag>` is a user provided tag which makes it simpler to
    track and refer to agents. Using "--tag " agents can be controlled
    using this
 -  STATUS is the current condition of the agent. If the agent is
