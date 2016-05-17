@@ -19,7 +19,7 @@ platform along with their uuid, associated :doc:`tag <AgentTag>`, and
    which was installed. Agents can be controlled with this using "--name
    ". Note, if multiple instances of a wheel are installed they will all
    have the same name and can be controlled as a group.
--  :doc:`TAG <AgentTag>`__ is a user provided tag which makes it simpler to
+-  :doc:`TAG <AgentTag>` is a user provided tag which makes it simpler to
    track and refer to agents. Using "--tag " agents can be controlled
    using this
 -  PRI is the priority for agents which have been "enabled" using the

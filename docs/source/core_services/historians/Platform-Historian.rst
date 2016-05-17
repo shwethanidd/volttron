@@ -1,14 +1,15 @@
 Platform Historian
 ==================
 
-A platform historian is a `"friendly named" <VIP-Known-Identities>`__
-historian on a VOLTTRON instance. It always has the identity (see
-`vip <VIP-Known-Identities>`__) of platform.historian. A platform
-historian is made available to a volttron central agent for monitoring
+A platform historian is a
+:doc:`"friendly named" <../messagebus/VIP/VIP-Known-Identities>`
+historian on a VOLTTRON instance. It always has the identity
+of platform.historian. A platform
+historian is made available to a VOLTTRON central agent for monitoring
 of the VOLTTRON instances health and plotting topics from the platform
-historian. In order for one of the (historians)[Historians] to be turned
+historian. In order for one of the :doc:`historians <./>` to be turned
 into a platform historian the identity keyword must be added to it's
-configuration with the value of platform.historian. The following
+configuration file with the value of platform.historian. The following
 configuration file shows a sqlite based platform historian
 configuration.
 
@@ -32,26 +33,26 @@ central environment and will be able to be graphed appropriately.
 +---------+-----------------------------------------------------------------+
 | Index   | Topic                                                           |
 +=========+=================================================================+
-| 1       | datalogger/log/platform/status/cpu/times\_percent/guest\_nice   |
+| 1       | datalogger/log/platform/status/cpu/times_percent/guest_nice     |
 +---------+-----------------------------------------------------------------+
-| 2       | datalogger/log/platform/status/cpu/times\_percent/system        |
+| 2       | datalogger/log/platform/status/cpu/times_percent/system         |
 +---------+-----------------------------------------------------------------+
 | 3       | datalogger/log/platform/status/cpu/percent                      |
 +---------+-----------------------------------------------------------------+
-| 4       | datalogger/log/platform/status/cpu/times\_percent/irq           |
+| 4       | datalogger/log/platform/status/cpu/times_percent/irq            |
 +---------+-----------------------------------------------------------------+
-| 5       | datalogger/log/platform/status/cpu/times\_percent/steal         |
+| 5       | datalogger/log/platform/status/cpu/times_percent/steal          |
 +---------+-----------------------------------------------------------------+
-| 6       | datalogger/log/platform/status/cpu/times\_percent/user          |
+| 6       | datalogger/log/platform/status/cpu/times_percent/user           |
 +---------+-----------------------------------------------------------------+
-| 7       | datalogger/log/platform/status/cpu/times\_percent/nice          |
+| 7       | datalogger/log/platform/status/cpu/times_percent/nice           |
 +---------+-----------------------------------------------------------------+
-| 8       | datalogger/log/platform/status/cpu/times\_percent/iowait        |
+| 8       | datalogger/log/platform/status/cpu/times_percent/iowait         |
 +---------+-----------------------------------------------------------------+
-| 9       | datalogger/log/platform/status/cpu/times\_percent/idle          |
+| 9       | datalogger/log/platform/status/cpu/times_percent/idle           |
 +---------+-----------------------------------------------------------------+
-| 10      | datalogger/log/platform/status/cpu/times\_percent/guest         |
+| 10      | datalogger/log/platform/status/cpu/times_percent/guest          |
 +---------+-----------------------------------------------------------------+
-| 11      | datalogger/log/platform/status/cpu/times\_percent/softirq       |
+| 11      | datalogger/log/platform/status/cpu/times_percent/softirq        |
 +---------+-----------------------------------------------------------------+
 

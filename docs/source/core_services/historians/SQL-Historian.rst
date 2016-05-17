@@ -21,13 +21,14 @@ shell in order to install it.
 
     pip install --allow-external mysql-connector-python mysql-connector-python
 
-| In addition, the mysql database must be created and permissions
+In addition, the mysql database must be created and permissions
 granted for select, insert and update before the agent is started. In
 order to support timestamp with microseconds you need at least MySql
 5.6.4. Please see this `MySql
 documentation <http://dev.mysql.com/doc/refman/5.6/en/fractional-seconds.html>`__
 for more details
-| The following is a minimal configuration file for using a MySQL based
+
+The following is a minimal configuration file for using a MySQL based
 historian. Other options are available and are documented
 http://dev.mysql.com/doc/connector-python/en/connector-python-connectargs.html.
 **Not all parameters have been tested, use at your own risk**.

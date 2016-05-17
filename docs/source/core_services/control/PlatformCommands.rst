@@ -3,10 +3,10 @@ Platform Commands
 
 With the exception of packaged agent wheel files, all VOLTTRON files for
 a platform instance are stored under a single directory known as the
-VOLTTRON home. This home directory is set via the VOLTTRON\_HOME
+VOLTTRON home. This home directory is set via the VOLTTRON_HOME
 environment variable and defaults to ~/.volttron. Multiple instances of
 the platform may exist under the same account on a system by setting the
-VOLTTRON\_HOME environment variable appropriately before executing
+VOLTTRON_HOME environment variable appropriately before executing
 VOLTTRON commands.
 
 Configuration files use a modified INI format where section names are
@@ -18,11 +18,11 @@ or equal (=) and then the value. Boolean options need not include the
 separator or value, but may specify a value of 1, yes, or true for true
 or 0, no, or false for false.
 
-A default configuration file, $VOLTTRON\_HOME/config, may be created to
+A default configuration file, $VOLTTRON_HOME/config, may be created to
 override default options. If it exists, it will be automatically parsed
 before all other command-line options. To skip parsing the default
 configuration file, either move the file out of the way or set the
-SKIP\_VOLTTRON\_CONFIG environment variable.
+SKIP_VOLTTRON_CONFIG environment variable.
 
 All commands and sub-commands have help available with "-h" or "--help".
 Additional configuration files may be specified with "-c" or "--config".
@@ -70,10 +70,11 @@ volttron-ctl commands:
           with Volttron Restricted package installed and enabled
     send                send mobile agent to and start on a remote platform
 
-| volttron-pkg commands:
-|  usage: volttron-pkg [-h] {package,repackage,configure} ...
+volttron-pkg commands:
 
 ::
+
+    usage: volttron-pkg [-h] {package,repackage,configure} ...
 
     optional arguments:
       -h, --help            show this help message and exit
@@ -89,7 +90,7 @@ volttron-ctl commands:
                         agent.
         configure           add a configuration file to an agent package
 
-volttron-pkg commands (with Volttron Restricted package installed and
+volttron-pkg commands (with VOLTTRON Restricted package installed and
 enabled):
 
 ::

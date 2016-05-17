@@ -1,5 +1,5 @@
-Introduction
-------------
+Forward Historian
+=================
 
 The forward historian can be found in the core services directory. Use
 it to send information to another Volttron instance.
