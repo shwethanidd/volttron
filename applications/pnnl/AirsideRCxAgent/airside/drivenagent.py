@@ -55,6 +55,7 @@
 # under Contract DE-AC05-76RL01830
 # }}}
 import csv
+from collections import defaultdict
 from datetime import datetime as dt, timedelta as td
 import logging
 import sys
@@ -85,6 +86,7 @@ _log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.info,
                     format='%(asctime)s   %(levelname)-8s %(message)s',
                     datefmt=DATE_FORMAT)
+
 
 def driven_agent(config_path, **kwargs):
     """Reads agent configuration and converts it to run driven agent.
@@ -199,7 +201,7 @@ def driven_agent(config_path, **kwargs):
                 self.vip.pubsub.subscribe(peer='pubsub',
                                           prefix=device_topic,
                                           callback=self.on_analysis_message)
-        
+
         def _should_run_now(self):
             """
             Checks if messages from all the devices are received
@@ -210,7 +212,7 @@ def driven_agent(config_path, **kwargs):
             if not len(self._device_values.keys()) > 0:
                 return False
             return not len(self._needed_devices) > 0
-            
+
         def on_analysis_message(self, peer, sender, bus, topic, headers, message):
             """
             Subscribe to device data and assemble data set to pass
@@ -307,7 +309,7 @@ def driven_agent(config_path, **kwargs):
             if len(results.table_output.keys()):
                 results = self.publish_analysis_results(results)
             return results
-        
+
         def publish_analysis_results(self, results):
             """
             Publish table_data in analysis results to the message bus for
@@ -335,7 +337,16 @@ def driven_agent(config_path, **kwargs):
                     headers_mod.CONTENT_TYPE: headers_mod.CONTENT_TYPE.JSON,
                     headers_mod.DATE: timestamp,
                 }
+
+                # The keys in this publish should look like the following
+                # with the values being a dictionary of points off of these
+                # base topics
+                #
+                # Schedule-Reset ACCx/data/interior_ahu/vav1600e
+                # Schedule-Reset ACCx/data/interior_ahu/vav1534
+                to_publish = defaultdict(list)
                 for entry in analysis_table:
+                    _log.debug('AIRSIDEENTRY {}'.format(entry))
                     for key, value in entry.items():
                         for _device in command_devices:
                             analysis['unit'] = _device
@@ -344,16 +355,24 @@ def driven_agent(config_path, **kwargs):
                             if isinstance(value, int):
                                 datatype = 'int'
                             kbase = key[key.rfind('/') + 1:]
-                            message = [{kbase: value},
-                                       {kbase: {'tz': 'US/Pacific',
-                                                'type': datatype,
-                                                'units': 'float',
-                                                }
-                                        }]
-                            self.vip.pubsub.publish(
-                                'pubsub', analysis_topic, headers, message)
+                            topic_without_point= analysis_topic[:analysis_topic.rfind('/')]
+
+                            if not to_publish[topic_without_point]:
+                                to_publish[topic_without_point] = [{},{}]
+
+                            to_publish[topic_without_point][0][kbase] = value
+                            to_publish[topic_without_point][1][kbase] = {
+                                'tz': 'US/Pacific',
+                                'type': datatype,
+                                'units': 'float',
+                             }
+
+                for r, p in to_publish.items():
+                    self.vip.pubsub.publish('pubsub', r, headers, p)
+
+                to_publish.clear()
             return results
-        
+
         def create_file_output(self, results):
             """
             Create results/data files for testing and algorithm validation
@@ -383,7 +402,7 @@ def driven_agent(config_path, **kwargs):
                         file_output.writerow(row)
                     file_to_write.close()
             return results
-        
+
         def actuator_request(self, results):
             """
             Calls the actuator's request_new_schedule method to get
@@ -430,9 +449,9 @@ def driven_agent(config_path, **kwargs):
                         request_error = True
                 else:
                     request_error = False
-            
+
             return results, request_error
-        
+
         def actuator_set(self, results):
             """
             Calls the actuator's set_point method to set point on device

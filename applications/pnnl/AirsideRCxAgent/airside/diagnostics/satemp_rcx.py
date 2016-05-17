@@ -63,6 +63,7 @@ VALIDATE_FILE_TOKEN = 'satemp-rcx'
 DATA = '/data/'
 SAT_NAME = 'supply-air temperature'
 
+
 def create_table_key(table_name, timestamp):
     return '&'.join([table_name, timestamp.strftime('%m-%d-%y %H:%M')])
 
