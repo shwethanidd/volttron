@@ -53,4 +53,5 @@ In VOLTTRON
 Controller Agent Topics
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-See the documentation for the [[ActuatorAgent]].
+See the documentation for the :doc:`actuator agent
+    </core_services/service_agents/actuator/ActuatorAgent>`.

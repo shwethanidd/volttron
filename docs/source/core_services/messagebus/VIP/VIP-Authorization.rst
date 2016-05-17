@@ -1,13 +1,7 @@
 VIP Authorization Examples
 ==========================
 
-
-
-*Note: authorization is a work in progress, and its implementation is in
-`the develop
-branch <https://github.com/VOLTTRON/volttron/tree/develop>`__.*
-
-VIP `authentication <VIP-Authentication>`__ and authorization go hand in
+VIP :doc:`authentication <VIP-Authentication>` and authorization go hand in
 hand. When a peer authenticates to a VOLTTRON platform that peer is
 authorized to issue commands and run agents on that platform. VIP
 authorization is about giving a platform owner the ability to limit the

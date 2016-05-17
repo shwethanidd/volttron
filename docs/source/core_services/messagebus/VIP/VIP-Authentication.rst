@@ -2,7 +2,7 @@ VIP Authentication
 ==================
 
 
-`VIP <VIP>`__ (VOLTTRON Interconnect Protocol) authentication is
+:doc:`VIP <./>` (VOLTTRON Interconnect Protocol) authentication is
 implemented in the auth module (*volttron/platform/auth.py*) and extends
 the ZeroMQ Authentication Protocol
 `ZAP <http://rfc.zeromq.org/spec:27>`__ to VIP by including the ZAP

@@ -2,7 +2,7 @@ Remote Procedure Calls
 ======================
 
 Remote procedure calls (RPC) is a new feature added with VOLTTRON 3.0.
-The new VOLTTRON Interconnect Protocol `VIP <VIP>`__ introduced the
+The new VOLTTRON Interconnect Protocol :doc:`VIP <./VIP>` introduced the
 ability to create new point-to-point protocols, called subsystems,
 enabling the implementation of `JSON-RPC
 2.0 <http://www.jsonrpc.org/specification>`__. This provides a simple
@@ -114,7 +114,5 @@ Implementation
 --------------
 
 See the
-`rpc </VOLTTRON/volttron/blob/3.x/volttron/platform/vip/agent/subsystems/rpc.py>`__
+`rpc </VOLTTRON/volttron/blob/develop/volttron/platform/vip/agent/subsystems/rpc.py>`__
 module for implementation details.
-
-Also see `RPC by example <RPC-by-example>`__ for additional examples.
