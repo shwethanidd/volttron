@@ -82,7 +82,7 @@ from volttron.platform.messaging.topics import LOGGER
 from zmq.utils import jsonapi
 
 from volttron.platform.vip.agent import *
-
+from volttron.utils.persistance import load_create_store
 from volttron.platform import jsonrpc
 from volttron.platform.auth import AuthEntry, AuthFile
 from volttron.platform.agent import utils
@@ -121,7 +121,9 @@ class VolttronCentralPlatform(Agent):
         identity = VOLTTRON_CENTRAL_PLATFORM
         super(VolttronCentralPlatform, self).__init__(
             identity=identity, **kwargs)
-
+        store_path = os.path.join(os.environ['VOLTTRON_HOME'], 'data',
+                                  'platforom.store')
+        self._store = load_create_store(store_path)
         self._config = utils.load_config(config_path)
         self._vc_discovery_address = None
         self._my_discovery_address = None
@@ -131,7 +133,7 @@ class VolttronCentralPlatform(Agent):
 
         # This is set from the volttron central instance (NOTE:this is not
         # the same as the installed uuid on this volttron instance0).
-        self._platform_uuid = None
+        self._platform_uuid = self._store.get('platform_uuid')
 
         # A dictionary of devices that are published by the platform.
         self._devices = {}
@@ -146,6 +148,7 @@ class VolttronCentralPlatform(Agent):
         # the mapping from the original to the final is stored in the map.
         self._topic_replace_list = self._config.get('topic_replace_list', [])
         self._topic_replace_map = defaultdict(str)
+
         _log.debug('Topic replace list: {}'.format(self._topic_replace_list))
 
     @PubSub.subscribe('pubsub', 'devices')
@@ -188,12 +191,14 @@ class VolttronCentralPlatform(Agent):
     def reconfigure(self, **kwargs):
         _log.debug('Reconfiguring: {}'.format(kwargs))
         new_uuid = kwargs.get('platform_uuid')
-        _log.debug('new_uuid is {}'.format(new_uuid))
         new_interval = kwargs.get('stats_publish_interval')
 
-        if new_uuid:
+        if new_uuid and new_uuid != self._platform_uuid:
             _log.debug('new_uuid is {}'.format(new_uuid))
             self._platform_uuid = new_uuid
+            self._store['platform_uuid'] = new_uuid
+            self._store.sync()
+
         # if not new_uuid and not self._platform_uuid:
         #     raise ValueError('platform_uuid must be specified!')
         # elif new_uuid:
@@ -407,12 +412,15 @@ class VolttronCentralPlatform(Agent):
     # @RPC.allow("can_manage")
     def start_agent(self, agent_uuid):
         self.vip.rpc.call("control", "start_agent", agent_uuid)
+        self._publish_agent_list()
 
     @RPC.export
     # @RPC.allow("can_manage")
     def stop_agent(self, agent_uuid):
         proc_result = self.vip.rpc.call("control", "stop_agent",
                                         agent_uuid)
+
+        self._publish_agent_list()
 
     @RPC.export
     # @RPC.allow("can_manage")
@@ -704,7 +712,7 @@ class VolttronCentralPlatform(Agent):
         self._managed = True
 
     @Core.receiver('onstart')
-    def starting(self, sender, **kwargs):
+    def _starting(self, sender, **kwargs):
         self.vip.heartbeat.start()
         self._auto_register_with_vc()
 

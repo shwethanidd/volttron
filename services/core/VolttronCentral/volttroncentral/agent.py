@@ -74,7 +74,7 @@ instance with VCA.
 2. From an external platform through pub/sub.  this secondary method is
    preferred when deploying instances in the field that need to "phone home"
    to VCA after being deployed.
-   
+
 """
 
 from collections import defaultdict
