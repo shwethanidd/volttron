@@ -15,23 +15,75 @@ var platformsPanelActionCreators = {
         });
     },
 
-    closePanel: function() {
-
-        dispatcher.dispatch({
-            type: ACTION_TYPES.CLOSE_PLATFORMS_PANEL,
-        });
-    },
-
     loadChildren: function(type, parent)
     {
         if (type === "platform")
         {
             dispatcher.dispatch({
-                type: ACTION_TYPES.START_LOADING_DATA
+                type: ACTION_TYPES.START_LOADING_DATA,
+                panelItem: parent 
             });
 
             loadPanelDevices(parent);
-        }        
+        } 
+
+        function loadPanelDevices(platform) {
+            var authorization = authorizationStore.getAuthorization();
+
+            new rpc.Exchange({
+                method: 'platforms.uuid.' + platform.uuid + '.get_devices',
+                authorization: authorization,
+            }).promise
+                .then(function (result) {
+                    
+                    var devicesList = [];
+
+                    for (var key in result)
+                    {
+                        var device = JSON.parse(JSON.stringify(result[key]));
+                        device.path = key;
+
+                        devicesList.push(device);
+                    }
+
+                    dispatcher.dispatch({
+                        type: ACTION_TYPES.RECEIVE_DEVICE_STATUSES,
+                        platform: platform,
+                        devices: devicesList
+                    });
+
+                    loadPanelAgents(platform);
+                    
+                })                     
+                .catch(rpc.Error, function (error) {
+                    endLoadingData(platform);
+                    handle401(error, "Unable to load devices for platform " + platform.name + " in side panel: " + error.message);
+                });    
+
+        }
+
+        function loadPanelAgents(platform) {
+            var authorization = authorizationStore.getAuthorization();
+
+            new rpc.Exchange({
+                method: 'platforms.uuid.' + platform.uuid + '.list_agents',
+                authorization: authorization,
+            }).promise
+                .then(function (agentsList) {
+                    
+                    dispatcher.dispatch({
+                        type: ACTION_TYPES.RECEIVE_AGENT_STATUSES,
+                        platform: platform,
+                        agents: agentsList
+                    });
+
+                    loadPerformanceStats(platform);
+                })                     
+                .catch(rpc.Error, function (error) {
+                    endLoadingData(platform);
+                    handle401(error, "Unable to load agents for platform " + platform.name + " in side panel: " + error.message);
+                });    
+        }       
 
         function loadPerformanceStats(parent) {
 
@@ -73,6 +125,8 @@ var platformsPanelActionCreators = {
                                 parent: parent,
                                 points: pointsList
                             });
+
+                            endLoadingData(parent);
                         })
                         .catch(rpc.Error, function (error) {
                             
@@ -82,73 +136,23 @@ var platformsPanelActionCreators = {
                             {
                                 if (error.message === "historian unavailable")
                                 {
-                                    message = "Data could not be fetched. The historian agent is unavailable."
+                                    message = "Data could not be fetched for platform " + parent.name + ". The historian agent is unavailable."
                                 }
                             }
 
-                            statusIndicatorActionCreators.openStatusIndicator("error", message);
-                            handle401(error);
+                            endLoadingData(parent);
+                            handle401(error, message);
                         });   
             } 
         }
 
-        function loadPanelDevices(platform) {
-            var authorization = authorizationStore.getAuthorization();
-
-            new rpc.Exchange({
-                method: 'platforms.uuid.' + platform.uuid + '.get_devices',
-                authorization: authorization,
-            }).promise
-                .then(function (result) {
-                    
-                    var devicesList = [];
-
-                    for (var key in result)
-                    {
-                        var device = JSON.parse(JSON.stringify(result[key]));
-                        device.path = key;
-
-                        devicesList.push(device);
-                    }
-
-                    dispatcher.dispatch({
-                        type: ACTION_TYPES.RECEIVE_DEVICE_STATUSES,
-                        platform: platform,
-                        devices: devicesList
-                    });
-
-                    loadPanelAgents(platform);
-                    
-                })
-                .catch(rpc.Error, handle401);    
-
-        }
-
-        function loadPanelAgents(platform) {
-            var authorization = authorizationStore.getAuthorization();
-
-            new rpc.Exchange({
-                method: 'platforms.uuid.' + platform.uuid + '.list_agents',
-                authorization: authorization,
-            }).promise
-                .then(function (agentsList) {
-                    
-                    dispatcher.dispatch({
-                        type: ACTION_TYPES.RECEIVE_AGENT_STATUSES,
-                        platform: platform,
-                        agents: agentsList
-                    });
-
-                    loadPerformanceStats(platform);
-                })
-                .catch(rpc.Error, handle401);    
-        }
-            // dispatcher.dispatch({
-            //     type: ACTION_TYPES.RECEIVE_AGENT_STATUSES,
-            //     platform: platform
-            // });
-        // }
-    
+        function endLoadingData(panelItem)
+        {
+            dispatcher.dispatch({
+                type: ACTION_TYPES.END_LOADING_DATA,
+                panelItem: panelItem
+            });
+        }    
     },
 
     loadFilteredItems: function (filterTerm, filterStatus)
@@ -186,19 +190,20 @@ var platformsPanelActionCreators = {
     }    
 }
 
-
-
-
-function handle401(error) {
-    if (error.code && error.code === 401) {
+function handle401(error, message) {
+    if ((error.code && error.code === 401) || (error.response && error.response.status === 401)) {
         dispatcher.dispatch({
             type: ACTION_TYPES.RECEIVE_UNAUTHORIZED,
             error: error,
         });
 
-        platformManagerActionCreators.clearAuthorization();
-
-        statusIndicatorActionCreators.openStatusIndicator("error", error.message);
+        dispatcher.dispatch({
+            type: ACTION_TYPES.CLEAR_AUTHORIZATION,
+        });
+    }
+    else
+    {
+        statusIndicatorActionCreators.openStatusIndicator("error", message);
     }
 };
 
