@@ -8,8 +8,10 @@ import random
 import re
 import weakref
 
+import gevent
 from gevent.fileobject import FileObject
-from zmq import green as zmq
+import zmq
+#from zmq import green as zmq
 from zmq import SNDMORE
 from zmq.utils import jsonapi
 
@@ -24,29 +26,8 @@ from .vip.agent.subsystems.pubsub import ProtectedPubSubTopics
 
 _log = logging.getLogger(__name__)
 
-# Device ccode
+# Device code
 #
-# try:
-#         context = zmq.Context(1)
-#         # Socket facing clients
-#         frontend = context.socket(zmq.SUB)
-#         frontend.bind("tcp://*:5559")
-#
-#         frontend.setsockopt(zmq.SUBSCRIBE, "")
-#
-#         # Socket facing services
-#         backend = context.socket(zmq.PUB)
-#         backend.bind("tcp://*:5560")
-#
-#         zmq.device(zmq.FORWARDER, frontend, backend)
-#     except Exception, e:
-#         print e
-#         print "bringing down zmq device"
-#     finally:
-#         pass
-#         frontend.close()
-#         backend.close()
-#         context.term()
 
 #
 # port = "5559"
@@ -87,6 +68,32 @@ class PubSubService(Agent):
         self.core.spawn(utils.watch_file, self._protected_topics_file,
                         self._read_protected_topics_file)
         self.vip.pubsub.add_bus('')
+        self._forwarder_greenlet = gevent.spawn(self._start_forwarder)
+
+    # ZMQ device not a volttron forwarder.
+    def _start_forwarder(self):
+        
+        try:
+            context = zmq.Context.instance()
+            # Socket facing clients
+            frontend = context.socket(zmq.SUB)
+            frontend.bind("tcp://*:5559")
+            frontend.setsockopt(zmq.SUBSCRIBE, "")
+            # Socket facing services
+            backend = context.socket(zmq.PUB)
+            backend.bind("tcp://*:5560")
+            zmq.device(zmq.FORWARDER, frontend, backend)
+        except Exception, e:
+            print e
+            print "bringing down zmq device"
+        finally:
+            pass
+            _log.debug('target8')
+            frontend.close()
+            backend.close()
+            context.term()
+
+
 
     def _read_protected_topics_file(self):
         _log.info('loading protected-topics file %s',
