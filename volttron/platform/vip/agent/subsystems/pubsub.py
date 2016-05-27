@@ -103,6 +103,8 @@ class PubSub(SubsystemBase):
         self._my_subscriptions = {}
         self.protected_topics = ProtectedPubSubTopics()
         self._subscriptionloops = []
+        self._pubsocket = None
+        self._subsocket = None
 
         def setup(sender, **kwargs):
             # pylint: disable=unused-argument
@@ -225,14 +227,22 @@ class PubSub(SubsystemBase):
         return results
 
     def _peer_publish(self, topic, headers, message=None, bus=''):
+        _log.debug('target1')
         port = "5559"
         context = self.core().context
         socket = context.socket(zmq.PUB)
+        _log.debug('target2')
         socket.connect("tcp://localhost:%s" % port)
-        socket.send("%d %s" % (topic, message))
-
-        #peer = bytes(self.rpc().context.vip_message.peer)
-        #self._distribute(peer, topic, headers, message, bus)
+        _log.debug('target3')
+        json_msg = jsonapi.dumps(jsonrpc.json_method(
+                None, 'pubsub.push',
+                [self.core().identity, bus, topic, headers, message], None))
+        _log.debug('target4')
+        frames = [zmq.Frame(b''), zmq.Frame(b''),
+                  zmq.Frame(b'RPC'), zmq.Frame(json_msg)]
+        _log.debug('target5')
+        socket.send_multipart(frames, copy=False)
+        _log.debug('target6')
 
     def _distribute(self, peer, topic, headers, message=None, bus=''):
         self._check_if_protected_topic(topic)
@@ -327,29 +337,25 @@ class PubSub(SubsystemBase):
         return greenlet # self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
 
     def _subscribeloop(self, prefix, callback):
-        _log.debug('Inside _subscribeloop')
-        context = self.core().context
-        port = "5560"
-        # Socket to talk to server
-        socket = context.socket(zmq.SUB)
-        socket.connect("tcp://localhost:%s" % port)
-        topicfilter = prefix
-        socket.setsockopt(zmq.SUBSCRIBE, topicfilter)
+        if prefix == '':
+            _log.info('Subscribing to entire message bus')
+        else:
+            _log.info('Subscribing to prefix {}'.format(prefix))
+
+        if not self._subsocket:
+            context = self.core().context
+            port = "5560"
+            # Socket to talk to server
+            socket = context.socket(zmq.SUB)
+            socket.connect("tcp://localhost:%s" % port)
+
+        socket.setsockopt(zmq.SUBSCRIBE, prefix)
         while True:
-            _log.debug('Topic filter is {}'.format(topicfilter))
             data = socket.recv()
             json0 = data.find('{')
-            #topic = data[0:json0].strip()
             d = jsonapi.loads(data[json0:])
-            print(d['topic'], d['message'])
-
-            #json_msg = jsonapi.loads(string)
-            #_log.debug('STRING IS: {}'.format(json_msg))
-            # parse string and split into things that callback cares about
-            #topic, message = string.split()
-            headers = []
-            #callback(self.core().identity, 'pubsub', '', topic,
-            #         headers, message)
+            callback(self.core().identity, 'pubsub', '', d['topic'],
+                     d['headers'], d['message'])
 
     @subscribe.classmethod
     def subscribe(cls, peer, prefix, bus=''):
@@ -426,31 +432,18 @@ class PubSub(SubsystemBase):
         headers['min_compatible_version'] = min_compatible_version
         headers['max_compatible_version'] = max_compatible_version
 
-        if peer is None:
-            peer = 'pubsub'
-        _log.debug('target1')
+        if not self._pubsocket:
+            port = "5559"
+            context = self.core().context
+            self._pubsocket = context.socket(zmq.PUB)
+            self._pubsocket.connect("tcp://localhost:%s" % port)
 
-        port = "5559"
-        context = self.core().context
-        socket = context.socket(zmq.PUB)
-        _log.debug('target2')
-        socket.connect("tcp://localhost:%s" % port)
-        _log.debug('target3')
         json_msg = jsonapi.dumps(
             dict(headers=headers, topic=topic, message=message)
         )
-        # json_msg = jsonapi.dumps(jsonrpc.json_method(
-        #         None, 'pubsub.push',
-        #         [self.core().identity, bus, topic, headers, message], None))
-        _log.debug('target4')
+
         frames = [zmq.Frame(json_msg)]
-        _log.debug('target5')
-        _log.debug('target6')
-        _log.debug('Next calling pubsub.publish')
-        return gevent.spawn(socket.send_multipart(frames, copy=False))
-        # return self.rpc().call(
-        #     peer, 'pubsub.publish', topic=topic, headers=headers,
-        #     message=message, bus=bus)
+        return gevent.spawn(self._pubsocket.send_multipart(frames, copy=False))
 
     def _check_if_protected_topic(self, topic):
         required_caps = self.protected_topics.get(topic)
