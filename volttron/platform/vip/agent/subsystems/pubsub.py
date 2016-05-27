@@ -64,6 +64,7 @@ import random
 import re
 import weakref
 
+import gevent
 from zmq import green as zmq
 from zmq import SNDMORE
 from zmq.utils import jsonapi
@@ -75,6 +76,7 @@ from .... import jsonrpc
 from volttron.platform.agent import utils
 
 __all__ = ['PubSub']
+__version__ = 3.5
 min_compatible_version = '3.0'
 max_compatible_version = ''
 
@@ -100,6 +102,7 @@ class PubSub(SubsystemBase):
         self._peer_subscriptions = {}
         self._my_subscriptions = {}
         self.protected_topics = ProtectedPubSubTopics()
+        self._subscriptionloops = []
 
         def setup(sender, **kwargs):
             # pylint: disable=unused-argument
@@ -222,8 +225,14 @@ class PubSub(SubsystemBase):
         return results
 
     def _peer_publish(self, topic, headers, message=None, bus=''):
-        peer = bytes(self.rpc().context.vip_message.peer)
-        self._distribute(peer, topic, headers, message, bus)
+        port = "5559"
+        context = self.core().context
+        socket = context.socket(zmq.PUB)
+        socket.connect("tcp://localhost:%s" % port)
+        socket.send("%d %s" % (topic, message))
+
+        #peer = bytes(self.rpc().context.vip_message.peer)
+        #self._distribute(peer, topic, headers, message, bus)
 
     def _distribute(self, peer, topic, headers, message=None, bus=''):
         self._check_if_protected_topic(topic)
@@ -311,9 +320,33 @@ class PubSub(SubsystemBase):
         case-insensitive dictionary (mapping) of message headers, and
         message is a possibly empty list of message parts.
         '''
-        self.add_subscription(peer, prefix, callback, bus)
-        return self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
-    
+        _log.debug("Subscribing to prefix {}".format(prefix))
+        greenlet = gevent.spawn(self._subscribeloop, prefix, callback)
+        #self.add_subscription(peer, prefix, callback, bus)
+        self._subscriptionloops.append(greenlet)
+        return greenlet # self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
+
+    def _subscribeloop(self, prefix, callback):
+        _log.debug('Inside _subscribeloop')
+        context = self.core().context
+        port = "5560"
+        # Socket to talk to server
+        socket = context.socket(zmq.SUB)
+        print "Collecting updates from server..."
+        socket.connect ("tcp://localhost:%s" % port)
+        topicfilter = prefix
+        #socket.setsockopt(zmq.SUBSCRIBE, topicfilter)
+        socket.setsockopt(zmq.SUBSCRIBE, '5')
+        socket.setsockopt(zmq.SUBSCRIBE, '6')
+        while True:
+            _log.debug('Topic filter is {}'.format(topicfilter))
+            string = socket.recv()
+            # parse string and split into things that callback cares about
+            topic, message = string.split()
+            headers = []
+            callback(self.core().identity, 'pubsub', '', topic,
+                     headers, message)
+
     @subscribe.classmethod
     def subscribe(cls, peer, prefix, bus=''):
         def decorate(method):
