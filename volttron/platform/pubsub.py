@@ -58,10 +58,12 @@ _log = logging.getLogger(__name__)
 
 
 class PubSubService(Agent):
-    def __init__(self, protected_topics_file, *args, **kwargs):
+    def __init__(self, protected_topics_file, publish_address, subscribe_address, *args, **kwargs):
         super(PubSubService, self).__init__(*args, **kwargs)
         self._protected_topics_file = os.path.abspath(protected_topics_file)
-
+        self.pub_addr = publish_address
+        self.sub_addr = subscribe_address
+        
     @Core.receiver('onstart')
     def setup_agent(self, sender, **kwargs):
         self._read_protected_topics_file()
@@ -69,7 +71,7 @@ class PubSubService(Agent):
                         self._read_protected_topics_file)
         self.vip.pubsub.add_bus('')
         self._forwarder_greenlet = gevent.spawn(self._start_forwarder)
-
+        
     # ZMQ device not a volttron forwarder.
     def _start_forwarder(self):
         
@@ -77,11 +79,12 @@ class PubSubService(Agent):
             context = zmq.Context.instance()
             # Socket facing clients
             frontend = context.socket(zmq.SUB)
-            frontend.bind("tcp://*:5559")
+
+            frontend.bind(self.sub_addr)
             frontend.setsockopt(zmq.SUBSCRIBE, "")
             # Socket facing services
             backend = context.socket(zmq.PUB)
-            backend.bind("tcp://*:5560")
+            backend.bind(self.pub_addr)
             zmq.device(zmq.FORWARDER, frontend, backend)
         except Exception, e:
             print e
