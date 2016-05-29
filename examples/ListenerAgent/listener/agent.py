@@ -63,7 +63,7 @@ from volttron.platform.vip.agent import Agent, Core, PubSub, compat
 from volttron.platform.agent import utils
 from volttron.platform.messaging import headers as headers_mod
 
-from . import settings
+
 
 
 utils.setup_logging()
