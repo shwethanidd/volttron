@@ -10,8 +10,8 @@ import weakref
 
 import gevent
 from gevent.fileobject import FileObject
-import zmq
-#from zmq import green as zmq
+#import zmq
+from zmq import green as zmq
 from zmq import SNDMORE
 from zmq.utils import jsonapi
 
@@ -82,9 +82,13 @@ class PubSubService(Agent):
 
             frontend.bind(self.sub_addr)
             frontend.setsockopt(zmq.SUBSCRIBE, "")
+            _log.debug("Publishes should connect to: {}"
+                       .format(self.sub_addr))
             # Socket facing services
             backend = context.socket(zmq.PUB)
             backend.bind(self.pub_addr)
+            _log.debug("Subscribers should connect to: {}"
+                       .format(self.pub_addr))
             zmq.device(zmq.FORWARDER, frontend, backend)
         except Exception, e:
             print e

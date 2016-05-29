@@ -495,15 +495,15 @@ def start_volttron_process(opts):
         services = [
             ControlService(
                 opts.aip, address=address, identity='control', tracker=tracker,
-                heartbeat_autostart=True),
+                heartbeat_autostart=False),
             PubSubService(
                 protected_topics_file, publish_address=opts.publish_address,
                 subscribe_address=opts.subscribe_address, address=address, identity='pubsub',
-                heartbeat_autostart=True),
-            CompatPubSub(
-                address=address, identity='pubsub.compat',
-                publish_address=opts.publish_address,
-               subscribe_address=opts.subscribe_address),
+                heartbeat_autostart=False),
+            # CompatPubSub(
+            #     address=address, identity='pubsub.compat',
+            #     publish_address=opts.publish_address,
+            #    subscribe_address=opts.subscribe_address),
             MasterWebService(
                 serverkey=publickey, identity=MASTER_WEB,
                 address=address,

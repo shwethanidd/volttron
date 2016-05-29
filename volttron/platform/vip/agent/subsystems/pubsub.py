@@ -343,12 +343,18 @@ class PubSub(SubsystemBase):
             _log.info('Subscribing to prefix {}'.format(prefix))
 
         if not self._subsocket:
+            uri = "ipc://@/home/vdev/run/publish"
+            _log.debug("Subscribing to socket: {}"
+                       .format(uri))
             context = self.core().context
             port = "5560"
             # Socket to talk to server
             socket = context.socket(zmq.SUB)
-            socket.connect("tcp://localhost:%s" % port)
+            # Connect to the publish socket because of the device middle ware
+            # http://learning-0mq-with-pyzmq.readthedocs.io/en/latest/pyzmq/devices/forwarder.html
+            socket.connect(uri)
 
+        _log.debug("Subscribing to prefix: {}".format(prefix))
         socket.setsockopt(zmq.SUBSCRIBE, prefix)
         while True:
             data = socket.recv()
@@ -423,10 +429,7 @@ class PubSub(SubsystemBase):
         compatibility information to header as variables
         min_compatible_version and max_compatible version
         '''
-        #_log.debug("In pusub.publsih. headers in pubsub publish {}".format(
-        #    headers))
-        #_log.debug("In pusub.publsih. topic {}".format(topic))
-        #_log.debug("In pusub.publsih. Message {}".format(message))
+
         if headers is None:
             headers = {}
         headers['min_compatible_version'] = min_compatible_version
@@ -434,10 +437,16 @@ class PubSub(SubsystemBase):
 
         if not self._pubsocket:
             port = "5559"
+            uri = "ipc://@/home/vdev/.volttron/run/subscribe"
+            _log.debug('Publishing to socket: {}'.format(uri))
             context = self.core().context
             self._pubsocket = context.socket(zmq.PUB)
-            self._pubsocket.connect("tcp://localhost:%s" % port)
+            # note that this is going to publish to the subscribe socket
+            # because we are using XPUB as a middleware.
+            # see http://learning-0mq-with-pyzmq.readthedocs.io/en/latest/pyzmq/devices/forwarder.html
+            self._pubsocket.connect(uri)
 
+        _log.debug("Publishing to topic: {}".format(topic))
         json_msg = jsonapi.dumps(
             dict(headers=headers, topic=topic, message=message)
         )
