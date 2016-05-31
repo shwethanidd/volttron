@@ -205,6 +205,27 @@ def vip_main(agent_class, **kwargs):
         Hub = gevent.hub.Hub
         Hub.NOT_ERROR = Hub.NOT_ERROR + (KeyboardInterrupt,)
 
+        # Setup default context for the agent to run in.
+        volttron_home = os.environ.get('VOLTTRON_HOME')
+
+        if not volttron_home:
+            volttron_home = os.path.expandvars("~/.volttron")
+            os.environ['VOLTTRON_HOME'] = volttron_home
+        else:
+            volttron_home = os.path.normpath(os.path.expandvars(
+                os.path.expanduser(volttron_home)))
+
+        ipc = "ipc://@{}".format(volttron_home)
+        subscribe_address = os.environ.get('AGENT_SUB_ADDR')
+        if not subscribe_address:
+            subscribe_address = ipc + "/run/subscribe"
+        kwargs['subscribe_address'] = subscribe_address
+
+        publish_address = os.environ.get('AGENT_PUB_ADDR')
+        if not publish_address:
+            publish_address = ipc + "/run/publish"
+        kwargs['publish_address'] = publish_address
+
         agent_uuid = os.environ.get('AGENT_UUID')
         config = os.environ.get('AGENT_CONFIG')
         agent = agent_class(config_path=config, identity=agent_uuid, **kwargs)
