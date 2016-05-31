@@ -65,6 +65,7 @@ import re
 import weakref
 
 import gevent
+from gevent.event import AsyncResult
 from zmq import green as zmq
 from zmq import SNDMORE
 from zmq.utils import jsonapi
@@ -80,13 +81,15 @@ __version__ = 3.5
 min_compatible_version = '3.0'
 max_compatible_version = ''
 
-#utils.setup_logging()
+# utils.setup_logging()
 _log = logging.getLogger(__name__)
+
 
 def encode_peer(peer):
     if peer.startswith('\x00'):
         return peer[:1] + b64encode(peer[1:])
     return peer
+
 
 def decode_peer(peer):
     if peer.startswith('\x00'):
@@ -94,8 +97,13 @@ def decode_peer(peer):
     return peer
 
 
+class SubsriptionError(StandardError):
+    pass
+
+
 class PubSub(SubsystemBase):
-    def __init__(self, core, rpc_subsys, peerlist_subsys, owner):
+    def __init__(self, core, rpc_subsys, peerlist_subsys, owner,
+                 publish_address, subscribe_address):
         self.core = weakref.ref(core)
         self.rpc = weakref.ref(rpc_subsys)
         self.peerlist = weakref.ref(peerlist_subsys)
@@ -103,6 +111,8 @@ class PubSub(SubsystemBase):
         self._my_subscriptions = {}
         self.protected_topics = ProtectedPubSubTopics()
         self._subscriptionloops = []
+        self._publish_address = publish_address
+        self._subscribe_address = subscribe_address
         self._pubsocket = None
         self._subsocket = None
 
@@ -320,7 +330,7 @@ class PubSub(SubsystemBase):
     @dualmethod
     @spawn
     def subscribe(self, peer, prefix, callback, bus=''):
-        '''Subscribe to topic and register callback.
+        """Subscribe to topic and register callback.
 
         Subscribes to topics beginning with prefix. If callback is
         supplied, it should be a function taking four arguments,
@@ -329,8 +339,12 @@ class PubSub(SubsystemBase):
         publishing peer, topic is the full message topic, headers is a
         case-insensitive dictionary (mapping) of message headers, and
         message is a possibly empty list of message parts.
-        '''
+        """
+
         _log.debug("Subscribing to prefix {}".format(prefix))
+        if not self._subscribe_address:
+            raise SubsriptionError('Invalid subscriber address')
+
         greenlet = gevent.spawn(self._subscribeloop, prefix, callback)
         #self.add_subscription(peer, prefix, callback, bus)
         self._subscriptionloops.append(greenlet)
@@ -338,14 +352,14 @@ class PubSub(SubsystemBase):
 
     def _subscribeloop(self, prefix, callback):
         if prefix == '':
-            _log.info('Subscribing to entire message bus')
+            _log.info('subscribing to entire message bus')
         else:
-            _log.info('Subscribing to prefix {}'.format(prefix))
+            _log.info('subscribing to prefix {}'.format(prefix))
 
         if not self._subsocket:
-            uri = "ipc://@/home/vdev/run/publish"
-            _log.debug("Subscribing to socket: {}"
-                       .format(uri))
+            uri = self._subscribe_address
+            _log.debug("{} subscribing to socket: {}"
+                       .format(type(self), uri))
             context = self.core().context
             port = "5560"
             # Socket to talk to server
@@ -435,10 +449,15 @@ class PubSub(SubsystemBase):
         headers['min_compatible_version'] = min_compatible_version
         headers['max_compatible_version'] = max_compatible_version
 
+        if not self._publish_address:
+            _log.warn('Cannot publish invalid publish address!')
+            result = AsyncResult()
+            result.set('Done')
+            return result
+
         if not self._pubsocket:
-            port = "5559"
-            uri = "ipc://@/home/vdev/.volttron/run/subscribe"
-            _log.debug('Publishing to socket: {}'.format(uri))
+            uri = self._publish_address
+            _log.debug('{} publishing to socket: {}'.format(type(self), uri))
             context = self.core().context
             self._pubsocket = context.socket(zmq.PUB)
             # note that this is going to publish to the subscribe socket
