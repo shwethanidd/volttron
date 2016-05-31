@@ -61,8 +61,8 @@ class PubSubService(Agent):
     def __init__(self, protected_topics_file, publish_address, subscribe_address, *args, **kwargs):
         super(PubSubService, self).__init__(*args, **kwargs)
         self._protected_topics_file = os.path.abspath(protected_topics_file)
-        self.pub_addr = publish_address
-        self.sub_addr = subscribe_address
+        self._publish_address = publish_address
+        self._subscribe_address = subscribe_address
         
     @Core.receiver('onstart')
     def setup_agent(self, sender, **kwargs):
@@ -80,15 +80,15 @@ class PubSubService(Agent):
             # Socket facing clients
             frontend = context.socket(zmq.SUB)
 
-            frontend.bind(self.sub_addr)
+            frontend.bind(self._subscribe_address)
             frontend.setsockopt(zmq.SUBSCRIBE, "")
             _log.debug("Publishes should connect to: {}"
-                       .format(self.sub_addr))
+                       .format(self._subscribe_address))
             # Socket facing services
             backend = context.socket(zmq.PUB)
-            backend.bind(self.pub_addr)
+            backend.bind(self._publish_address)
             _log.debug("Subscribers should connect to: {}"
-                       .format(self.pub_addr))
+                       .format(self._publish_address))
             zmq.device(zmq.FORWARDER, frontend, backend)
         except Exception, e:
             print e

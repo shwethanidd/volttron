@@ -342,7 +342,7 @@ class PubSub(SubsystemBase):
         """
 
         _log.debug("Subscribing to prefix {}".format(prefix))
-        if not self._subscribe_address:
+        if not self._publish_address:
             raise SubsriptionError('Invalid subscriber address')
 
         greenlet = gevent.spawn(self._subscribeloop, prefix, callback)
@@ -357,7 +357,7 @@ class PubSub(SubsystemBase):
             _log.info('subscribing to prefix {}'.format(prefix))
 
         if not self._subsocket:
-            uri = self._subscribe_address
+            uri = self._publish_address
             _log.debug("{} subscribing to socket: {}"
                        .format(type(self), uri))
             context = self.core().context
@@ -456,7 +456,7 @@ class PubSub(SubsystemBase):
             return result
 
         if not self._pubsocket:
-            uri = self._publish_address
+            uri = self._subscribe_address
             _log.debug('{} publishing to socket: {}'.format(type(self), uri))
             context = self.core().context
             self._pubsocket = context.socket(zmq.PUB)
