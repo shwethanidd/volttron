@@ -66,12 +66,12 @@ from .subsystems import *
 class Agent(object):
     class Subsystems(object):
         def __init__(self, owner, core, heartbeat_autostart,
-                     heartbeat_period):
+                     heartbeat_period, publish_address, subscribe_address):
             self.peerlist = PeerList(core)
             self.ping = Ping(core)
             self.rpc = RPC(core, owner)
             self.hello = Hello(core)
-            self.pubsub = PubSub(core, self.rpc, self.peerlist, owner)
+            self.pubsub = PubSub(core, self.rpc, self.peerlist, owner, publish_address, subscribe_address)
             self.channel = Channel(core)
             self.health = Health(owner, core, self.rpc)
             self.heartbeat = Heartbeat(owner, core, self.rpc, self.pubsub,
@@ -79,12 +79,14 @@ class Agent(object):
 
     def __init__(self, identity=None, address=None, context=None,
                  publickey=None, secretkey=None, serverkey=None,
-                 heartbeat_autostart=False, heartbeat_period=60):
+                 heartbeat_autostart=False, heartbeat_period=60,
+                 publish_address=None, subscribe_address=None):
         self.core = Core(self, identity=identity, address=address,
                          context=context, publickey=publickey,
                          secretkey=secretkey, serverkey=serverkey)
         self.vip = Agent.Subsystems(self, self.core, heartbeat_autostart,
-                                    heartbeat_period)
+                                    heartbeat_period, publish_address,
+                                    subscribe_address)
         self.core.setup()
 
 
