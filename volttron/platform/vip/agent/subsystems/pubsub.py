@@ -64,6 +64,9 @@ import random
 import re
 import weakref
 
+import gevent
+from gevent.event import AsyncResult
+
 from zmq import green as zmq
 from zmq import SNDMORE
 from zmq.utils import jsonapi
@@ -91,15 +94,23 @@ def decode_peer(peer):
         return peer[:1] + b64decode(peer[1:])
     return peer
 
+class SubsriptionError(StandardError):
+    pass
 
 class PubSub(SubsystemBase):
-    def __init__(self, core, rpc_subsys, peerlist_subsys, owner):
+    def __init__(self, core, rpc_subsys, peerlist_subsys, owner, publish_address, subscribe_address):
         self.core = weakref.ref(core)
         self.rpc = weakref.ref(rpc_subsys)
         self.peerlist = weakref.ref(peerlist_subsys)
         self._peer_subscriptions = {}
         self._my_subscriptions = {}
         self.protected_topics = ProtectedPubSubTopics()
+        _log.debug("Sub addr: {}"
+                   .format(subscribe_address))
+        _log.debug("Pub addr: {}"
+               .format(publish_address))
+        #self.pubsub_external = PubSubExt(publish_address, subscribe_address)
+        self.pubsub_external = PubSubExt('tcp://0.0.0.1:5559', 'tcp://0.0.0.1:5560', self.core().context)
 
         def setup(sender, **kwargs):
             # pylint: disable=unused-argument
@@ -312,7 +323,15 @@ class PubSub(SubsystemBase):
         message is a possibly empty list of message parts.
         '''
         self.add_subscription(peer, prefix, callback, bus)
-        return self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
+        #test = lambda t: t.startswith('devices')
+        #if prefix[:len('devices')] == 'devices':
+        #    pass
+        #if test(prefix):
+        #if prefix[:len('devices')] == 'devices':
+        if self.pubsub_external.is_external(prefix):
+            self.pubsub_external.subscribe(prefix, callback)
+        else:
+            return self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
     
     @subscribe.classmethod
     def subscribe(cls, peer, prefix, bus=''):
@@ -391,7 +410,12 @@ class PubSub(SubsystemBase):
 
         if peer is None:
             peer = 'pubsub'
-        return self.rpc().call(
+        #test = lambda t: t.startswith('devices')
+        #if test(topic):
+        if self.pubsub_external.is_external(topic):
+            self.pubsub_external.publish(topic, headers, message)
+        else:
+            return self.rpc().call(
             peer, 'pubsub.publish', topic=topic, headers=headers,
             message=message, bus=bus)
 
@@ -429,3 +453,110 @@ class ProtectedPubSubTopics(object):
             if regex.match(topic):
                 return capabilities
         return None
+
+
+class PubSubExt(object):
+    def __init__(self, publish_address, subscribe_address, context):
+        self._subscriptionloops = []
+        self._publish_address = publish_address
+        self._subscribe_address = subscribe_address
+        self._pubsocket = None
+        self._subsocket = None
+        self._context = context
+        _log.debug("PubSubExt to: {}"
+               .format(self._publish_address))
+
+    def subscribe(self, prefix, callback):
+        """Subscribe to topic and register callback.
+
+        Subscribes to topics beginning with prefix. If callback is
+        supplied, it should be a function taking four arguments,
+        callback(peer, sender, bus, topic, headers, message), where peer
+        is the ZMQ identity of the bus owner sender is identity of the
+        publishing peer, topic is the full message topic, headers is a
+        case-insensitive dictionary (mapping) of message headers, and
+        message is a possibly empty list of message parts.
+        """
+        _log.debug("XXX Publishes should connect to: {}"
+                   .format(self._subscribe_address))
+        _log.debug("XXX Subscribers should connect to: {}"
+                   .format(self._publish_address))
+        _log.debug("Subscribing to prefix {}".format(prefix))
+        if not self._publish_address:
+            raise SubsriptionError('Invalid subscriber address')
+
+        greenlet = gevent.spawn(self._subscribeloop, prefix, callback)
+        #self.add_subscription(peer, prefix, callback, greenlet, bus)
+        self._subscriptionloops.append(greenlet)
+        return greenlet # self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
+
+    def _subscribeloop(self, prefix, callback):
+        if prefix == '':
+            _log.info('subscribing to entire message bus')
+        else:
+            _log.info('subscribing to prefix {}'.format(prefix))
+
+        if not self._subsocket:
+            uri = self._publish_address
+            _log.debug("{} subscribing to socket: {}"
+                       .format(type(self), uri))
+            #context = self.core().context
+            port = "5560"
+            # Socket to talk to server
+            socket = self._context.socket(zmq.SUB)
+            # Connect to the publish socket because of the device middle ware
+            # http://learning-0mq-with-pyzmq.readthedocs.io/en/latest/pyzmq/devices/forwarder.html
+            socket.connect(uri)
+
+        _log.debug("Subscribing to prefix: {}".format(prefix))
+        socket.setsockopt(zmq.SUBSCRIBE, str(prefix))
+        #socket.setsockopt_string(zmq.SUBSCRIBE, prefix)
+        while True:
+            data = socket.recv()
+
+            json0 = data.find('{')
+            d = jsonapi.loads(data[json0:])
+            _log.debug("Got sub message : {}".format(d['message']))
+            callback(self.core().identity, 'pubsub', '', d['topic'],
+                     d['headers'], d['message'])
+
+    def publish(self, topic, headers=None, message=None):
+        '''Publish a message to a given topic via a peer.
+
+        Publish headers and message to all subscribers of topic on bus
+        at peer. If peer is None, use self. Adds volttron platform version
+        compatibility information to header as variables
+        min_compatible_version and max_compatible version
+        '''
+
+        if headers is None:
+            headers = {}
+        headers['min_compatible_version'] = min_compatible_version
+        headers['max_compatible_version'] = max_compatible_version
+
+        if not self._publish_address:
+            _log.warn('Cannot publish invalid publish address!')
+            result = AsyncResult()
+            result.set('Done')
+            return result
+
+        if not self._pubsocket:
+            uri = self._subscribe_address
+            _log.debug('{} publishing to socket: {}'.format(type(self), uri))
+            context = self.core().context
+            self._pubsocket = context.socket(zmq.PUB)
+            # note that this is going to publish to the subscribe socket
+            # because we are using XPUB as a middleware.
+            # see http://learning-0mq-with-pyzmq.readthedocs.io/en/latest/pyzmq/devices/forwarder.html
+            self._pubsocket.connect(uri)
+
+        _log.debug("Publishing to topic: {}".format(topic))
+        json_msg = jsonapi.dumps(
+            dict(headers=headers, topic=topic, message=message)
+        )
+
+        frames = [zmq.Frame(json_msg)]
+        return gevent.spawn(self._pubsocket.send_multipart(frames, copy=False))
+
+    def is_external(self, prefix):
+        return prefix[:len('devices')] == 'devices'
