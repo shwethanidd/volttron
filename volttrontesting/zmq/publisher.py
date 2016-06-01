@@ -6,7 +6,8 @@ import time
 port = "5001"
 context = zmq.Context()
 socket = context.socket(zmq.PUB)
-addr = "tcp://127.0.0.1:%s" % port
+addr = "ipc://@/home/vdev/.volttron/run/subscribe"
+#addr = "tcp://127.0.0.1:%s" % port
 print('Addr: %s' % addr)
 socket.connect(addr)
 publisher_id = random.randrange(10000, 20000)

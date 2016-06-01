@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copied from https://raw.githubusercontent.com/zeromq/pyzmq/master/examples/monitoring/simple_monitor.py
+# Inspired from
+# https://raw.githubusercontent.com/zeromq/pyzmq/master/examples/monitoring/simple_monitor.py
 """Simple example demonstrating the use of the socket monitoring feature."""
 
 # This file is part of pyzmq.
@@ -9,8 +10,9 @@
 # software.
 from __future__ import print_function
 
-__author__ = 'Guido Goldstein'
+__author__ = ('Guido Goldstein', 'Craig Allwardt')
 
+import random
 import threading
 import time
 
@@ -34,6 +36,44 @@ for name in dir(zmq):
         EVENT_MAP[value] = name
 
 
+def do_publishing(pub_socket):
+    print('Starting publisher')
+    publisher_id = random.randrange(10000, 20000)
+    while True:
+        topic = random.randrange(1, 10)
+        messagedata = "server#%s" % publisher_id
+        print
+        "%s %s" % (topic, messagedata)
+        pub_socket.send("%d %s" % (topic, messagedata))
+        time.sleep(1)
+
+
+def do_subscribe(sub_socket):
+    print('Starting subscriber')
+    topicfilter = ""
+    sub_socket.setsockopt(zmq.SUBSCRIBE, topicfilter)
+    for update_nbr in range(10):
+        string = sub_socket.recv()
+        topic, messagedata = string.split()
+        print(topic, messagedata)
+
+
+def do_monitor(capture):
+    while True:
+        print("DATA CAPTURED: {}".format(capture.recv()))
+
+
+def do_proxy(frontend, backend, capture):
+    try:
+        zmq.proxy(frontend, backend, capture)
+    except Exception as e:
+        print(e)
+        print("bringing down zmq device")
+    finally:
+        frontend.close()
+        backend.close()
+
+
 def event_monitor(monitor):
     while monitor.poll():
         evt = recv_monitor_message(monitor)
@@ -47,67 +87,93 @@ def event_monitor(monitor):
 
 
 ctx = zmq.Context.instance()
-rep = ctx.socket(zmq.REP)
-req = ctx.socket(zmq.REQ)
 
-monitor = req.get_monitor_socket()
+subsocketuri = "ipc://@/tmp/subscribe"
+pubsocketuri = "ipc://@/tmp/publish"
+capturesocketuri = "ipc://@/tmp/capture"
 
-t = threading.Thread(target=event_monitor, args=(monitor,))
-t.start()
+backend = ctx.socket(zmq.PUB)
+backend.bind(pubsocketuri)
+backendthread = threading.Thread(target=do_publishing, args=(backend,))
+backendthread.daemon = True
+backendthread.start()
 
-line()
-print("bind req")
-req.bind("tcp://127.0.0.1:6666")
-req.bind("tcp://127.0.0.1:6667")
-time.sleep(1)
+frontend = ctx.socket(zmq.SUB)
+frontend.bind(subsocketuri)
+frontendthread = threading.Thread(target=do_subscribe, args=(frontend,))
+frontendthread.daemon = True
+frontendthread.start()
 
-line()
-print("connect rep")
-rep.connect("tcp://127.0.0.1:6667")
-time.sleep(0.2)
-rep.connect("tcp://127.0.0.1:6666")
-time.sleep(1)
+capture = ctx.socket(zmq.PUB)
+capture.bind(capturesocketuri)
+capturethread = threading.Thread(target=do_monitor, args=(capture,))
+capturethread.daemon = True
+capturethread.start()
 
-line()
-print("disconnect rep")
-rep.disconnect("tcp://127.0.0.1:6667")
-time.sleep(1)
-rep.disconnect("tcp://127.0.0.1:6666")
-time.sleep(1)
+do_proxy(frontend, backend, capture)
 
-line()
-print("close rep")
-rep.close()
-time.sleep(1)
+#rep = ctx.socket(zmq.REP)
+#req = ctx.socket(zmq.REQ)
 
-line()
-print("disabling event monitor")
-req.disable_monitor()
-
-line()
-print("event monitor thread should now terminate")
-
-# Create a new socket to connect to listener, no more
-# events should be observed.
-rep = ctx.socket(zmq.REP)
-
-line()
-print("connect rep")
-rep.connect("tcp://127.0.0.1:6667")
-time.sleep(0.2)
-
-line()
-print("disconnect rep")
-rep.disconnect("tcp://127.0.0.1:6667")
-time.sleep(0.2)
-
-line()
-print("close rep")
-rep.close()
-
-line()
-print("close req")
-req.close()
-
-print("END")
-ctx.term()
+# monitor = req.get_monitor_socket()
+#
+# t = threading.Thread(target=event_monitor, args=(monitor,))
+# t.daemon = True
+# t.start()
+#
+# line()
+# print("bind req")
+# req.bind("tcp://127.0.0.1:6666")
+# req.bind("tcp://127.0.0.1:6667")
+# time.sleep(1)
+#
+# line()
+# print("connect rep")
+# rep.connect("tcp://127.0.0.1:6667")
+# time.sleep(0.2)
+# rep.connect("tcp://127.0.0.1:6666")
+# time.sleep(1)
+#
+# line()
+# print("disconnect rep")
+# rep.disconnect("tcp://127.0.0.1:6667")
+# time.sleep(1)
+# rep.disconnect("tcp://127.0.0.1:6666")
+# time.sleep(1)
+#
+# line()
+# print("close rep")
+# rep.close()
+# time.sleep(1)
+#
+# line()
+# print("disabling event monitor")
+# req.disable_monitor()
+#
+# line()
+# print("event monitor thread should now terminate")
+#
+# # Create a new socket to connect to listener, no more
+# # events should be observed.
+# rep = ctx.socket(zmq.REP)
+#
+# line()
+# print("connect rep")
+# rep.connect("tcp://127.0.0.1:6667")
+# time.sleep(0.2)
+#
+# line()
+# print("disconnect rep")
+# rep.disconnect("tcp://127.0.0.1:6667")
+# time.sleep(0.2)
+#
+# line()
+# print("close rep")
+# rep.close()
+#
+# line()
+# print("close req")
+# req.close()
+#
+# print("END")
+# ctx.term()

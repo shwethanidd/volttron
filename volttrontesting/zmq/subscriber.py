@@ -6,7 +6,8 @@ port = "5000"
 context = zmq.Context()
 socket = context.socket(zmq.SUB)
 print "Collecting updates from server..."
-addr = "tcp://127.0.0.1:%s" % port
+addr = "ipc://@/home/vdev/.volttron/run/publish"
+#addr = "tcp://127.0.0.1:%s" % port
 print(addr)
 socket.connect(addr)
 topicfilter = ""
