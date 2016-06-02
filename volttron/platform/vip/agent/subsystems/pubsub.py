@@ -105,11 +105,6 @@ class PubSub(SubsystemBase):
         self._peer_subscriptions = {}
         self._my_subscriptions = {}
         self.protected_topics = ProtectedPubSubTopics()
-        _log.debug("Sub addr: {}"
-                   .format(subscribe_address))
-        _log.debug("Pub addr: {}"
-               .format(publish_address))
-        #self.pubsub_external = PubSubExt(publish_address, subscribe_address)
         self.pubsub_external = PubSubExt('tcp://0.0.0.1:5559', 'tcp://0.0.0.1:5560', self.core().context)
 
         def setup(sender, **kwargs):
@@ -329,7 +324,7 @@ class PubSub(SubsystemBase):
         #if test(prefix):
         #if prefix[:len('devices')] == 'devices':
         if self.pubsub_external.is_external(prefix):
-            self.pubsub_external.subscribe(prefix, callback)
+            return self.pubsub_external.subscribe(prefix, callback)
         else:
             return self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
     
@@ -413,7 +408,7 @@ class PubSub(SubsystemBase):
         #test = lambda t: t.startswith('devices')
         #if test(topic):
         if self.pubsub_external.is_external(topic):
-            self.pubsub_external.publish(topic, headers, message)
+           return self.pubsub_external.publish(topic, headers, message)
         else:
             return self.rpc().call(
             peer, 'pubsub.publish', topic=topic, headers=headers,
@@ -463,9 +458,7 @@ class PubSubExt(object):
         self._pubsocket = None
         self._subsocket = None
         self._context = context
-        _log.debug("PubSubExt to: {}"
-               .format(self._publish_address))
-
+        
     def subscribe(self, prefix, callback):
         """Subscribe to topic and register callback.
 
@@ -477,9 +470,9 @@ class PubSubExt(object):
         case-insensitive dictionary (mapping) of message headers, and
         message is a possibly empty list of message parts.
         """
-        _log.debug("XXX Publishes should connect to: {}"
+        _log.debug("Publishes should connect to: {}"
                    .format(self._subscribe_address))
-        _log.debug("XXX Subscribers should connect to: {}"
+        _log.debug("Subscribers should connect to: {}"
                    .format(self._publish_address))
         _log.debug("Subscribing to prefix {}".format(prefix))
         if not self._publish_address:
@@ -510,10 +503,9 @@ class PubSubExt(object):
 
         _log.debug("Subscribing to prefix: {}".format(prefix))
         socket.setsockopt(zmq.SUBSCRIBE, str(prefix))
-        #socket.setsockopt_string(zmq.SUBSCRIBE, prefix)
+        
         while True:
             data = socket.recv()
-
             json0 = data.find('{')
             d = jsonapi.loads(data[json0:])
             _log.debug("Got sub message : {}".format(d['message']))
@@ -543,7 +535,7 @@ class PubSubExt(object):
         if not self._pubsocket:
             uri = self._subscribe_address
             _log.debug('{} publishing to socket: {}'.format(type(self), uri))
-            context = self.core().context
+            context = self._context
             self._pubsocket = context.socket(zmq.PUB)
             # note that this is going to publish to the subscribe socket
             # because we are using XPUB as a middleware.
