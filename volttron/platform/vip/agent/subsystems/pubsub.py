@@ -535,8 +535,9 @@ class PubSubExt(object):
         if not self._pubsocket:
             uri = self._subscribe_address
             _log.debug('{} publishing to socket: {}'.format(type(self), uri))
-            context = self._context
-            self._pubsocket = context.socket(zmq.PUB)
+
+            self._pubsocket = self._context.socket(zmq.PUB)
+
             # note that this is going to publish to the subscribe socket
             # because we are using XPUB as a middleware.
             # see http://learning-0mq-with-pyzmq.readthedocs.io/en/latest/pyzmq/devices/forwarder.html
