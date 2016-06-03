@@ -73,6 +73,8 @@ import uuid
 import gevent
 from gevent.fileobject import FileObject
 import zmq
+from volttron.platform.pubsubhub import PubSubHubService
+#import zmq.green as zmq
 from zmq import green
 # Create a context common to the green and non-green zmq modules.
 green.Context._instance = green.Context.shadow(
@@ -525,6 +527,9 @@ def start_volttron_process(opts):
                                              'protected_topics.json')
         _log.debug('protected topics file %s', protected_topics_file)
 
+        backenduri = os.environ.get('VOLTTRON_PUB_ADDR', 'tcp://127.0.0.1:5000')
+        frontenduri = os.environ.get('VOLTTRON_SUB_ADDR', 'tcp://127.0.0.1:5001')
+
         # Launch additional services and wait for them to start before
         # auto-starting agents
         services = [
@@ -533,12 +538,14 @@ def start_volttron_process(opts):
                 heartbeat_autostart=True),
             PubSubService(
                 protected_topics_file, publish_address=opts.publish_address,
-                subscribe_address=opts.subscribe_address, address=address, identity='pubsub',
+                subscribe_address=opts.subscribe_address, address=address,
+                identity='pubsub',
                 heartbeat_autostart=True),
-            #CompatPubSub(
-            #    address=address, identity='pubsub.compat',
-            #    publish_address=opts.publish_address,
-            #    subscribe_address=opts.subscribe_address),
+            PubSubHubService(
+                protected_topics_file, backend=backenduri,
+                frontend=frontenduri, address=address,
+                identity='pubsubhub',
+                heartbeat_autostart=True),
             MasterWebService(
                 serverkey=publickey, identity=MASTER_WEB,
                 address=address,

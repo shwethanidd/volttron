@@ -29,82 +29,14 @@ from .vip.agent.subsystems.pubsub import ProtectedPubSubTopics
 _log = logging.getLogger(__name__)
 
 
-# Device code
-#
-
-#
-# port = "5559"
-# context = zmq.Context()
-# socket = context.socket(zmq.PUB)
-# socket.connect("tcp://localhost:%s" % port)
-# publisher_id = random.randrange(0,9999)
-# while True:
-#     topic = random.randrange(1,10)
-#     messagedata = "server#%s" % publisher_id
-#     print "%s %s" % (topic, messagedata)
-#     socket.send("%d %s" % (topic, messagedata))
-#     time.sleep(0.1)
-
-#
-# port = "5560"
-# # Socket to talk to server
-# context = zmq.Context()
-# socket = context.socket(zmq.SUB)
-# print "Collecting updates from server..."
-# socket.connect ("tcp://localhost:%s" % port)
-# topicfilter = "1"
-# socket.setsockopt(zmq.SUBSCRIBE, topicfilter)
-# for update_nbr in range(10):
-#     string = socket.recv()
-#     topic, messagedata = string.split()
-#     print topic, messagedata
-
-
-class Monitor(threading.Thread):
-    '''Monitor thread to log connections.'''
-
-    def __init__(self, sock):
-        super(Monitor, self).__init__()
-        self.daemon = True
-        self.sock = sock
-        EVENT_MAP = {}
-        _log.debug("Event names:")
-        for name in dir(zmq):
-            if name.startswith('EVENT_') and name != 'EVENT_ALL':
-                value = getattr(zmq, name)
-                _log.debug("%21s : %4i" % (name, value))
-                EVENT_MAP[value] = name
-                # events = {value: name[6:] for name, value in vars(zmq).iteritems()
-                #      if name.startswith('EVENT_') and name != 'EVENT_ALL'}
-
-    # def event_monitor(monitor):
-    #    while monitor.poll():
-    #        evt = recv_monitor_message(monitor)
-    #        evt.update({'description': EVENT_MAP[evt['event']]})
-    #        print("Event: {}".format(evt))
-    #        if evt['event'] == zmq.EVENT_MONITOR_STOPPED:
-    #            break
-    #    monitor.close()
-
-    def run(self):
-        sock = self.sock
-        while True:
-            evt = recv_monitor_message(sock)
-            evt.update({'description': EVENT_MAP[evt['event']]})
-            #    _log.debug("Event: {}".format(evt))
-            #   event, endpoint = sock.recv_multipart()
-            _log.debug("Event: {}".format(evt))
-            # event_id, event_value = struct.unpack('=HI', event)
-            # event_name = events[event_id]
-            # log.info('%s %s %s', event_name, event_value, endpoint)
-
-
-class PubSubService(Agent):
-    def __init__(self, protected_topics_file, publish_address, subscribe_address, *args, **kwargs):
-        super(PubSubService, self).__init__(*args, **kwargs)
+class PubSubHubService(Agent):
+    def __init__(self, protected_topics_file, backend, frontend, *args, **kwargs):
+        super(PubSubHubService, self).__init__(*args, **kwargs)
         self._protected_topics_file = os.path.abspath(protected_topics_file)
-        self._publish_address = publish_address
-        self._subscribe_address = subscribe_address
+        self._backend_address = backend
+        self._frontend_address = frontend
+        _log.debug('BACKEND ADDRESS: {}'.format(self._backend_address))
+        _log.debug('FRONTEND ADDRESS: {}'.format(self._frontend_address))
 
     @Core.receiver('onstart')
     def setup_agent(self, sender, **kwargs):
@@ -112,27 +44,26 @@ class PubSubService(Agent):
         self.core.spawn(utils.watch_file, self._protected_topics_file,
                         self._read_protected_topics_file)
         self.vip.pubsub.add_bus('')
-        self._forwarder_greenlet = gevent.spawn(self._start_forwarder)
+        self._pubhub = gevent.spawn(self._start_pubhub)
 
     # ZMQ device not a volttron forwarder.
-    def _start_forwarder(self):
+    def _start_pubhub(self):
 
         try:
             context = zmq.Context.instance()
             # Socket facing clients
             frontend = context.socket(zmq.SUB)
 
-            frontend.bind(self._subscribe_address)
+            frontend.bind(self._frontend_address)
             frontend.setsockopt(zmq.SUBSCRIBE, "")
             _log.debug("Publishes should connect to: {}"
-                       .format(self._subscribe_address))
+                       .format(self._frontend_address))
             # Socket facing services
             backend = context.socket(zmq.PUB)
-            backend.bind(self._publish_address)
+            backend.bind(self._backend_address)
             _log.debug("Subscribers should connect to: {}"
-                       .format(self._publish_address))
+                       .format(self._backend_address))
 
-            Monitor(backend.get_monitor_socket()).start()
             zmq.device(zmq.FORWARDER, frontend, backend)
 
         except Exception, e:

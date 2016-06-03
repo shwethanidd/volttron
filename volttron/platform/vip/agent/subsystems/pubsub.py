@@ -60,6 +60,7 @@ from __future__ import absolute_import
 from base64 import b64encode, b64decode
 import inspect
 import logging
+import os
 import random
 import re
 import weakref
@@ -105,7 +106,11 @@ class PubSub(SubsystemBase):
         self._peer_subscriptions = {}
         self._my_subscriptions = {}
         self.protected_topics = ProtectedPubSubTopics()
-        self.pubsub_external = PubSubExt('tcp://0.0.0.1:5559', 'tcp://0.0.0.1:5560', self.core().context)
+        backenduri = os.environ.get('AGENT_PUB_ADDR', 'tcp://127.0.0.1:5000')
+        frontenduri = os.environ.get('AGENT_SUB_ADDR', 'tcp://127.0.0.1:5001')
+        self.pubsub_external = PubSubExt(backenduri,
+                                         frontenduri,
+                                         self.core().context)
 
         def setup(sender, **kwargs):
             # pylint: disable=unused-argument
