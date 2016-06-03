@@ -84,6 +84,15 @@ class PubSubHubService(Agent):
         self._sockets = {}
         self.vip.rpc.export(self.add_hub, 'add_hub')
         self.vip.rpc.export(self.get_hubs, 'get_hubs')
+        self._extsubscriptionloops = []
+
+        #if os.environ.get('VOLTTRON_PUB_ADDR'):
+        #    _log.debug("CONNECTING TO ORIGINAL")
+        #    self.add_hub_addresses('tcp://127.0.0.1:5001', 'tcp://127.0.0.1:5000')
+        #else:
+        #    _log.debug("CONNECTING TO OTHER")
+        #   self.add_hub_addresses('tcp://127.0.0.2:5001', 'tcp://127.0.0.2:5000')
+
 
     @Core.receiver('onstart')
     def setup_agent(self, sender, **kwargs):
@@ -92,6 +101,13 @@ class PubSubHubService(Agent):
                         self._read_protected_topics_file)
         self.vip.pubsub.add_bus('')
         self._pubhub = gevent.spawn(self._start_pubhub)
+
+        _log.debug('BACKEND ADDRESS: {}'.format(self._backend_address))
+        _log.debug('FRONTEND ADDRESS: {}'.format(self._frontend_address))
+        if self._backend_address == 'tcp://127.0.0.1:5000':
+            self.add_hub('tcp://127.0.0.2:5000', 'tcp://127.0.0.2:5001')
+        else:
+            self.add_hub('tcp://127.0.0.1:5000', 'tcp://127.0.0.1:5001')
 
     def get_hubs(self):
         """ RPC method to retireve a list of tuples for connected hubs.
@@ -108,6 +124,7 @@ class PubSubHubService(Agent):
         :param subscribe_address:
         :return:
         """
+
         key = (publish_address, subscribe_address)
         if key in self._sockets.keys() and self._sockets[key]:
             _log.debug('Socket already connected to {}'
@@ -116,12 +133,20 @@ class PubSubHubService(Agent):
             _log.debug('Connecting to hub {}.'.format(key))
             context = zmq.Context.instance()
             backend = context.socket(zmq.PUB)
-            backend.connect(publish_address)
-
+            #backend.connect(publish_address)
+            backend.connect(subscribe_address)
+            _log.debug('Connecting to external subscribe address {}.'.format(subscribe_address))
             frontend = context.socket(zmq.SUB)
-            frontend.connect(subscribe_address)
-
+            #frontend.connect(subscribe_address)
+            frontend.connect(publish_address)
+            _log.debug('Connecting to external publish address  {}.'.format(publish_address))
+            frontend.setsockopt(zmq.SUBSCRIBE, str(""))
             self._sockets[key] = (backend, frontend)
+
+            #_log.debug('Connecting to hub {}.'.format(key))
+            greenlet = gevent.spawn(self._extsubscribeloop, context, frontend)
+            self._extsubscriptionloops.append(greenlet)
+            return self._backend_address, self._frontend_address
 
     # ZMQ device not a volttron forwarder.
     def _start_pubhub(self):
@@ -183,3 +208,26 @@ class PubSubHubService(Agent):
                 self.vip.pubsub.protected_topics = topics
                 _log.info('protected-topics file %s loaded',
                           self._protected_topics_file)
+
+    #Loop to listen external publishers
+    def _extsubscribeloop(self, context, subsocket):
+        _log.debug("In _extsubscribeloop ")
+        # note that this is going to publish to the subscribe socket
+        # connecting to internal hub
+        pubsocket = context.socket(zmq.PUB)
+
+        # note that this is going to publish to the subscribe socket
+        # connecting to internal hub
+        # Trial 2
+
+        #_log.debug('**********Connecting to internal hub to publish {}.'
+        #           .format(self._frontend_address))
+        pubsocket.connect(self._frontend_address)
+
+        while True:
+            data = subsocket.recv()
+            _log.debug("Recv external {}".format(data))
+            #json0 = data.find('{')
+            #d = jsonapi.loads(data[json0:])
+            #_log.debug("Got sub message from external: {}".format(d['message']))
+            #pubsocket.send_multipart(data, copy=False)

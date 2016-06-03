@@ -106,8 +106,8 @@ class PubSub(SubsystemBase):
         self._peer_subscriptions = {}
         self._my_subscriptions = {}
         self.protected_topics = ProtectedPubSubTopics()
-        backenduri = os.environ.get('AGENT_PUB_ADDR', 'tcp://127.0.0.1:5000')
-        frontenduri = os.environ.get('AGENT_SUB_ADDR', 'tcp://127.0.0.1:5001')
+        backenduri = os.environ.get('MY_AGENT_PUB_ADDR', 'tcp://127.0.0.1:5000')
+        frontenduri = os.environ.get('MY_AGENT_SUB_ADDR', 'tcp://127.0.0.1:5001')
         self.pubsub_external = PubSubExt(backenduri,
                                          frontenduri,
                                          self.core().context)
@@ -120,6 +120,7 @@ class PubSub(SubsystemBase):
             rpc_subsys.export(self._peer_list, 'pubsub.list')
             rpc_subsys.export(self._peer_publish, 'pubsub.publish')
             rpc_subsys.export(self._peer_push, 'pubsub.push')
+
             core.onconnected.connect(self._connected)
             core.onviperror.connect(self._viperror)
             peerlist_subsys.onadd.connect(self._peer_add)
@@ -475,10 +476,6 @@ class PubSubExt(object):
         case-insensitive dictionary (mapping) of message headers, and
         message is a possibly empty list of message parts.
         """
-        _log.debug("Publishes should connect to: {}"
-                   .format(self._subscribe_address))
-        _log.debug("Subscribers should connect to: {}"
-                   .format(self._publish_address))
         _log.debug("Subscribing to prefix {}".format(prefix))
         if not self._publish_address:
             raise SubsriptionError('Invalid subscriber address')
@@ -486,13 +483,23 @@ class PubSubExt(object):
         greenlet = gevent.spawn(self._subscribeloop, prefix, callback)
         #self.add_subscription(peer, prefix, callback, greenlet, bus)
         self._subscriptionloops.append(greenlet)
-        return greenlet # self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
+        #return greenlet # self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
+        return self.rpc().call('pubsubhub', 'external_subscribe', prefix, callback)
 
     def _subscribeloop(self, prefix, callback):
         if prefix == '':
             _log.info('subscribing to entire message bus')
         else:
             _log.info('subscribing to prefix {}'.format(prefix))
+
+        #socketkeys = self.rpc().call(peer, 'get_hubs')
+        #key = (extpublish_address, extsubscribe_address)
+        #if key in socketkeys:
+        #    _log.debug('Socket already connected to {}'
+        #              .format(key))
+        #    (backend, frontend) = socketkeys[key]
+        #    _log.debug("Subscribing to prefix: {}".format(prefix))
+        #    frontend.setsockopt(zmq.SUBSCRIBE, str(prefix))
 
         if not self._subsocket:
             uri = self._publish_address
@@ -513,7 +520,7 @@ class PubSubExt(object):
             data = socket.recv()
             json0 = data.find('{')
             d = jsonapi.loads(data[json0:])
-            _log.debug("Got sub message : {}".format(d['message']))
+            _log.debug("PUBSUB Got sub message : {}".format(d['message']))
             callback(self.core().identity, 'pubsub', '', d['topic'],
                      d['headers'], d['message'])
 
@@ -547,7 +554,7 @@ class PubSubExt(object):
             # because we are using XPUB as a middleware.
             # see http://learning-0mq-with-pyzmq.readthedocs.io/en/latest/pyzmq/devices/forwarder.html
             self._pubsocket.connect(uri)
-
+        _log.debug("Publishing to address: {}".format(self._subscribe_address))
         _log.debug("Publishing to topic: {}".format(topic))
         json_msg = jsonapi.dumps(
             dict(headers=headers, topic=topic, message=message)
