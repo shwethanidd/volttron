@@ -716,6 +716,9 @@ def main(argv=sys.argv):
         #    '--no-mobility', action='store_false', dest='mobility',
         #    help=argparse.SUPPRESS)
 
+    vip_address = os.environ.get('VOLTTRON_VIP_ADDR', [])
+    if not isinstance(vip_address, list):
+        vip_address=[vip_address]
     ipc = 'ipc://%s$VOLTTRON_HOME/run/' % (
         '@' if sys.platform.startswith('linux') else '')
     parser.set_defaults(
@@ -727,7 +730,7 @@ def main(argv=sys.argv):
         autostart=True,
         publish_address=ipc + 'publish',
         subscribe_address=ipc + 'subscribe',
-        vip_address=[],
+        vip_address=vip_address,
         vip_local_address=ipc + 'vip.socket',
         # This is used to start the web server from the web module.
         bind_web_address=None,
