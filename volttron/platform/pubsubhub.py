@@ -37,6 +37,12 @@ class PubSubHubService(Agent):
         self._frontend_address = frontend
         _log.debug('BACKEND ADDRESS: {}'.format(self._backend_address))
         _log.debug('FRONTEND ADDRESS: {}'.format(self._frontend_address))
+        if os.environ.get('VOLTTRON_PUB_ADDR'):
+            _log.debug("CONNECTING TO ORIGINAL")
+            self.add_hub_addresses('tcp://127.0.0.1:5001', 'tcp://127.0.0.1:5000')
+        else:
+            _log.debug("CONNECTING TO OTHER")
+            self.add_hub_addresses('tcp://127.0.0.2:5001', 'tcp://127.0.0.2:5000')
 
     @Core.receiver('onstart')
     def setup_agent(self, sender, **kwargs):
