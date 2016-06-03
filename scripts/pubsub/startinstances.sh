@@ -38,3 +38,4 @@ prefix="$prefix VOLTTRON_PUB_ADDR=$volttronpub2 "
 prefix="$prefix VOLTTRON_SUB_ADDR=$volttronsub2"
 
 sh -c "$prefix volttron -vv -l $vhome2/volttron.log&"
+
