@@ -226,8 +226,15 @@ class PubSubHubService(Agent):
 
         while True:
             data = subsocket.recv()
-            _log.debug("Recv external {}".format(data))
-            #json0 = data.find('{')
-            #d = jsonapi.loads(data[json0:])
+            #_log.debug("Recv external {}".format(data))
+            _log.debug("Recv external")
+
+            json0 = data.find('{')
+            d = jsonapi.loads(data[json0:])
+            peer = 'pubsub'
+            topic = d['topic']
+            headers = d['headers']
+            message = d['message']
             #_log.debug("Got sub message from external: {}".format(d['message']))
+            self.vip.rpc.call(peer,'get_sub_external_message','devices', headers, message).get(timeout=1)
             #pubsocket.send_multipart(data, copy=False)
