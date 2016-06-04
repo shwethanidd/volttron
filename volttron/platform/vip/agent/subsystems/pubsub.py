@@ -107,8 +107,9 @@ class PubSub(SubsystemBase):
         self._my_subscriptions = {}
         self._my_ext_subscriptions = {}
         self.protected_topics = ProtectedPubSubTopics()
-        backenduri = os.environ.get('MY_AGENT_PUB_ADDR', 'tcp://127.0.0.1:5000')
-        frontenduri = os.environ.get('MY_AGENT_SUB_ADDR', 'tcp://127.0.0.1:5001')
+        backenduri = os.environ.get('VOLTTRON_PUB_ADDR', 'tcp://127.0.0.1:5000')
+        frontenduri = os.environ.get('VOLTTRON_SUB_ADDR', 'tcp://127.0.0.1:5001')
+
         self.pubsub_external = PubSubExt(backenduri,
                                          frontenduri,
                                          self.core().context)
@@ -483,6 +484,12 @@ class PubSubExt(object):
         self._pubsocket = None
         self._subsocket = None
         self._context = context
+        _log.debug("Publishes should connect to: {}"
+                   .format(self._subscribe_address))
+
+
+        _log.debug("Subscribers should connect to: {}"
+                   .format(self._publish_address))
         
     def subscribe(self, prefix, callback):
         """Subscribe to topic and register callback.

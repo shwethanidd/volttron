@@ -207,6 +207,10 @@ def vip_main(agent_class, **kwargs):
 
         agent_uuid = os.environ.get('AGENT_UUID')
         config = os.environ.get('AGENT_CONFIG')
+
+        #print(os.environ['AGENT_PUB_ADDR'])        #os.environ['AGENT_PUB_ADDR'] = 'tcp://127.0.0.2:5000'
+        #os.environ['AGENT_SUB_ADDR'] = 'tcp://127.0.0.2:5001'
+        print(os.environ)
         agent = agent_class(config_path=config, identity=agent_uuid, **kwargs)
         try:
             run = agent.run
