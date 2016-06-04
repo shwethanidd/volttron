@@ -105,6 +105,7 @@ class PubSub(SubsystemBase):
         self.peerlist = weakref.ref(peerlist_subsys)
         self._peer_subscriptions = {}
         self._my_subscriptions = {}
+        self._my_ext_subscriptions = {}
         self.protected_topics = ProtectedPubSubTopics()
         backenduri = os.environ.get('MY_AGENT_PUB_ADDR', 'tcp://127.0.0.1:5000')
         frontenduri = os.environ.get('MY_AGENT_SUB_ADDR', 'tcp://127.0.0.1:5001')
@@ -120,6 +121,7 @@ class PubSub(SubsystemBase):
             rpc_subsys.export(self._peer_list, 'pubsub.list')
             rpc_subsys.export(self._peer_publish, 'pubsub.publish')
             rpc_subsys.export(self._peer_push, 'pubsub.push')
+            rpc_subsys.export(self._peer_get_external_message, 'get_sub_external_message')
 
             core.onconnected.connect(self._connected)
             core.onviperror.connect(self._viperror)
@@ -323,19 +325,27 @@ class PubSub(SubsystemBase):
         case-insensitive dictionary (mapping) of message headers, and
         message is a possibly empty list of message parts.
         '''
+
         self.add_subscription(peer, prefix, callback, bus)
         #test = lambda t: t.startswith('devices')
         #if prefix[:len('devices')] == 'devices':
         #    pass
         #if test(prefix):
         #if prefix[:len('devices')] == 'devices':
+
         if self.pubsub_external.is_external(prefix):
+            try:
+                callbacks = self._my_ext_subscriptions[prefix]
+            except KeyError:
+                self._my_ext_subscriptions[prefix] = callbacks = set()
+            callbacks.add(callback)
             return self.pubsub_external.subscribe(prefix, callback)
         else:
             return self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
     
     @subscribe.classmethod
     def subscribe(cls, peer, prefix, bus=''):
+        _log.debug('PUBSUB Inside other subscribe')
         def decorate(method):
             annotate(method, set, 'pubsub.subscriptions', (peer, bus, prefix))
             return method
@@ -432,6 +442,15 @@ class PubSub(SubsystemBase):
                       ' provided').format(topic, required_caps, caps)
                 raise jsonrpc.exception_from_json(jsonrpc.UNAUTHORIZED, msg)
 
+    def _peer_get_external_message(self, topic, headers, message):
+        _log.debug("PUBSUB Got sub message : {}".format(message))
+
+        for prefix, callbacks in self._my_ext_subscriptions.iteritems():
+            if self.pubsub_external.is_external(topic):
+                for callback in callbacks:
+                    callback(self.core().identity, 'pubsub', '', topic,
+                             headers, message)
+
 class ProtectedPubSubTopics(object):
     '''Simple class to contain protected pubsub topics'''
     def __init__(self):
@@ -483,8 +502,7 @@ class PubSubExt(object):
         greenlet = gevent.spawn(self._subscribeloop, prefix, callback)
         #self.add_subscription(peer, prefix, callback, greenlet, bus)
         self._subscriptionloops.append(greenlet)
-        #return greenlet # self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
-        return self.rpc().call('pubsubhub', 'external_subscribe', prefix, callback)
+        return greenlet
 
     def _subscribeloop(self, prefix, callback):
         if prefix == '':
@@ -564,4 +582,4 @@ class PubSubExt(object):
         return gevent.spawn(self._pubsocket.send_multipart(frames, copy=False))
 
     def is_external(self, prefix):
-        return prefix[:len('devices')] == 'devices'
+        return prefix[:len('devices')] == 'devices' or prefix == ''
