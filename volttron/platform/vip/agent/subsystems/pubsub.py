@@ -359,7 +359,7 @@ class PubSub(SubsystemBase):
             return self.pubsub_external.subscribe(prefix, callback)
         else:
             return self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
-    
+
     @subscribe.classmethod
     def subscribe(cls, peer, prefix, bus=''):
         _log.debug('PUBSUB Inside other subscribe')
@@ -503,7 +503,7 @@ class PubSubExt(object):
         self._pubsocket = None
         self._subsocket = None
         self._context = context
-        
+
     def subscribe(self, prefix, callback):
         """Subscribe to topic and register callback.
 
@@ -553,7 +553,7 @@ class PubSubExt(object):
 
         _log.debug("Subscribing to prefix: {}".format(prefix))
         socket.setsockopt(zmq.SUBSCRIBE, str(prefix))
-        
+
         while True:
             data = socket.recv()
             json0 = data.find('{')
