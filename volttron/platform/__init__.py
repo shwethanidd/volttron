@@ -72,3 +72,24 @@ def get_home():
     '''
     return os.path.normpath(os.path.expanduser(os.path.expandvars(
         os.environ.get('VOLTTRON_HOME', '~/.volttron'))))
+
+
+def get_data_dir(agent_identifier):
+    """ Return the data directory for the agent identifer that was passed
+
+    In most cases this should be either a uuid or an agent identity depending
+    upon the situation and context.  The data directory is guaranteed to be
+    created after this call and should be under volttron_home/data.
+
+    @param agent_identifier: string:
+        Either the agent identity or the uuid of the agent.
+    @return: string:
+        The absolute path of the data directory.
+    """
+    data_dir = os.path.normpath(
+        os.path.join(get_home(), "data", agent_identifier))
+
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
+
+    return data_dir
