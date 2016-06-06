@@ -66,12 +66,18 @@ from zmq import green as zmq
 from zmq.utils import jsonapi
 
 from .. platform.vip.agent import (Agent, Core)
+from volttron.platform import get_data_dir
+from volttron.utils.persistance import load_create_store
 from .agent import utils
 from .vip.agent.subsystems.pubsub import ProtectedPubSubTopics
+
 
 __version__ = '0.0.1'
 
 _log = logging.getLogger(__name__)
+
+# A store key that is used to hold publish/subscribe tuples.
+EX_ADDR_KEY = "external_addresses"
 
 
 class PubSubHubService(Agent):
@@ -85,14 +91,12 @@ class PubSubHubService(Agent):
         self.vip.rpc.export(self.add_hub, 'add_hub')
         self.vip.rpc.export(self.get_hubs, 'get_hubs')
         self._extsubscriptionloops = []
+        self._store = load_create_store(
+            os.path.join(get_data_dir('pubsubhub'), "externalhub.store"))
 
-        #if os.environ.get('VOLTTRON_PUB_ADDR'):
-        #    _log.debug("CONNECTING TO ORIGINAL")
-        #    self.add_hub_addresses('tcp://127.0.0.1:5001', 'tcp://127.0.0.1:5000')
-        #else:
-        #    _log.debug("CONNECTING TO OTHER")
-        #   self.add_hub_addresses('tcp://127.0.0.2:5001', 'tcp://127.0.0.2:5000')
-
+        if EX_ADDR_KEY not in self._store:
+            self._store[EX_ADDR_KEY] = set()
+            self._store.sync()
 
     @Core.receiver('onstart')
     def setup_agent(self, sender, **kwargs):
@@ -104,10 +108,9 @@ class PubSubHubService(Agent):
 
         _log.debug('BACKEND ADDRESS: {}'.format(self._backend_address))
         _log.debug('FRONTEND ADDRESS: {}'.format(self._frontend_address))
-        if self._backend_address == 'tcp://127.0.0.1:5000':
-            self.add_hub('tcp://127.0.0.2:5000', 'tcp://127.0.0.2:5001')
-        else:
-            self.add_hub('tcp://127.0.0.1:5000', 'tcp://127.0.0.1:5001')
+        for be, fe in self._store[EX_ADDR_KEY]:
+            _log.debug('Adding hub: {} {}'.format(be, fe))
+            self.add_hub(be, fe)
 
     def get_hubs(self):
         """ RPC method to retireve a list of tuples for connected hubs.
@@ -115,7 +118,7 @@ class PubSubHubService(Agent):
         :return:
             list of tuples (pub, sub) addresses that have been connected to.
         """
-        return self._sockets.keys()
+        return self._external_addresses.keys()
 
     def add_hub(self, publish_address, subscribe_address):
         """ RPC method that allows the PubSubHub to have another connection
@@ -126,7 +129,7 @@ class PubSubHubService(Agent):
         """
 
         key = (publish_address, subscribe_address)
-        if key in self._sockets.keys() and self._sockets[key]:
+        if key in self._store[EX_ADDR_KEY] and self._sockets.get(key):
             _log.debug('Socket already connected to {}'
                        .format(key))
         else:
@@ -141,6 +144,11 @@ class PubSubHubService(Agent):
             frontend.connect(publish_address)
             _log.debug('Connecting to external publish address  {}.'.format(publish_address))
             frontend.setsockopt(zmq.SUBSCRIBE, str(""))
+            _log.debug('ADDING TO STORE')
+            alpha = self._store[EX_ADDR_KEY]
+            alpha.add(key)
+            self._store[EX_ADDR_KEY]=alpha
+            self._store.sync()
             self._sockets[key] = (backend, frontend)
 
             #_log.debug('Connecting to hub {}.'.format(key))
