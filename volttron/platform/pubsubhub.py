@@ -111,6 +111,15 @@ class PubSubHubService(Agent):
         for be, fe in self._store[EX_ADDR_KEY]:
             _log.debug('Adding hub: {} {}'.format(be, fe))
             self.add_hub(be, fe)
+        if self._backend_address == 'tcp://127.0.0.1:5000':
+            self.add_hub('tcp://127.0.0.2:5000', 'tcp://127.0.0.2:5001')
+            self.add_hub('tcp://127.0.0.3:5000', 'tcp://127.0.0.3:5001')
+        elif self._backend_address == 'tcp://127.0.0.2:5000':
+            self.add_hub('tcp://127.0.0.1:5000', 'tcp://127.0.0.1:5001')
+            self.add_hub('tcp://127.0.0.3:5000', 'tcp://127.0.0.3:5001')
+        else:
+            self.add_hub('tcp://127.0.0.1:5000', 'tcp://127.0.0.1:5001')
+            self.add_hub('tcp://127.0.0.2:5000', 'tcp://127.0.0.2:5001')
 
     def get_hubs(self):
         """ RPC method to retireve a list of tuples for connected hubs.
@@ -151,7 +160,6 @@ class PubSubHubService(Agent):
             self._store.sync()
             self._sockets[key] = (backend, frontend)
 
-            #_log.debug('Connecting to hub {}.'.format(key))
             greenlet = gevent.spawn(self._extsubscribeloop, context, frontend)
             self._extsubscriptionloops.append(greenlet)
             return self._backend_address, self._frontend_address
@@ -219,23 +227,19 @@ class PubSubHubService(Agent):
 
     #Loop to listen external publishers
     def _extsubscribeloop(self, context, subsocket):
-        _log.debug("In _extsubscribeloop ")
         # note that this is going to publish to the subscribe socket
         # connecting to internal hub
-        pubsocket = context.socket(zmq.PUB)
+        #pubsocket = context.socket(zmq.PUB)
 
         # note that this is going to publish to the subscribe socket
         # connecting to internal hub
         # Trial 2
 
-        #_log.debug('**********Connecting to internal hub to publish {}.'
-        #           .format(self._frontend_address))
-        pubsocket.connect(self._frontend_address)
+        #pubsocket.connect(self._frontend_address)
 
         while True:
             data = subsocket.recv()
             #_log.debug("Recv external {}".format(data))
-            _log.debug("Recv external")
 
             json0 = data.find('{')
             d = jsonapi.loads(data[json0:])
@@ -244,5 +248,5 @@ class PubSubHubService(Agent):
             headers = d['headers']
             message = d['message']
             #_log.debug("Got sub message from external: {}".format(d['message']))
-            self.vip.rpc.call(peer,'get_sub_external_message','devices', headers, message).get(timeout=1)
+            self.vip.rpc.call(peer,'get_sub_external_message', topic, headers, message).get(timeout=1)
             #pubsocket.send_multipart(data, copy=False)

@@ -107,9 +107,9 @@ class PubSub(SubsystemBase):
         self._my_subscriptions = {}
         self._my_ext_subscriptions = {}
         self.protected_topics = ProtectedPubSubTopics()
-        backenduri = os.environ.get('VOLTTRON_PUB_ADDR', 'tcp://127.0.0.1:5000')
-        frontenduri = os.environ.get('VOLTTRON_SUB_ADDR', 'tcp://127.0.0.1:5001')
 
+        backenduri = os.environ.get('MY_AGENT_PUB_ADDR', 'tcp://127.0.0.1:5000')
+        frontenduri = os.environ.get('MY_AGENT_SUB_ADDR', 'tcp://127.0.0.1:5001')
         self.pubsub_external = PubSubExt(backenduri,
                                          frontenduri,
                                          self.core().context)
@@ -127,12 +127,15 @@ class PubSub(SubsystemBase):
             core.onconnected.connect(self._connected)
             core.onviperror.connect(self._viperror)
             peerlist_subsys.onadd.connect(self._peer_add)
+
             peerlist_subsys.ondrop.connect(self._peer_drop)
 
             def subscribe(member):   # pylint: disable=redefined-outer-name
                 for peer, bus, prefix in annotations(
                         member, set, 'pubsub.subscriptions'):
                     # XXX: needs updated in light of onconnected signal
+                    if self.pubsub_external.is_external(prefix):
+                        self.add_ext_subscription(prefix, member)
                     self.add_subscription(peer, prefix, member, bus)
             inspect.getmembers(owner, subscribe)
         core.onsetup.connect(setup, self)
@@ -262,6 +265,7 @@ class PubSub(SubsystemBase):
 
     def _peer_push(self, sender, bus, topic, headers, message):
         '''Handle incoming subscription pushes from peers.'''
+
         peer = bytes(self.rpc().context.vip_message.peer)
         handled = 0
         try:
@@ -281,6 +285,7 @@ class PubSub(SubsystemBase):
 
     def synchronize(self, peer):
         '''Unsubscribe from stale/forgotten/unsolicited subscriptions.'''
+
         if peer is None:
             items = [(peer, {bus: subscriptions.keys()
                              for bus, subscriptions in buses.iteritems()})
@@ -313,6 +318,15 @@ class PubSub(SubsystemBase):
             subscriptions[prefix] = callbacks = set()
         callbacks.add(callback)
 
+    def add_ext_subscription(self, prefix, callback):
+        if not callable(callback):
+            raise ValueError('callback %r is not callable' % (callback,))
+        try:
+            callbacks = self._my_ext_subscriptions[prefix]
+        except KeyError:
+            self._my_ext_subscriptions[prefix] = callbacks = set()
+        callbacks.add(callback)
+
     @dualmethod
     @spawn
     def subscribe(self, peer, prefix, callback, bus=''):
@@ -334,7 +348,9 @@ class PubSub(SubsystemBase):
         #if test(prefix):
         #if prefix[:len('devices')] == 'devices':
 
+        _log.debug('PUBSUB Inside REQUIRED subscribe')
         if self.pubsub_external.is_external(prefix):
+            self.add_ext_subscription(prefix, callback)
             try:
                 callbacks = self._my_ext_subscriptions[prefix]
             except KeyError:
@@ -343,7 +359,7 @@ class PubSub(SubsystemBase):
             return self.pubsub_external.subscribe(prefix, callback)
         else:
             return self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
-    
+
     @subscribe.classmethod
     def subscribe(cls, peer, prefix, bus=''):
         _log.debug('PUBSUB Inside other subscribe')
@@ -422,14 +438,13 @@ class PubSub(SubsystemBase):
 
         if peer is None:
             peer = 'pubsub'
-        #test = lambda t: t.startswith('devices')
-        #if test(topic):
+
         if self.pubsub_external.is_external(topic):
            return self.pubsub_external.publish(topic, headers, message)
         else:
             return self.rpc().call(
-            peer, 'pubsub.publish', topic=topic, headers=headers,
-            message=message, bus=bus)
+                peer, 'pubsub.publish', topic=topic, headers=headers,
+                message=message, bus=bus)
 
     def _check_if_protected_topic(self, topic):
         required_caps = self.protected_topics.get(topic)
@@ -444,13 +459,17 @@ class PubSub(SubsystemBase):
                 raise jsonrpc.exception_from_json(jsonrpc.UNAUTHORIZED, msg)
 
     def _peer_get_external_message(self, topic, headers, message):
-        _log.debug("PUBSUB Got sub message : {}".format(message))
-
-        for prefix, callbacks in self._my_ext_subscriptions.iteritems():
-            if self.pubsub_external.is_external(topic):
-                for callback in callbacks:
-                    callback(self.core().identity, 'pubsub', '', topic,
-                             headers, message)
+        #_log.debug("PUBSUB Got sub message : {}".format(message))
+        _log.debug("PUBSUB Got ext sub message {}".format(topic))
+        try:
+            for prefix, callbacks in self._my_ext_subscriptions.iteritems():
+                #_log.debug("PUBSUB Got sub message ss {}".format(callback))
+                if topic.startswith(prefix):
+                    for callback in callbacks:
+                        callback(self.core().identity, 'pubsub', '', topic, headers, message)
+        except KeyError:
+            _log.debug("PUBSUB key error")
+            pass
 
 class ProtectedPubSubTopics(object):
     '''Simple class to contain protected pubsub topics'''
@@ -484,13 +503,7 @@ class PubSubExt(object):
         self._pubsocket = None
         self._subsocket = None
         self._context = context
-        _log.debug("Publishes should connect to: {}"
-                   .format(self._subscribe_address))
 
-
-        _log.debug("Subscribers should connect to: {}"
-                   .format(self._publish_address))
-        
     def subscribe(self, prefix, callback):
         """Subscribe to topic and register callback.
 
@@ -540,7 +553,7 @@ class PubSubExt(object):
 
         _log.debug("Subscribing to prefix: {}".format(prefix))
         socket.setsockopt(zmq.SUBSCRIBE, str(prefix))
-        
+
         while True:
             data = socket.recv()
             json0 = data.find('{')
@@ -579,6 +592,7 @@ class PubSubExt(object):
             # because we are using XPUB as a middleware.
             # see http://learning-0mq-with-pyzmq.readthedocs.io/en/latest/pyzmq/devices/forwarder.html
             self._pubsocket.connect(uri)
+
         _log.debug("Publishing to address: {}".format(self._subscribe_address))
         _log.debug("Publishing to topic: {}".format(topic))
         json_msg = jsonapi.dumps(
