@@ -66,6 +66,7 @@ from zmq import green as zmq
 from zmq.utils import jsonapi
 
 from .. platform.vip.agent import (Agent, Core)
+from .. platform.vip.agent.subsystems import (RPC,)
 from volttron.platform import get_data_dir
 from volttron.utils.persistance import load_create_store
 from .agent import utils
@@ -120,6 +121,24 @@ class PubSubHubService(Agent):
         else:
             self.add_hub('tcp://127.0.0.1:5000', 'tcp://127.0.0.1:5001')
             self.add_hub('tcp://127.0.0.2:5000', 'tcp://127.0.0.2:5001')
+
+    @RPC.export
+    def subscribe(self, prefix, callback):
+        print('Inside subscribe!!!')
+        #print(callback.name)
+        peername = bytes(self.vip.rpc.context.vip_message.peer)
+        print('Subscribing {}'.format(peername))
+        #callback(peer, sender, bus, topic, headers, message)
+        print(callback)
+        self.vip.rpc.call(
+            peer=peername,
+            method=callback,
+            topic='topic',
+            headers={"fux":"one"},
+            message="apple"
+        ).get(timeout=5)
+        print('after callback')
+#        callback(peername, 'pubsubhub', '', 'topic', {"piece": "man"}, {"message": "man"})
 
     def get_hubs(self):
         """ RPC method to retireve a list of tuples for connected hubs.

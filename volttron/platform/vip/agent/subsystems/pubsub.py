@@ -110,7 +110,8 @@ class PubSub(SubsystemBase):
 
         backenduri = os.environ.get('MY_AGENT_PUB_ADDR', 'tcp://127.0.0.1:5000')
         frontenduri = os.environ.get('MY_AGENT_SUB_ADDR', 'tcp://127.0.0.1:5001')
-        self.pubsub_external = PubSubExt(backenduri,
+        self.pubsub_external = PubSubExt(self,
+                                         backenduri,
                                          frontenduri,
                                          self.core().context)
 
@@ -327,6 +328,9 @@ class PubSub(SubsystemBase):
             self._my_ext_subscriptions[prefix] = callbacks = set()
         callbacks.add(callback)
 
+    def subscribe_ex(self, prefix, callback):
+        self.pubsub_external.subscribe(prefix, callback)
+
     @dualmethod
     @spawn
     def subscribe(self, peer, prefix, callback, bus=''):
@@ -342,23 +346,27 @@ class PubSub(SubsystemBase):
         '''
 
         self.add_subscription(peer, prefix, callback, bus)
+        self.pubsub_external.subscribe(prefix, callback)
+
+        return self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
+
         #test = lambda t: t.startswith('devices')
         #if prefix[:len('devices')] == 'devices':
         #    pass
         #if test(prefix):
         #if prefix[:len('devices')] == 'devices':
 
-        _log.debug('PUBSUB Inside REQUIRED subscribe')
-        if self.pubsub_external.is_external(prefix):
-            self.add_ext_subscription(prefix, callback)
-            try:
-                callbacks = self._my_ext_subscriptions[prefix]
-            except KeyError:
-                self._my_ext_subscriptions[prefix] = callbacks = set()
-            callbacks.add(callback)
-            return self.pubsub_external.subscribe(prefix, callback)
-        else:
-            return self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
+        # _log.debug('PUBSUB Inside REQUIRED subscribe')
+        # if self.pubsub_external.is_external(prefix):
+        #     self.add_ext_subscription(prefix, callback)
+        #     try:
+        #         callbacks = self._my_ext_subscriptions[prefix]
+        #     except KeyError:
+        #         self._my_ext_subscriptions[prefix] = callbacks = set()
+        #     callbacks.add(callback)
+        #     return self.pubsub_external.subscribe(prefix, callback)
+        # else:
+        #     return self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
 
     @subscribe.classmethod
     def subscribe(cls, peer, prefix, bus=''):
@@ -427,6 +435,7 @@ class PubSub(SubsystemBase):
         compatibility information to header as variables
         min_compatible_version and max_compatible version
         '''
+        _log.debug('IN PUBSUB PUBLISH')
         #_log.debug("In pusub.publsih. headers in pubsub publish {}".format(
         #    headers))
         #_log.debug("In pusub.publsih. topic {}".format(topic))
@@ -439,10 +448,11 @@ class PubSub(SubsystemBase):
         if peer is None:
             peer = 'pubsub'
 
-        if self.pubsub_external.is_external(topic):
-           return self.pubsub_external.publish(topic, headers, message)
-        else:
-            return self.rpc().call(
+        _log.debug('Calling pubsub publish next!')
+        if 'PUBLISH_EXTERNAL' in headers.keys() and headers['PUBLISH_EXTERNAL']:
+            self.pubsub_external.publish(topic, headers, message)
+
+        return self.rpc().call(
                 peer, 'pubsub.publish', topic=topic, headers=headers,
                 message=message, bus=bus)
 
@@ -460,7 +470,7 @@ class PubSub(SubsystemBase):
 
     def _peer_get_external_message(self, topic, headers, message):
         #_log.debug("PUBSUB Got sub message : {}".format(message))
-        _log.debug("PUBSUB Got ext sub message {}".format(topic))
+        #_log.debug("PUBSUB Got ext sub message {}".format(topic))
         try:
             for prefix, callbacks in self._my_ext_subscriptions.iteritems():
                 #_log.debug("PUBSUB Got sub message ss {}".format(callback))
@@ -496,7 +506,8 @@ class ProtectedPubSubTopics(object):
 
 
 class PubSubExt(object):
-    def __init__(self, publish_address, subscribe_address, context):
+    def __init__(self, owner, publish_address, subscribe_address, context):
+        self.owner = owner
         self._subscriptionloops = []
         self._publish_address = publish_address
         self._subscribe_address = subscribe_address
@@ -518,7 +529,7 @@ class PubSubExt(object):
         _log.debug("Subscribing to prefix {}".format(prefix))
         if not self._publish_address:
             raise SubsriptionError('Invalid subscriber address')
-
+        _log.debug('Starting subscribe loop for {}'.format(prefix))
         greenlet = gevent.spawn(self._subscribeloop, prefix, callback)
         #self.add_subscription(peer, prefix, callback, greenlet, bus)
         self._subscriptionloops.append(greenlet)
@@ -529,6 +540,8 @@ class PubSubExt(object):
             _log.info('subscribing to entire message bus')
         else:
             _log.info('subscribing to prefix {}'.format(prefix))
+
+        #callback(peer, sender, bus, topic, headers, message)
 
         #socketkeys = self.rpc().call(peer, 'get_hubs')
         #key = (extpublish_address, extsubscribe_address)
@@ -556,11 +569,20 @@ class PubSubExt(object):
 
         while True:
             data = socket.recv()
+            _log.debug('RECEIVED {}'.format(data))
             json0 = data.find('{')
             d = jsonapi.loads(data[json0:])
-            _log.debug("PUBSUB Got sub message : {}".format(d['message']))
-            callback(self.core().identity, 'pubsub', '', d['topic'],
-                     d['headers'], d['message'])
+            try:
+                callback('pubsub', '', '', d['topic'], d['headers'], d['message'])
+            except TypeError:
+                _log.debug('New Publish')
+
+            callback(d['topic'], d['headers'], d['message'])
+
+
+            # _log.debug("PUBSUB Got sub message : {}".format(d['message']))
+            # callback(self.core().identity, 'pubsub', '', d['topic'],
+            #          d['headers'], d['message'])
 
     def publish(self, topic, headers=None, message=None):
         '''Publish a message to a given topic via a peer.

@@ -185,6 +185,7 @@ class DriverAgent(BasicAgent):
         utcnow_string = utils.format_timestamp(utcnow)
         
         headers = {
+            'PUBLISH_EXTERNAL': True,
             headers_mod.DATE: utcnow_string,
             headers_mod.TIMESTAMP: utcnow_string,
         }
