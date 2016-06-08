@@ -89,10 +89,11 @@ class ListenerAgent(Agent):
 
     @Core.receiver('onstart')
     def onstart(self, sender, **kwargs):
-        _log.debug("VOLTTRON_PUB_ADDR is: {}".format(os.environ['VOLTTRON_PUB_ADDR']))
+        _log.debug("VOLTTRON_PUB_ADDR is: {}".format(os.environ.get('VOLTTRON_PUB_ADDR')))
         self.vip.heartbeat.start_with_period(5)
+        self.vip.pubsub.subscribe('pubsub', '', self.on_match)
 
-    @PubSub.subscribe('pubsub', '')
+    #@PubSub.subscribe('pubsub', '')
     def on_match(self, peer, sender, bus,  topic, headers, message):
         '''Use match_all to receive all messages and print them out.'''
         if sender == 'pubsub.compat':
