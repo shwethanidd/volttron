@@ -91,6 +91,7 @@ class PubSubHubService(Agent):
         self.vip.rpc.export(self.add_hub, 'add_hub')
         self.vip.rpc.export(self.get_hubs, 'get_hubs')
         self._extsubscriptionloops = []
+        self._external_addresses = {}
         self._store = load_create_store(
             os.path.join(get_data_dir('pubsubhub'), "externalhub.store"))
 
@@ -106,20 +107,11 @@ class PubSubHubService(Agent):
         self.vip.pubsub.add_bus('')
         self._pubhub = gevent.spawn(self._start_pubhub)
 
-        _log.debug('BACKEND ADDRESS: {}'.format(self._backend_address))
-        _log.debug('FRONTEND ADDRESS: {}'.format(self._frontend_address))
+        _log.debug('PUBSUBHUB BACKEND ADDRESS: {}'.format(self._backend_address))
+        _log.debug('PUBSUBHUB FRONTEND ADDRESS: {}'.format(self._frontend_address))
         for be, fe in self._store[EX_ADDR_KEY]:
             _log.debug('Adding hub: {} {}'.format(be, fe))
             self.add_hub(be, fe)
-        if self._backend_address == 'tcp://127.0.0.1:5000':
-            self.add_hub('tcp://127.0.0.2:5000', 'tcp://127.0.0.2:5001')
-            self.add_hub('tcp://127.0.0.3:5000', 'tcp://127.0.0.3:5001')
-        elif self._backend_address == 'tcp://127.0.0.2:5000':
-            self.add_hub('tcp://127.0.0.1:5000', 'tcp://127.0.0.1:5001')
-            self.add_hub('tcp://127.0.0.3:5000', 'tcp://127.0.0.3:5001')
-        else:
-            self.add_hub('tcp://127.0.0.1:5000', 'tcp://127.0.0.1:5001')
-            self.add_hub('tcp://127.0.0.2:5000', 'tcp://127.0.0.2:5001')
 
     def get_hubs(self):
         """ RPC method to retireve a list of tuples for connected hubs.
@@ -159,9 +151,10 @@ class PubSubHubService(Agent):
             self._store[EX_ADDR_KEY]=alpha
             self._store.sync()
             self._sockets[key] = (backend, frontend)
+            self._external_addresses[key] = (publish_address, subscribe_address)
 
-            greenlet = gevent.spawn(self._extsubscribeloop, context, frontend)
-            self._extsubscriptionloops.append(greenlet)
+            #greenlet = gevent.spawn(self._extsubscribeloop, context, frontend)
+            #self._extsubscriptionloops.append(greenlet)
             return self._backend_address, self._frontend_address
 
     # ZMQ device not a volttron forwarder.
@@ -247,6 +240,6 @@ class PubSubHubService(Agent):
             topic = d['topic']
             headers = d['headers']
             message = d['message']
-            #_log.debug("Got sub message from external: {}".format(d['message']))
-            self.vip.rpc.call(peer,'get_sub_external_message', topic, headers, message).get(timeout=1)
+            _log.debug("Got sub message from external: {}".format(d['topic']))
+            #self.vip.rpc.call(peer,'get_sub_external_message', topic, headers, message).get(timeout=1)
             #pubsocket.send_multipart(data, copy=False)

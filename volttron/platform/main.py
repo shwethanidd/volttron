@@ -527,8 +527,8 @@ def start_volttron_process(opts):
                                              'protected_topics.json')
         _log.debug('protected topics file %s', protected_topics_file)
 
-        backenduri = os.environ.get('VOLTTRON_PUB_ADDR', 'tcp://127.0.0.1:5000')
-        frontenduri = os.environ.get('VOLTTRON_SUB_ADDR', 'tcp://127.0.0.1:5001')
+        backenduri = os.environ.get('VOLTTRON_PUB_ADDR', opts.publish_address)
+        frontenduri = os.environ.get('VOLTTRON_SUB_ADDR', opts.subscribe_address)
 
         # Launch additional services and wait for them to start before
         # auto-starting agents
