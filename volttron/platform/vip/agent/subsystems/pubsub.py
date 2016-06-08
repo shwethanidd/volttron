@@ -67,6 +67,7 @@ import weakref
 
 import gevent
 from gevent.event import AsyncResult
+from volttron.platform.agent.utils import get_aware_utc_now
 
 from zmq import green as zmq
 from zmq import SNDMORE
@@ -108,16 +109,7 @@ class PubSub(SubsystemBase):
         self._my_ext_subscriptions = {}
         self.protected_topics = ProtectedPubSubTopics()
 
-
-        backenduri = os.environ.get('VOLTTRON_PUB_ADDR', 'tcp://127.0.0.2:5000')
-        frontenduri = os.environ.get('VOLTTRON_SUB_ADDR', 'tcp://127.0.0.2:5001')
-
-        _log.debug("PUBSUB backend uri {}".format(backenduri))
-        _log.debug("PUBSUB frontend uri {}".format(frontenduri))
-
-        self.pubsub_external = PubSubExt(self, backenduri,
-                                         frontenduri,
-                                         self.core().context)
+        self.pubsub_external = PubSubExt(self)
 
         def setup(sender, **kwargs):
             # pylint: disable=unused-argument
@@ -476,6 +468,7 @@ class PubSub(SubsystemBase):
             _log.debug("PUBSUB key error")
             pass
 
+
 class ProtectedPubSubTopics(object):
     '''Simple class to contain protected pubsub topics'''
     def __init__(self):
@@ -501,16 +494,40 @@ class ProtectedPubSubTopics(object):
 
 
 class PubSubExt(object):
-    def __init__(self, owner, publish_address, subscribe_address, context):
-        self._subscriptionloops = []
-        self._publish_address = publish_address
-        self._subscribe_address = subscribe_address
-        self._pubsocket = None
-        self._subsocket = None
-        self._context = context
-        self._ext_subscriptionloops = []
-        self._subsockets = {}
+    def __init__(self, owner):
+
+        self._local_hub = (os.environ.get('VOLTTRON_PUB_ADDR'),
+                           os.environ.get('VOLTTRON_SUB_ADDR'))
+        print("local hub #1 (PUB, SUB): {}".format(self._local_hub))
+        if not (self._local_hub[0] and self._local_hub[1]):
+            raise ValueError('VOLTTRON_PUB_ADDR and VOLTTRON_SUB_ADDR must '
+                             'be set.')
+
+        _log.debug("local hub (PUB, SUB): {}".format(self._local_hub))
+        # self._hub_hash = md5.md5()
+        self._subscriptions = {}
+        self._context = zmq.Context.instance()
         self._owner = owner
+        self._sockets = {}
+        # This is where we publish to.  It will use self._local_hub for
+        # the connection to it.
+        self._source_socket = self._get_socket(self._local_hub[1], zmq.PUB)
+        # Local hub to subscribe to messages from other platforms.
+        self._sink_socket = self._get_socket(self._local_hub[0], zmq.SUB)
+
+        #self._get_socket(self._local_hub[0], zmq.SUB)
+
+    def _get_socket(self, addr, type):
+        key = (addr, type)
+        socket = self._sockets.get(key)
+        if not socket:
+            socket = self._context.socket(type)
+            socket.connect(addr)
+            self._sockets[key] = socket
+
+        if not socket:
+            _log.error("Invalid socket detected for {}".format(key))
+        return socket
 
     def subscribe(self, prefix, callback):
         """Subscribe to topic and register callback.
@@ -524,68 +541,47 @@ class PubSubExt(object):
         message is a possibly empty list of message parts.
         """
         _log.debug("PUBSUB Subscribing to prefix {}".format(prefix))
-        if not self._publish_address:
+        if not self._sink_socket:
             raise SubsriptionError('PUBSUB Invalid subscriber address')
 
-        #Subscribe to external hubs
+        # if we have a subscription entry, let's remove and resubscribe
+        if prefix in self._subscriptions.keys():
+            _log.debug('subscription already present...resubscribing')
+
+            for g in self._subscriptions[prefix]['greenlets']:
+                socket = self._get_socket(
+                    self._subscriptions[prefix]['address'], zmq.SUB
+                )
+                socket.close()
+                g.kill()
+            gevent.sleep(1) # just in case
+
+        self._subscriptions[prefix] = {
+            'greenlets': [],
+            'subscribed_at': get_aware_utc_now(),
+            'address': self._local_hub[0]
+        }
+
+        _log.debug("local hub subscription")
+        greenlet = gevent.spawn(self._make_subscription, self._sink_socket,
+                                    prefix, callback)
+        self._subscriptions[prefix]['greenlets'].append(greenlet)
+
+        _log.debug("External hub subscription")
+        # Subscribe to external hubs
         addresskeys = self._owner.rpc().call('pubsubhub', 'get_hubs').get(timeout=1)
         for pub, sub in addresskeys:
-            _log.debug("PUBSUB Ext pub sub {} {}".format(pub, sub))
-            key = (pub, sub)
-            if key in self._subsockets.keys():
-                frontend = self._subsockets[key]
-            else:
-                _log.debug("PUBSUB Making new connection to {}".format(pub))
-                frontend = self._context.socket(zmq.SUB)
-                frontend.connect(pub)
-                self._subsockets[key] = frontend
+            _log.debug("External pub sub {} {}".format(pub, sub))
+            socket = self._get_socket(pub, zmq.SUB)
 
-            _log.debug("PUBSUB Spawning ext_subscription loop")
-            greenlet = gevent.spawn(self._ext_subscriptionloop, frontend, prefix, callback)
-            self._ext_subscriptionloops.append(greenlet)
+            if socket:
+                _log.debug("Creating subscription for prefix '{}'"
+                           .format(prefix))
 
-        # #Subscribe to internal hub
-        # greenlet = gevent.spawn(self._subscribeloop, prefix, callback)
-        # self._subscriptionloops.append(greenlet)
-        # return greenlet
-
-    def _subscribeloop(self, prefix, callback):
-        if prefix == '':
-            _log.info('subscribing to entire message bus')
-        else:
-            _log.info('subscribing to prefix {}'.format(prefix))
-
-        #socketkeys = self.rpc().call(peer, 'get_hubs')
-        #key = (extpublish_address, extsubscribe_address)
-        #if key in socketkeys:
-        #    _log.debug('Socket already connected to {}'
-        #              .format(key))
-        #    (backend, frontend) = socketkeys[key]
-        #    _log.debug("Subscribing to prefix: {}".format(prefix))
-        #    frontend.setsockopt(zmq.SUBSCRIBE, str(prefix))
-
-        if not self._subsocket:
-            uri = self._publish_address
-            _log.debug("{} PUBSUB subscribing to socket: {}"
-                       .format(type(self), uri))
-            #context = self.core().context
-            port = "5560"
-            # Socket to talk to server
-            socket = self._context.socket(zmq.SUB)
-            # Connect to the publish socket because of the device middle ware
-            # http://learning-0mq-with-pyzmq.readthedocs.io/en/latest/pyzmq/devices/forwarder.html
-            socket.connect(uri)
-
-        _log.debug("PUBSUB Subscribing to prefix: {}".format(prefix))
-        socket.setsockopt(zmq.SUBSCRIBE, str(prefix))
-
-        while True:
-            data = socket.recv()
-            json0 = data.find('{')
-            d = jsonapi.loads(data[json0:])
-            _log.debug("PUBSUB Got ext sub message : {}".format(d['message']))
-            callback(self.core().identity, 'pubsub', '', d['topic'],
-                     d['headers'], d['message'])
+                greenlet = gevent.spawn(self._make_subscription, socket,
+                                        prefix, callback)
+                self._subscriptions[prefix]['greenlets'].append(greenlet)
+                self._subscriptions[prefix]['address'] = pub
 
     def publish(self, topic, headers=None, message=None):
         '''Publish a message to a given topic via a peer.
@@ -595,55 +591,39 @@ class PubSubExt(object):
         compatibility information to header as variables
         min_compatible_version and max_compatible version
         '''
-
+        print('PUBLISHING TOPIC: {}'.format(topic))
         if headers is None:
             headers = {}
         headers['min_compatible_version'] = min_compatible_version
         headers['max_compatible_version'] = max_compatible_version
+        headers['sent_from'] = self._local_hub[0]
 
-        if not self._publish_address:
-            _log.warn('Cannot publish invalid publish address!')
-            result = AsyncResult()
-            result.set('Done')
-            return result
-
-        if not self._pubsocket:
-            uri = self._subscribe_address
-            _log.debug('{} publishing to socket: {}'.format(type(self), uri))
-
-            self._pubsocket = self._context.socket(zmq.PUB)
-
-            # note that this is going to publish to the subscribe socket
-            # because we are using XPUB as a middleware.
-            # see http://learning-0mq-with-pyzmq.readthedocs.io/en/latest/pyzmq/devices/forwarder.html
-            self._pubsocket.connect(uri)
-
-        _log.debug("Publishing to address: {}".format(self._subscribe_address))
-        _log.debug("Publishing to topic: {}".format(topic))
         json_msg = jsonapi.dumps(
-            dict(headers=headers, topic=topic, message=message)
+            dict(headers=headers, message=message)
         )
-
-        frames = [zmq.Frame(json_msg)]
-        return gevent.spawn(self._pubsocket.send_multipart(frames, copy=False))
+        #topic should not be part of json msg
+        data = "%s %s"%(topic, json_msg)
+        frames = [zmq.Frame(str(data))]
+        return gevent.spawn(self._source_socket.send_multipart(frames, copy=False))
 
     #Subscribe loop for external hub subscriptions
-    def _ext_subscriptionloop(self, socket, prefix, callback):
+    def _make_subscription(self, socket, prefix, callback):
         if prefix == '':
             _log.info('subscribing to entire message bus')
         else:
             _log.info('subscribing to prefix {}'.format(prefix))
 
-        _log.debug("Subscribing to prefix: {}".format(prefix))
         socket.setsockopt(zmq.SUBSCRIBE, str(prefix))
 
         while True:
             data = socket.recv()
             json0 = data.find('{')
+            topic = data[0:json0-1]
             d = jsonapi.loads(data[json0:])
             #_log.debug("PUBSUB Got ext sub message : {}".format(d['message']))
-            callback(self._owner.core().identity, 'pubsub', '', d['topic'],
+            callback(self._owner.core().identity, 'pubsub', '', topic,
                      d['headers'], d['message'])
 
     def is_external(self, prefix):
         return prefix[:len('devices')] == 'devices' or prefix == ''
+
