@@ -264,7 +264,7 @@ class ControlService(BaseAgent):
                 del channel
             agent_uuid = self._aip.install_agent(path)
             _log.debug('AGENT UUID: {}'.format(agent_uuid))
-            return agent_uuid #self._aip.install_agent(path)
+            return agent_uuid  # self._aip.install_agent(path)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
@@ -294,7 +294,7 @@ def escape(pattern):
     if len(strings) == 1:
         return re.escape(pattern), False
     return ''.join('.*' if s == '*' else '.' if s == '?' else
-        s if s in [r'\?', r'\*'] else re.escape(s)
+    s if s in [r'\?', r'\*'] else re.escape(s)
                    for s in strings), True
 
 
@@ -960,13 +960,29 @@ def main(argv=sys.argv):
                         default=logging.WARNING,
                         help='set logger verboseness')
     parser.add_argument(
+        '--publish-address', metavar='ZMQADDR',
+        help='ZeroMQ URL used for pre-3.x agent publishing (deprecated)')
+    parser.add_argument(
+        '--subscribe-address', metavar='ZMQADDR',
+        help='ZeroMQ URL used for pre-3.x agent subscriptions (deprecated)')
+
+    parser.add_argument(
         '--show-config', action='store_true',
         help=argparse.SUPPRESS)
 
     parser.add_help_argument()
+    ipc = 'ipc://%s$VOLTTRON_HOME/run/' % (
+        '@' if sys.platform.startswith('linux') else '')
+    pub_addr = os.environ.get('VOLTTRON_PUB_ADDR',
+                              ipc + 'publish')
+    sub_addr = os.environ.get('VOLTTRON_PUB_ADDR',
+                              ipc + 'subscribe')
+
     parser.set_defaults(
         log_config=None,
         volttron_home=volttron_home,
+        publish_address=pub_addr,
+        subscribe_address=sub_addr
     )
 
     subparsers = parser.add_subparsers(title='commands', metavar='',
@@ -1137,7 +1153,7 @@ def main(argv=sys.argv):
     if os.path.exists(conf) and 'SKIP_VOLTTRON_CONFIG' not in os.environ:
         args = ['--config', conf] + args
     opts = parser.parse_args(args)
-
+    print(opts)
     if opts.log:
         opts.log = config.expandall(opts.log)
     if opts.log_config:
@@ -1163,8 +1179,15 @@ def main(argv=sys.argv):
     if opts.log_config:
         logging.config.fileConfig(opts.log_config)
 
+    opts.publish_address = config.expandall(opts.publish_address)
+    opts.subscribe_address = config.expandall(opts.subscribe_address)
+
+    os.environ['VOLTTRON_PUB_ADDR'] = opts.publish_address
+    os.environ['VOLTTRON_SUB_ADDR'] = opts.subscribe_address
+
     opts.aip = aipmod.AIPplatform(opts)
     opts.aip.setup()
+
     opts.connection = Connection(opts.vip_address, **get_keys(opts))
 
     try:

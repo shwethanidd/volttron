@@ -483,6 +483,8 @@ def start_volttron_process(opts):
             _log.info('public key: %s', encode_key(publickey))
         secretkey = decode_key(keystore.secret())
 
+    os.environ['VOLTTRON_PUB_ADDR'] = opts.publish_address
+    os.environ['VOLTTRON_SUB_ADDR'] = opts.subscribe_address
     # The following line doesn't appear to do anything, but it creates
     # a context common to the green and non-green zmq modules.
     zmq.Context.instance()   # DO NOT REMOVE LINE!!
@@ -721,6 +723,10 @@ def main(argv=sys.argv):
         vip_address=[vip_address]
     ipc = 'ipc://%s$VOLTTRON_HOME/run/' % (
         '@' if sys.platform.startswith('linux') else '')
+    pub_addr = os.environ.get('VOLTTRON_PUB_ADDR',
+                              ipc+'publish')
+    sub_addr = os.environ.get('VOLTTRON_PUB_ADDR',
+                              ipc + 'subscribe')
     parser.set_defaults(
         log=None,
         log_config=None,
@@ -728,8 +734,8 @@ def main(argv=sys.argv):
         verboseness=logging.WARNING,
         volttron_home=volttron_home,
         autostart=True,
-        publish_address=ipc + 'publish',
-        subscribe_address=ipc + 'subscribe',
+        publish_address=pub_addr,
+        subscribe_address=sub_addr,
         vip_address=vip_address,
         vip_local_address=ipc + 'vip.socket',
         # This is used to start the web server from the web module.
