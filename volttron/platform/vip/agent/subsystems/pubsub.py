@@ -540,10 +540,11 @@ class PubSubExt(object):
         case-insensitive dictionary (mapping) of message headers, and
         message is a possibly empty list of message parts.
         """
-        _log.debug("PUBSUB Subscribing to prefix {}".format(prefix))
+        _log.debug("Subscribing to prefix {}".format(prefix))
         if not self._sink_socket:
-            raise SubsriptionError('PUBSUB Invalid subscriber address')
+            raise SubsriptionError('Invalid subscriber address')
 
+        _log.debug("Subscription keys: {}".format(self._subscriptions.keys()))
         # if we have a subscription entry, let's remove and resubscribe
         if prefix in self._subscriptions.keys():
             _log.debug('subscription already present...resubscribing')
@@ -552,7 +553,8 @@ class PubSubExt(object):
                 socket = self._get_socket(
                     self._subscriptions[prefix]['address'], zmq.SUB
                 )
-                socket.close()
+                #socket.close()
+                _log.debug('kill greenlet')
                 g.kill()
             gevent.sleep(1) # just in case
 
@@ -562,26 +564,28 @@ class PubSubExt(object):
             'address': self._local_hub[0]
         }
 
-        _log.debug("local hub subscription")
+        # Subscribe to local hub
+        _log.debug(" local hub subscription")
         greenlet = gevent.spawn(self._make_subscription, self._sink_socket,
-                                    prefix, callback)
+                                     prefix, callback)
         self._subscriptions[prefix]['greenlets'].append(greenlet)
 
         _log.debug("External hub subscription")
         # Subscribe to external hubs
         addresskeys = self._owner.rpc().call('pubsubhub', 'get_hubs').get(timeout=1)
         for pub, sub in addresskeys:
-            _log.debug("External pub sub {} {}".format(pub, sub))
-            socket = self._get_socket(pub, zmq.SUB)
+            if pub != self._local_hub[0]:
+                _log.debug("External pub sub {} {}".format(pub, sub))
+                socket = self._get_socket(pub, zmq.SUB)
 
-            if socket:
-                _log.debug("Creating subscription for prefix '{}'"
-                           .format(prefix))
+                if socket:
+                    _log.debug("Creating subscription for prefix '{}'"
+                               .format(prefix))
 
-                greenlet = gevent.spawn(self._make_subscription, socket,
-                                        prefix, callback)
-                self._subscriptions[prefix]['greenlets'].append(greenlet)
-                self._subscriptions[prefix]['address'] = pub
+                    greenlet = gevent.spawn(self._make_subscription, socket,
+                                            prefix, callback)
+                    self._subscriptions[prefix]['greenlets'].append(greenlet)
+                    self._subscriptions[prefix]['address'] = pub
 
     def publish(self, topic, headers=None, message=None):
         '''Publish a message to a given topic via a peer.
