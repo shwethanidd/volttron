@@ -78,6 +78,8 @@ from ..decorators import annotate, annotations, dualmethod, spawn
 from ..errors import Unreachable
 from .... import jsonrpc
 from volttron.platform.agent import utils
+from gevent.queue import Queue, Empty
+
 
 __all__ = ['PubSub']
 min_compatible_version = '3.0'
@@ -437,7 +439,7 @@ class PubSub(SubsystemBase):
             peer = 'pubsub'
 
         if self.pubsub_external.is_external(topic):
-           return self.pubsub_external.publish(topic, headers, message)
+            return self.pubsub_external.publish(topic, headers, message)
         else:
             return self.rpc().call(
                 peer, 'pubsub.publish', topic=topic, headers=headers,
@@ -510,6 +512,8 @@ class PubSubExt(object):
         self._owner = owner
         self._sockets = {}
         self._greenlets = {}
+        self._event_queue = Queue()
+        self._retry_period = 300.0
 
         # This is where we publish to.  It will use self._local_hub for
         # the connection to it.
@@ -562,15 +566,19 @@ class PubSubExt(object):
         if self._sink_socket not in self._greenlets.keys():
             _log.debug("SUB: Spawning greenlet for local hub subscription")
             self._greenlets[self._sink_socket] = {
-                'greenlets': gevent.spawn(self._make_subscription, self._sink_socket),
+                'greenlets': [],
                 'address': self._local_hub[0],
             }
+            greenlet = gevent.spawn(self._make_subscription, self._sink_socket)
+            self._greenlets[self._sink_socket]['greenlets'].append(greenlet)
+            processgreenlet = gevent.spawn(self._process_loop)
+            self._greenlets[self._sink_socket]['greenlets'].append(processgreenlet)
         else:
             _log.debug("SUB: Greenlet already exists for local hub subscription")
 
         # Subscribe to external hubs
         _log.debug("External hub subscription")
-        addresskeys = self._owner.rpc().call('pubsubhub', 'get_hubs').get(timeout=1)
+        addresskeys = self._owner.rpc().call('pubsubhub', 'get_hubs').get(timeout=2)
         for pub, sub in addresskeys:
             if pub != self._local_hub[0]:
                 _log.debug("External pub sub {} {}".format(pub, sub))
@@ -583,9 +591,13 @@ class PubSubExt(object):
                     if socket not in self._greenlets.keys():
                         _log.debug("SUB: Spawning greenlet for local hub subscription")
                         self._greenlets[socket] = {
-                            'greenlets': gevent.spawn(self._make_subscription, socket),
+                            'greenlets': [],
                             'address': pub
                         }
+                        greenlet = gevent.spawn(self._make_subscription, socket)
+                        self._greenlets[socket]['greenlets'].append(greenlet)
+                        processgreenlet = gevent.spawn(self._process_loop)
+                        self._greenlets[socket]['greenlets'].append(processgreenlet)
                     else:
                         _log.debug("SUB: Greenlet already exists for local hub subscription")
 
@@ -609,8 +621,11 @@ class PubSubExt(object):
         )
         #topic should not be part of json msg
         data = "%s %s"%(topic, json_msg)
+
         frames = [zmq.Frame(str(data))]
-        return gevent.spawn(self._source_socket.send_multipart(frames, copy=False))
+        greenlet = gevent.spawn(self._source_socket.send_multipart(frames, copy=False))
+        gevent.sleep(0.1)
+        return greenlet
 
     def _set_prefix_callback(self, socket, prefix, callback):
         if prefix == '':
@@ -626,18 +641,46 @@ class PubSubExt(object):
 
         while True:
             data = socket.recv()
-            json0 = data.find('{')
-            topic = data[0:json0-1]
-            d = jsonapi.loads(data[json0:])
-            #_log.debug("PUBSUB Got ext sub message : {}".format(d['message']))
+            #_log.debug("PUBSUB Got ext sub message : ")
+            self._event_queue.put(data)
 
-            for prefix in self._subscriptions.keys():
-                if self.is_subscription(topic, prefix):
-                    _log.debug('SUB: subscription already present...calling all callbacks')
+    #Incoming message processing loop
+    def _process_loop(self):
+        _log.debug("Reading from/waiting for queue.")
+        while True:
+            try:
+                _log.debug("PUBSUB Reading from/waiting for queue.")
+                new_msg_list = [
+                     self._event_queue.get(True, self._retry_period)]
 
-                    for callback in self._subscriptions[prefix]['callbacks']:
-                        callback(self._owner.core().identity, 'pubsub', '', topic,
-                                 d['headers'], d['message'])
+            except Empty:
+                _log.debug("Queue wait timed out. Falling out.")
+                new_to_publish = []
+
+            if new_msg_list:
+                _log.debug("Checking for queue build up.")
+                while True:
+                    try:
+                        new_msg_list.append(self._event_queue.get_nowait())
+                    except Empty:
+                        break
+
+            _log.debug('SUB: Length of data got from event queue {}'.format(len(new_msg_list)))
+            for data in new_msg_list:
+                json0 = data.find('{')
+                topic = data[0:json0 - 1]
+                d = jsonapi.loads(data[json0:])
+                # _log.debug("PUBSUB Got ext sub message : {}".format(d['message']))
+
+                for prefix in self._subscriptions.keys():
+                    if self.is_subscription(topic, prefix):
+                        _log.debug('SUB: subscription already present...calling all callbacks')
+
+                        for callback in self._subscriptions[prefix]['callbacks']:
+                            callback(self._owner.core().identity, 'pubsub', '', topic,
+                                     d['headers'], d['message'])
+                    else:
+                        _log.debug('SUB: subscription not matching {}'.format(topic))
 
     def is_external(self, prefix):
         return prefix[:len('devices')] == 'devices' or prefix == ''
