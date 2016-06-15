@@ -379,13 +379,13 @@ def setpoint_detector(config_path, **kwargs):
                 return lower + mid + end
 
             if np.average(current_ts) > np.average(next_ts):
-                previous_max = True
+                current_max = True
                 m1 = np.average(current_ts)
                 m2 = np.average(next_ts)
                 std1 = np.std(current_ts)
                 std2 = np.std(next_ts)
             else:
-                previous_max = False
+                current_max = False
                 m2 = np.average(current_ts)
                 m1 = np.average(next_ts)
                 std2 = np.std(current_ts)
@@ -393,7 +393,7 @@ def setpoint_detector(config_path, **kwargs):
             intersections = find_intersections(m1, m2, std1, std2)
             area = calculate_area()
             if self.debug and self.debug_directory is not None:
-                self.plot_dist_area(m1, std1, m2, std2, self.timestamp_array[0].date(), area)
+                self.plot_dist_area(m1, std1, m2, std2, self.timestamp_array[0].date(), area, current_max)
             return area
 
         def create_setpoint_array(self, pcopy, vcopy):
@@ -413,16 +413,16 @@ def setpoint_detector(config_path, **kwargs):
                 timestamp_array = np.array(valley_timestamp) + (np.array(peak_timestamp) - np.array(valley_timestamp))/2 
             return (np.array(peak_temp) + np.array(valley_temp)) / 2, timestamp_array
 
-        def plot_dist_area(self, m1, std1, m2, std2, _date, area):
+        def plot_dist_area(self, m1, std1, m2, std2, _date, area, current_max):
             directory = self.debug_directory + '{}'.format(_date)
             if not os.path.exists(directory):
                  os.makedirs(directory)
             self.number += 1
             fig = plt.figure()
-            fig.text(0,0,'area: {}'.format(area))
+            fig.text(0, 0,'area: {}    std1: {}    std2: {}    current_max: {}'.format(area, std1, std2, current_max))
             x = np.linspace(60.0,80.-0,1000)
-            plt.plot(x,norm.pdf(x,m1, std1))
-            plt.plot(x,norm.pdf(x,m2, std2))
+            plt.plot(x,norm.pdf(x, m1, std1))
+            plt.plot(x,norm.pdf(x, m2, std2))
             mover = (m2,m1) if m1 > m2 else (m1,m2)
 
             axes = plt.gca()
