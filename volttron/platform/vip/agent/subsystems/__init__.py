@@ -65,7 +65,7 @@ from .pubsub import PubSub
 from .rpc import RPC
 from .heartbeat import Heartbeat
 from .health import Health
-
+from .pubsubcyht import PubSubCy
 
 __all__ = ['PeerList', 'Ping', 'RPC', 'Hello', 'PubSub', 'Channel',
-           'Heartbeat', 'Health']
+           'Heartbeat', 'Health', 'PubSubCy']

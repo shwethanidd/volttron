@@ -74,7 +74,11 @@ from ..errors import Unreachable
 from .... import jsonrpc
 from volttron.platform.agent import utils
 
-__all__ = ['PubSub']
+from volttron.platform.agent.utils import get_aware_utc_now
+import pstats, cProfile
+from .pubsubcyht import PubSubCy
+
+__all__ = ['PubSub', 'PubSubCy']
 min_compatible_version = '3.0'
 max_compatible_version = ''
 
@@ -100,6 +104,8 @@ class PubSub(SubsystemBase):
         self._peer_subscriptions = {}
         self._my_subscriptions = {}
         self.protected_topics = ProtectedPubSubTopics()
+        self._sc = 0
+        self._cypubsub = PubSubCy()
 
         def setup(sender, **kwargs):
             # pylint: disable=unused-argument
@@ -118,7 +124,9 @@ class PubSub(SubsystemBase):
                 for peer, bus, prefix in annotations(
                         member, set, 'pubsub.subscriptions'):
                     # XXX: needs updated in light of onconnected signal
-                    self.add_subscription(peer, prefix, member, bus)
+                    #self.add_subscription(peer, prefix, member, bus)
+                    bus = 'bus1'
+                    self._cypubsub.cy_add_subscriptions(peer, prefix, member, bus)
             inspect.getmembers(owner, subscribe)
         core.onsetup.connect(setup, self)
 
@@ -164,7 +172,9 @@ class PubSub(SubsystemBase):
             subscriptions = self._peer_subscriptions[bus]
             assert not subscriptions.pop(prefix)
         for bus, prefix in items:
-            self._add_peer_subscription(peer, bus, prefix)
+            #self._add_peer_subscription(peer, bus, prefix)
+            self._cypubsub.cy_add_peer_subscriptions(peer, bus, prefix)
+
 
     def _peer_sync(self, items):
         peer = bytes(self.rpc().context.vip_message.peer)
@@ -182,7 +192,8 @@ class PubSub(SubsystemBase):
     def _peer_subscribe(self, prefix, bus=''):
         peer = bytes(self.rpc().context.vip_message.peer)
         for prefix in prefix if isinstance(prefix, list) else [prefix]:
-            self._add_peer_subscription(peer, bus, prefix)
+            #self._add_peer_subscription(peer, bus, prefix)
+            self._cypubsub.cy_add_peer_subscriptions(peer, bus, prefix)
 
     def _peer_unsubscribe(self, prefix, bus=''):
         peer = bytes(self.rpc().context.vip_message.peer)
@@ -224,14 +235,32 @@ class PubSub(SubsystemBase):
     def _peer_publish(self, topic, headers, message=None, bus=''):
         peer = bytes(self.rpc().context.vip_message.peer)
         self._distribute(peer, topic, headers, message, bus)
+        # cProfile.runctx("self._distribute(peer, topic, headers, message, bus)", globals(), locals(), "Profile.prof")
+        # s = pstats.Stats("Profile.prof")
+        # s.strip_dirs().sort_stats("time").print_stats()
 
     def _distribute(self, peer, topic, headers, message=None, bus=''):
-        self._check_if_protected_topic(topic)
-        subscriptions = self._peer_subscriptions[bus]
-        subscribers = set()
-        for prefix, subscription in subscriptions.iteritems():
-            if subscription and topic.startswith(prefix):
-                subscribers |= subscription
+        # try:
+        #     fd = open('/home/volttron/testing/develop/v11/data/subdata.txt', 'a')
+        #     timestamp_string = str(get_aware_utc_now())
+        #     self._sc = self._sc + 1
+        #     fd.write("Received timestamp:" + timestamp_string
+        #              + " ; Count: " + str(self._sc)
+        #              + " ; " + topic)
+        #     fd.write("\n")
+        #     fd.close()
+        # except IOError:
+        #     _log.debug("IO error")
+        #     fd.close()
+        #print("_distribute {0}, {1}, {2}".format(peer, topic, bus))
+        # self._check_if_protected_topic(topic)
+        # subscriptions = self._peer_subscriptions[bus]
+        # subscribers = set()
+        # for prefix, subscription in subscriptions.iteritems():
+        #     if subscription and topic.startswith(prefix):
+        #         subscribers |= subscription
+        bus = 'bus1'
+        subscribers = self._cypubsub.distribute(peer, topic, headers, message, bus)
         if subscribers:
             sender = encode_peer(peer)
             json_msg = jsonapi.dumps(jsonrpc.json_method(
@@ -246,23 +275,29 @@ class PubSub(SubsystemBase):
         return len(subscribers)
 
     def _peer_push(self, sender, bus, topic, headers, message):
-        '''Handle incoming subscription pushes from peers.'''
         peer = bytes(self.rpc().context.vip_message.peer)
-        handled = 0
-        try:
-            subscriptions = self._my_subscriptions[peer][bus]
-        except KeyError:
-            pass
-        else:
-            sender = decode_peer(sender)
-            for prefix, callbacks in subscriptions.iteritems():
-                if topic.startswith(prefix):
-                    handled += 1
-                    for callback in callbacks:
-                        callback(peer, sender, bus, topic, headers, message)
-        if not handled:
-            # No callbacks for topic; synchronize with sender
-            self.synchronize(peer)
+        bus = 'bus1'
+        cb = self._cypubsub.cy_peer_push(peer, sender, topic, headers, message, bus)
+        #cb(peer, sender, bus, topic, headers, message)
+
+    # def _peer_push(self, sender, bus, topic, headers, message):
+    #     '''Handle incoming subscription pushes from peers.'''
+    #     peer = bytes(self.rpc().context.vip_message.peer)
+    #     handled = 0
+    #     try:
+    #         subscriptions = self._my_subscriptions[peer][bus]
+    #     except KeyError:
+    #         pass
+    #     else:
+    #         sender = decode_peer(sender)
+    #         for prefix, callbacks in subscriptions.iteritems():
+    #             if topic.startswith(prefix):
+    #                 handled += 1
+    #                 for callback in callbacks:
+    #                     callback(peer, sender, bus, topic, headers, message)
+    #     if not handled:
+    #         # No callbacks for topic; synchronize with sender
+    #         self.synchronize(peer)
 
     def synchronize(self, peer):
         '''Unsubscribe from stale/forgotten/unsolicited subscriptions.'''
@@ -311,12 +346,16 @@ class PubSub(SubsystemBase):
         case-insensitive dictionary (mapping) of message headers, and
         message is a possibly empty list of message parts.
         '''
-        self.add_subscription(peer, prefix, callback, bus)
+        #self.add_subscription(peer, prefix, callback, bus)
+        _log.debug("subscribe {0}, {1}, {2}".format(peer, prefix, bus))
+        bus = 'bus1'
+        self._cypubsub.cy_add_subscriptions(peer, prefix, callback, bus)
         return self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
     
     @subscribe.classmethod
     def subscribe(cls, peer, prefix, bus=''):
         def decorate(method):
+            _log.debug("subscribe decorator {0}, {1}, {2}".format(peer, prefix, bus))
             annotate(method, set, 'pubsub.subscriptions', (peer, bus, prefix))
             return method
         return decorate
