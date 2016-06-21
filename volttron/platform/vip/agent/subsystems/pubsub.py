@@ -76,7 +76,7 @@ from volttron.platform.agent import utils
 
 from volttron.platform.agent.utils import get_aware_utc_now
 import pstats, cProfile
-from .pubsubcyht import PubSubCy
+from .pubsubcy import PubSubCy
 
 __all__ = ['PubSub', 'PubSubCy']
 min_compatible_version = '3.0'
