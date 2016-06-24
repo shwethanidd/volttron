@@ -105,7 +105,7 @@ class PubSub(SubsystemBase):
         self.protected_topics = ProtectedPubSubTopics()
         self._event_queue = Queue()
         self._retry_period = 300.0
-        #self._cypubsub = PubSubCy()
+        self._cypubsub = PubSubCy()
         #self._processgreenlet = gevent.spawn(self._process_loop)
 
         def setup(sender, **kwargs):
@@ -127,7 +127,7 @@ class PubSub(SubsystemBase):
                     # XXX: needs updated in light of onconnected signal
                     self.add_subscription(peer, prefix, member, bus)
                     #bus= "bus1"
-                    #self._cypubsub.add_my_subscriptions(peer, prefix, member, bus)
+                    self._cypubsub.add_my_subscriptions(peer, prefix, member, bus)
             inspect.getmembers(owner, subscribe)
         core.onsetup.connect(setup, self)
 
@@ -173,10 +173,9 @@ class PubSub(SubsystemBase):
             subscriptions = self._peer_subscriptions[bus]
             assert not subscriptions.pop(prefix)
         for bus, prefix in items:
-            _log.debug("subscribe: _sync")
             self._add_peer_subscription(peer, bus, prefix)
             #bus="bus1"
-            #self._cypubsub.add_peer_subscriptions(peer, prefix, bus)
+            self._cypubsub.add_peer_subscriptions(peer, prefix, bus)
 
     def _peer_sync(self, items):
         peer = bytes(self.rpc().context.vip_message.peer)
@@ -193,11 +192,10 @@ class PubSub(SubsystemBase):
 
     def _peer_subscribe(self, prefix, bus=''):
         peer = bytes(self.rpc().context.vip_message.peer)
-        _log.debug("subscribe: _peer_subscribe")
         for prefix in prefix if isinstance(prefix, list) else [prefix]:
             self._add_peer_subscription(peer, bus, prefix)
             #bus="bus1"
-            #self._cypubsub.add_peer_subscriptions(peer, prefix, bus)
+            self._cypubsub.add_peer_subscriptions(peer, prefix, bus)
 
     def _peer_unsubscribe(self, prefix, bus=''):
         peer = bytes(self.rpc().context.vip_message.peer)
@@ -238,21 +236,18 @@ class PubSub(SubsystemBase):
 
     def _peer_publish(self, topic, headers, message=None, bus=''):
         peer = bytes(self.rpc().context.vip_message.peer)
-        #bus="bus1"
+        #bus = "bus1"
         self._distribute(peer, topic, headers, message, bus)
 
     def _distribute(self, peer, topic, headers, message=None, bus=''):
-        self._check_if_protected_topic(topic)
-        subscriptions = self._peer_subscriptions[bus]
+        # self._check_if_protected_topic(topic)
+        # subscriptions = self._peer_subscriptions[bus]
+        # subscribers = set()
+        # for prefix, subscription in subscriptions.iteritems():
+        #     if subscription and topic.startswith(prefix):
+        #         subscribers |= subscription
         subscribers = set()
-        for prefix, subscription in subscriptions.iteritems():
-            if subscription and topic.startswith(prefix):
-                subscribers |= subscription
-        #bus = "bus1"
-
-        subscribers = set()
-        #subscribers = self._cypubsub.distribute(peer, topic, headers, message, bus)
-        _log.debug("PUBSUBCPP Len of subscribers: {}".format(len(subscribers)))
+        subscribers = self._cypubsub.distribute(peer, topic, headers, message, bus)
         if subscribers:
             sender = encode_peer(peer)
             json_msg = jsonapi.dumps(jsonrpc.json_method(
@@ -261,7 +256,6 @@ class PubSub(SubsystemBase):
             frames = [zmq.Frame(b''), zmq.Frame(b''),
                       zmq.Frame(b'RPC'), zmq.Frame(json_msg)]
             socket = self.core().socket
-            _log.debug("PUBSUBCPP Sending message to each subscribers: ")
             for subscriber in subscribers:
                 socket.send(subscriber, flags=SNDMORE)
                 socket.send_multipart(frames, copy=False)
@@ -273,29 +267,28 @@ class PubSub(SubsystemBase):
     #                              topic=topic, headers=headers,
     #                              message=message))
 
-    # def _peer_push(self, sender, bus, topic, headers, message):
-    #     peer = bytes(self.rpc().context.vip_message.peer)
-    #     cb = self._cypubsub.peer_push(peer, sender, headers, topic, message, bus)
-
-
     def _peer_push(self, sender, bus, topic, headers, message):
-        '''Handle incoming subscription pushes from peers.'''
         peer = bytes(self.rpc().context.vip_message.peer)
-        handled = 0
-        try:
-            subscriptions = self._my_subscriptions[peer][bus]
-        except KeyError:
-            pass
-        else:
-            sender = decode_peer(sender)
-            for prefix, callbacks in subscriptions.iteritems():
-                if topic.startswith(prefix):
-                    handled += 1
-                    for callback in callbacks:
-                        callback(peer, sender, bus, topic, headers, message)
-        if not handled:
-            # No callbacks for topic; synchronize with sender
-            self.synchronize(peer)
+        cb = self._cypubsub.peer_push(peer, sender, headers, topic, message, bus)
+
+    # def _peer_push(self, sender, bus, topic, headers, message):
+    #     '''Handle incoming subscription pushes from peers.'''
+    #     peer = bytes(self.rpc().context.vip_message.peer)
+    #     handled = 0
+    #     try:
+    #         subscriptions = self._my_subscriptions[peer][bus]
+    #     except KeyError:
+    #         pass
+    #     else:
+    #         sender = decode_peer(sender)
+    #         for prefix, callbacks in subscriptions.iteritems():
+    #             if topic.startswith(prefix):
+    #                 handled += 1
+    #                 for callback in callbacks:
+    #                     callback(peer, sender, bus, topic, headers, message)
+    #     if not handled:
+    #         # No callbacks for topic; synchronize with sender
+    #         self.synchronize(peer)
 
     def synchronize(self, peer):
         '''Unsubscribe from stale/forgotten/unsolicited subscriptions.'''
@@ -345,15 +338,12 @@ class PubSub(SubsystemBase):
         message is a possibly empty list of message parts.
         '''
         self.add_subscription(peer, prefix, callback, bus)
-        #bus="bus1"
-        _log.debug("subscribe {0}, {1}, {2}".format(peer, prefix, bus))
-        #self._cypubsub.add_my_subscriptions(peer, prefix, callback, bus)
+        self._cypubsub.add_my_subscriptions(peer, prefix, callback, bus)
         return self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
     
     @subscribe.classmethod
     def subscribe(cls, peer, prefix, bus=''):
         def decorate(method):
-            _log.debug("subscribe decorator {0}, {1}, {2}".format(peer, prefix, bus))
             annotate(method, set, 'pubsub.subscriptions', (peer, bus, prefix))
             return method
         return decorate
@@ -437,26 +427,21 @@ class PubSub(SubsystemBase):
 
     # Incoming message processing loop
     def _process_loop(self):
-        _log.debug("Reading from/waiting for queue.")
         while True:
             try:
-                _log.debug("PUBSUB Reading from/waiting for queue.")
                 new_msg_list = [
                     self._event_queue.get(True, self._retry_period)]
 
             except Empty:
-                _log.debug("Queue wait timed out. Falling out.")
                 new_msg_list = []
 
             if new_msg_list:
-                _log.debug("Checking for queue build up.")
                 while True:
                     try:
                         new_msg_list.append(self._event_queue.get_nowait())
                     except Empty:
                         break
 
-            _log.debug('SUB: Length of data got from event queue {}'.format(len(new_msg_list)))
             for data in new_msg_list:
                 peer = data['peer']
                 bus = data['bus']
