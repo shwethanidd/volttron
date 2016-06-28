@@ -173,6 +173,7 @@ class PubSub(SubsystemBase):
             subscriptions = self._peer_subscriptions[bus]
             assert not subscriptions.pop(prefix)
         for bus, prefix in items:
+            _log.debug("subscribe: _sync")
             self._add_peer_subscription(peer, bus, prefix)
             #bus="bus1"
             self._cypubsub.add_peer_subscriptions(peer, prefix, bus)
@@ -192,9 +193,11 @@ class PubSub(SubsystemBase):
 
     def _peer_subscribe(self, prefix, bus=''):
         peer = bytes(self.rpc().context.vip_message.peer)
+        _log.debug("subscribe: _peer_subscribe")
         for prefix in prefix if isinstance(prefix, list) else [prefix]:
             self._add_peer_subscription(peer, bus, prefix)
             #bus="bus1"
+            _log.debug("subscribe: _peer_subscribe")
             self._cypubsub.add_peer_subscriptions(peer, prefix, bus)
 
     def _peer_unsubscribe(self, prefix, bus=''):
@@ -257,6 +260,7 @@ class PubSub(SubsystemBase):
                       zmq.Frame(b'RPC'), zmq.Frame(json_msg)]
             socket = self.core().socket
             for subscriber in subscribers:
+                _log.debug("PUBSUBCPP Sending to each subscriber")
                 socket.send(subscriber, flags=SNDMORE)
                 socket.send_multipart(frames, copy=False)
         return len(subscribers)
@@ -269,7 +273,12 @@ class PubSub(SubsystemBase):
 
     def _peer_push(self, sender, bus, topic, headers, message):
         peer = bytes(self.rpc().context.vip_message.peer)
-        cb = self._cypubsub.peer_push(peer, sender, headers, topic, message, bus)
+        cbset = set()
+        cbset = self._cypubsub.peer_push(peer, sender, headers, topic, message, bus)
+        if cbset is not None:
+            for cb in cbset:
+                _log.debug("Found cb: {}".format(cb))
+                cb(peer, sender, bus, topic, headers, message)
 
     # def _peer_push(self, sender, bus, topic, headers, message):
     #     '''Handle incoming subscription pushes from peers.'''
@@ -338,12 +347,15 @@ class PubSub(SubsystemBase):
         message is a possibly empty list of message parts.
         '''
         self.add_subscription(peer, prefix, callback, bus)
+        #bus="bus1"
+        _log.debug("subscribe {0}, {1}, {2}".format(peer, prefix, bus))
         self._cypubsub.add_my_subscriptions(peer, prefix, callback, bus)
         return self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
     
     @subscribe.classmethod
     def subscribe(cls, peer, prefix, bus=''):
         def decorate(method):
+            _log.debug("subscribe decorator {0}, {1}, {2}".format(peer, prefix, bus))
             annotate(method, set, 'pubsub.subscriptions', (peer, bus, prefix))
             return method
         return decorate
