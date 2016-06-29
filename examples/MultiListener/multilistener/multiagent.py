@@ -1,17 +1,19 @@
 import gevent
 import sys
 import logging
+from volttron.platform.agent import utils
 from volttron.platform.vip.agent import Agent
 from volttron.platform.agent.utils import setup_logging
 
 setup_logging()
 _log = logging.getLogger('multiagent')
+count = 0
 
 def multiagent(vip_addr):
     agents = []
     tasks = []
     i = 0
-    for i in range(5):
+    for i in range(100):
         agent = Agent()
         event = gevent.event.Event()
         tasks.append(gevent.spawn(agent.core.run, event))
@@ -20,15 +22,19 @@ def multiagent(vip_addr):
         agent.vip.pubsub.subscribe('pubsub',
                                    'devices',
                                    on_message)
-        i += 1
+        #i += 1
 
     return tasks
 
 def on_message(peer, sender, bus, topic, headers, message):
     '''Use match_all to receive all messages and print them out.'''
+    utcnow = utils.get_aware_utc_now()
+    utcnow_string = utils.format_timestamp(utcnow)
+    global count
+    count += 1
     _log.debug(
-        "Peer: %r, Sender: %r:, Bus: %r, Topic: %r, Headers: %r, "
-        "Message: %r", peer, sender, bus, topic, headers, message)
+        "Count: %r, Time: %r, Peer: %r, Sender: %r:, Bus: %r, Topic: %r, Headers: %r, "
+        "Message: %r ", count, utcnow_string, peer, sender, bus, topic, headers, message)
 
 def main(argv=sys.argv):
     '''Main method called by the eggsecutable.'''

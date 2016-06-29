@@ -3,6 +3,11 @@ from libcpp.string cimport string
 from libcpp.vector cimport vector
 from libcpp.set cimport set
 from cython.operator cimport dereference, preincrement
+from zmq import green as zmq
+from zmq import SNDMORE
+from zmq.utils import jsonapi
+from .... import jsonrpc
+from base64 import b64encode, b64decode
 import datetime
 
 ctypedef void* vptr
@@ -12,6 +17,7 @@ cdef map[string, map[string, set[string]]] _my_peer_subscriptions
 cdef class PubSubCy:
     cdef map[string, map[string, map[string, cfptr]]] _my_subscriptions
     cdef bint _debug
+    cdef object _socket
 
     def __cinit__(self):
         self._debug = False
@@ -97,14 +103,11 @@ cdef class PubSubCy:
                 sub[prefix] = peerset
                 _my_peer_subscriptions[bus] = sub
 
-    cpdef distr(self, string peer, string bus):
-        if(_my_peer_subscriptions.find(bus) != _my_peer_subscriptions.end()):
-            if self._debug: print("PUBSUBCPPXX Found bus!")
-        else:
-            if self._debug: print("PUBSUBCPPXX Bus not found {}".format(bus))
+    cpdef set_socket(self, socket):
+        self._socket= socket
 
     #At subscriber
-    cpdef set[string] distribute(self, string peer, string topic, object header, object message, string bus):
+    cpdef distribute(self, string peer, string topic, object header, object message, string bus):
         cdef map[string, set[string]] sub
         cdef set[string] peerset, tempset
         cdef map[string,set[string]].iterator end = sub.end()
@@ -128,19 +131,37 @@ cdef class PubSubCy:
                     #if self._debug: print("PUBSUBCPP In distribute: prefix: {0}, topic: {1}".format(prefix, mytopic))
                     if mytopic.compare(prefix) == 0:
                     #if self.is_prefix_in_topic(prefix, topic):
-                        #if self._debug: print("PUBSUBCPP In distribute Found: {0}".format(prefix))
-                        tempset= dereference(it).second
-                        #peerset.insert(dereference(tempset.begin()))
-                        e = tempset.end()
-                        i= tempset.begin()
-                        while i != e:
-                            #if self._debug: print("In distribute Adding to peerset: {0}".format(dereference(i)))
-                            peerset.insert(dereference(i))
-                            preincrement(i)
+                        peerset = dereference(it).second
+                        #if self._debug: print("PUBSUBCPP In distribute Peerset size: {0}".format(peerset.size()))
                     preincrement(it)
+            self.send_to_peer(peerset, peer, topic, header, message, bus)
         else:
             if self._debug: print("PUBSUBCPP Not found {}: ".format(bus))
-        return peerset
+        #return peerset
+
+    cpdef send_to_peer(self, set[string] subscribers, string peer, string topic,
+                    object headers, object message, string bus):
+        cdef set[string].iterator end
+        cdef set[string].iterator it
+
+        if (subscribers.empty()):
+            return
+        else:
+            if self._debug: print("PUBSUBCPP Forming json message")
+            sender = self.encode_peer(peer)
+            json_msg = jsonapi.dumps(jsonrpc.json_method(
+                None, 'pubsub.push',
+                [sender, bus, topic, headers, message], None))
+            frames = [zmq.Frame(b''), zmq.Frame(b''),
+                      zmq.Frame(b'RPC'), zmq.Frame(json_msg)]
+            end = subscribers.end()
+            it = subscribers.begin()
+            while(it != end):
+                subscriber = dereference(it)
+                if self._socket:
+                    self._socket.send(subscriber, flags=SNDMORE)
+                    self._socket.send_multipart(frames, copy=False)
+                preincrement(it)
 
     #At subscriber
     cpdef peer_push(self, string peer, string sender, object header, string topic, object message, string bus):
@@ -188,8 +209,9 @@ cdef class PubSubCy:
     def is_prefix_in_topic(self, prefix, topic):
         return topic[:len(prefix)] == prefix
 
-    #Publisher
-    cpdef publish(self, peer, header=None, topic=None, message=None, bus=""):
-        #fill the header and pass to distribute
-        self.distribute(peer, header, topic, message, bus)
+    def encode_peer(self, peer):
+        if peer.startswith('\x00'):
+            return peer[:1] + b64encode(peer[1:])
+        return peer
+
 

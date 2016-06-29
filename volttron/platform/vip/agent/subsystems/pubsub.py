@@ -105,8 +105,9 @@ class PubSub(SubsystemBase):
         self.protected_topics = ProtectedPubSubTopics()
         self._event_queue = Queue()
         self._retry_period = 300.0
-        self._cypubsub = PubSubCy()
+        self._cypubsub = PubSubCy(self.core().socket)
         #self._processgreenlet = gevent.spawn(self._process_loop)
+        self._cython = True
 
         def setup(sender, **kwargs):
             # pylint: disable=unused-argument
@@ -127,7 +128,7 @@ class PubSub(SubsystemBase):
                     # XXX: needs updated in light of onconnected signal
                     self.add_subscription(peer, prefix, member, bus)
                     #bus= "bus1"
-                    self._cypubsub.add_my_subscriptions(peer, prefix, member, bus)
+                    if self._cython: self._cypubsub.add_my_subscriptions(peer, prefix, member, bus)
             inspect.getmembers(owner, subscribe)
         core.onsetup.connect(setup, self)
 
@@ -176,7 +177,7 @@ class PubSub(SubsystemBase):
             _log.debug("subscribe: _sync")
             self._add_peer_subscription(peer, bus, prefix)
             #bus="bus1"
-            self._cypubsub.add_peer_subscriptions(peer, prefix, bus)
+            if self._cython: self._cypubsub.add_peer_subscriptions(peer, prefix, bus)
 
     def _peer_sync(self, items):
         peer = bytes(self.rpc().context.vip_message.peer)
@@ -198,7 +199,7 @@ class PubSub(SubsystemBase):
             self._add_peer_subscription(peer, bus, prefix)
             #bus="bus1"
             _log.debug("subscribe: _peer_subscribe")
-            self._cypubsub.add_peer_subscriptions(peer, prefix, bus)
+            if self._cython: self._cypubsub.add_peer_subscriptions(peer, prefix, bus)
 
     def _peer_unsubscribe(self, prefix, bus=''):
         peer = bytes(self.rpc().context.vip_message.peer)
@@ -239,18 +240,21 @@ class PubSub(SubsystemBase):
 
     def _peer_publish(self, topic, headers, message=None, bus=''):
         peer = bytes(self.rpc().context.vip_message.peer)
+        #greenlet = gevent.spawn(self._distribute(peer, topic, headers, message, bus))
+        #return greenlet
         #bus = "bus1"
-        self._distribute(peer, topic, headers, message, bus)
+        #self._distribute(peer, topic, headers, message, bus)
+        #if self._cython: subscribers = set()
+        if self._cython: self._cypubsub.set_socket(self.core().socket)
+        if self._cython: self._cypubsub.distribute(peer, topic, headers, message, bus)
 
     def _distribute(self, peer, topic, headers, message=None, bus=''):
-        # self._check_if_protected_topic(topic)
-        # subscriptions = self._peer_subscriptions[bus]
-        # subscribers = set()
-        # for prefix, subscription in subscriptions.iteritems():
-        #     if subscription and topic.startswith(prefix):
-        #         subscribers |= subscription
+        self._check_if_protected_topic(topic)
+        subscriptions = self._peer_subscriptions[bus]
         subscribers = set()
-        subscribers = self._cypubsub.distribute(peer, topic, headers, message, bus)
+        for prefix, subscription in subscriptions.iteritems():
+            if subscription and topic.startswith(prefix):
+                subscribers |= subscription
         if subscribers:
             sender = encode_peer(peer)
             json_msg = jsonapi.dumps(jsonrpc.json_method(
@@ -260,7 +264,7 @@ class PubSub(SubsystemBase):
                       zmq.Frame(b'RPC'), zmq.Frame(json_msg)]
             socket = self.core().socket
             for subscriber in subscribers:
-                _log.debug("PUBSUBCPP Sending to each subscriber")
+                _log.debug("PUBSUBCPP Sending to each subscriber {}".format(len(subscribers)))
                 socket.send(subscriber, flags=SNDMORE)
                 socket.send_multipart(frames, copy=False)
         return len(subscribers)
@@ -273,12 +277,9 @@ class PubSub(SubsystemBase):
 
     def _peer_push(self, sender, bus, topic, headers, message):
         peer = bytes(self.rpc().context.vip_message.peer)
-        cbset = set()
-        cbset = self._cypubsub.peer_push(peer, sender, headers, topic, message, bus)
-        if cbset is not None:
-            for cb in cbset:
-                _log.debug("Found cb: {}".format(cb))
-                cb(peer, sender, bus, topic, headers, message)
+        #self._cypubsub.peer_push(peer, sender, headers, topic, message, bus)
+        greenlet = gevent.spawn(self._cypubsub.peer_push(peer, sender, headers, topic, message, bus))
+        #self._cypubsub.peer_push(peer, sender, headers, topic, message, bus)
 
     # def _peer_push(self, sender, bus, topic, headers, message):
     #     '''Handle incoming subscription pushes from peers.'''
@@ -349,7 +350,7 @@ class PubSub(SubsystemBase):
         self.add_subscription(peer, prefix, callback, bus)
         #bus="bus1"
         _log.debug("subscribe {0}, {1}, {2}".format(peer, prefix, bus))
-        self._cypubsub.add_my_subscriptions(peer, prefix, callback, bus)
+        if self._cython: self._cypubsub.add_my_subscriptions(peer, prefix, callback, bus)
         return self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
     
     @subscribe.classmethod
