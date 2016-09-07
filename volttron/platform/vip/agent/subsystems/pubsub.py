@@ -394,6 +394,7 @@ class PubSub(SubsystemBase):
         return self.rpc().call(
             peer, 'pubsub.publish', topic=topic, headers=headers,
             message=message, bus=bus)
+        #return FakeAsyncResult()
 
     def _check_if_protected_topic(self, topic):
         required_caps = self.protected_topics.get(topic)
@@ -429,3 +430,9 @@ class ProtectedPubSubTopics(object):
             if regex.match(topic):
                 return capabilities
         return None
+
+class FakeAsyncResult(object):
+    '''Dummy class that fakes get()'''
+    def get(self, *args, **kwargs):
+        pass
+
