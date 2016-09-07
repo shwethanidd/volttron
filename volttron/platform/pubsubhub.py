@@ -109,9 +109,12 @@ class PubSubHubService(Agent):
 
         _log.debug('PUBSUBHUB BACKEND ADDRESS: {}'.format(self._backend_address))
         _log.debug('PUBSUBHUB FRONTEND ADDRESS: {}'.format(self._frontend_address))
-        for be, fe in self._store[EX_ADDR_KEY]:
-            _log.debug('Adding hub: {} {}'.format(be, fe))
-            self.add_hub(be, fe)
+        # for be, fe in self._store[EX_ADDR_KEY]:
+        #     _log.debug('Adding hub: {} {}'.format(be, fe))
+        #     self.add_hub(be, fe)
+        be = self._backend_address#"tcp://130.20.116.34:5000"
+        fe = self._frontend_address#"tcp://130.20.116.34:5001"
+        self.add_hub(be, fe)
 
     def get_hubs(self):
         """ RPC method to retireve a list of tuples for connected hubs.
@@ -145,11 +148,11 @@ class PubSubHubService(Agent):
             frontend.connect(publish_address)
             _log.debug('Connecting to external publish address  {}.'.format(publish_address))
             frontend.setsockopt(zmq.SUBSCRIBE, str(""))
-            _log.debug('ADDING TO STORE')
-            alpha = self._store[EX_ADDR_KEY]
-            alpha.add(key)
-            self._store[EX_ADDR_KEY]=alpha
-            self._store.sync()
+            #_log.debug('ADDING TO STORE')
+            # alpha = self._store[EX_ADDR_KEY]
+            # alpha.add(key)
+            # self._store[EX_ADDR_KEY]=alpha
+            # self._store.sync()
             self._sockets[key] = (backend, frontend)
             self._external_addresses[key] = (publish_address, subscribe_address)
 

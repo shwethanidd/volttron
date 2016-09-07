@@ -609,7 +609,7 @@ class PubSubExt(object):
         compatibility information to header as variables
         min_compatible_version and max_compatible version
         '''
-        print('PUBLISHING TOPIC: {}'.format(topic))
+        #print('PUBLISHING TOPIC: {}'.format(topic))
         if headers is None:
             headers = {}
         headers['min_compatible_version'] = min_compatible_version
@@ -646,26 +646,28 @@ class PubSubExt(object):
 
     #Incoming message processing loop
     def _process_loop(self):
-        _log.debug("Reading from/waiting for queue.")
+        new_msg_list = []
+        #_log.debug("Reading from/waiting for queue.")
         while True:
             try:
-                _log.debug("PUBSUB Reading from/waiting for queue.")
+                new_msg_list = []
+                #_log.debug("PUBSUB Reading from/waiting for queue.")
                 new_msg_list = [
                      self._event_queue.get(True, self._retry_period)]
 
             except Empty:
-                _log.debug("Queue wait timed out. Falling out.")
+                #_log.debug("Queue wait timed out. Falling out.")
                 new_to_publish = []
 
-            if new_msg_list:
-                _log.debug("Checking for queue build up.")
+            if len(new_msg_list) != 0:
+                #_log.debug("Checking for queue build up.")
                 while True:
                     try:
                         new_msg_list.append(self._event_queue.get_nowait())
                     except Empty:
                         break
 
-            _log.debug('SUB: Length of data got from event queue {}'.format(len(new_msg_list)))
+            #_log.debug('SUB: Length of data got from event queue {}'.format(len(new_msg_list)))
             for data in new_msg_list:
                 json0 = data.find('{')
                 topic = data[0:json0 - 1]
@@ -674,7 +676,7 @@ class PubSubExt(object):
 
                 for prefix in self._subscriptions.keys():
                     if self.is_subscription(topic, prefix):
-                        _log.debug('SUB: subscription already present...calling all callbacks')
+                        #_log.debug('SUB: subscription already present...calling all callbacks')
 
                         for callback in self._subscriptions[prefix]['callbacks']:
                             callback(self._owner.core().identity, 'pubsub', '', topic,
