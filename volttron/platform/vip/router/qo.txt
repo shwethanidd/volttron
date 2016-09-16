@@ -1,0 +1,991 @@
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+        while(it != peerlist.end()):
+            peer = dereference(it)
+            self._drop_peer(peer)
+            preincrement(it)
+
+    cpdef vector[string] _send(self, Queue frames):
+         ^
+------------------------------------------------------------
+
+routercy.pyx:370:10: Signature not compatible with previous declaration
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+
+    cpdef _drop_peer(self, string peer)
+
+    cpdef route(self)
+
+    cpdef vector[string] _send(self, object frames)
+                             ^
+------------------------------------------------------------
+
+routercy.pxd:43:30: Previous declaration is here
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                error = None
+            if error is None:
+                raise
+            issue(ERROR, frames, error)
+            if exc.errno == EHOSTUNREACH:
+                drop.append(bytes(recipient))
+                   ^
+------------------------------------------------------------
+
+routercy.pyx:399:20: local variable 'drop' referenced before assignment
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                        error = None
+                    if error is None:
+                        raise
+                    issue(ERROR, frames, error)
+                    if exc.errno == EHOSTUNREACH:
+                        drop.append(bytes(sender))
+                           ^
+------------------------------------------------------------
+
+routercy.pyx:429:28: local variable 'drop' referenced before assignment
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                    if error is None:
+                        raise
+                    issue(ERROR, frames, error)
+                    if exc.errno == EHOSTUNREACH:
+                        drop.append(bytes(sender))
+        return drop
+                  ^
+------------------------------------------------------------
+
+routercy.pyx:430:19: local variable 'drop' referenced before assignment
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+            char* subsys_data = NULL
+            Py_ssize_t data_len_c=0
+            char* cmd_data = NULL
+            char* peer_data = NULL
+
+        frames.append(empty)
+                          ^
+------------------------------------------------------------
+
+routercy.pyx:186:27: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+
+        frames.append(empty)
+        frames.push_back(empty)
+        frames.push_back(CyFrame(b'VIP'))
+        frames.push_back(empty)
+        frames.append(empty)
+                          ^
+------------------------------------------------------------
+
+routercy.pyx:190:27: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+        frames.append(empty)
+        frames.push_back(empty)
+        frames.push_back(CyFrame(b'VIP'))
+        frames.push_back(empty)
+        frames.append(empty)
+        asbuffer_r(subsys, <void **>&subsys_data, &data_len_c)
+                          ^
+------------------------------------------------------------
+
+routercy.pyx:191:27: Cannot convert 'void **' to Python object
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+        frames.append(empty)
+        frames.push_back(empty)
+        frames.push_back(CyFrame(b'VIP'))
+        frames.push_back(empty)
+        frames.append(empty)
+        asbuffer_r(subsys, <void **>&subsys_data, &data_len_c)
+                                                 ^
+------------------------------------------------------------
+
+routercy.pyx:191:50: Cannot convert 'Py_ssize_t *' to Python object
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+        frames.push_back(empty)
+        frames.push_back(CyFrame(b'VIP'))
+        frames.push_back(empty)
+        frames.append(empty)
+        asbuffer_r(subsys, <void **>&subsys_data, &data_len_c)
+        asbuffer_r(cmd, <void **>&cmd_data, &data_len_c)
+                       ^
+------------------------------------------------------------
+
+routercy.pyx:192:24: Cannot convert 'void **' to Python object
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+        frames.push_back(empty)
+        frames.push_back(CyFrame(b'VIP'))
+        frames.push_back(empty)
+        frames.append(empty)
+        asbuffer_r(subsys, <void **>&subsys_data, &data_len_c)
+        asbuffer_r(cmd, <void **>&cmd_data, &data_len_c)
+                                           ^
+------------------------------------------------------------
+
+routercy.pyx:192:44: Cannot convert 'Py_ssize_t *' to Python object
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+        frames.push_back(CyFrame(b'VIP'))
+        frames.push_back(empty)
+        frames.append(empty)
+        asbuffer_r(subsys, <void **>&subsys_data, &data_len_c)
+        asbuffer_r(cmd, <void **>&cmd_data, &data_len_c)
+        asbuffer_r(peer, <void **>&peer_data, &data_len_c)
+                        ^
+------------------------------------------------------------
+
+routercy.pyx:193:25: Cannot convert 'void **' to Python object
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+        frames.push_back(CyFrame(b'VIP'))
+        frames.push_back(empty)
+        frames.append(empty)
+        asbuffer_r(subsys, <void **>&subsys_data, &data_len_c)
+        asbuffer_r(cmd, <void **>&cmd_data, &data_len_c)
+        asbuffer_r(peer, <void **>&peer_data, &data_len_c)
+                                             ^
+------------------------------------------------------------
+
+routercy.pyx:193:46: Cannot convert 'Py_ssize_t *' to Python object
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+            return
+        user_id = self.lookup_user_id(sender, recipient, auth_token)
+        if user_id is None:
+            user_id = b''
+
+        self._add_peer(sender.bytes)
+                            ^
+------------------------------------------------------------
+
+routercy.pyx:282:29: Cannot assign type 'object (Frame)' to 'string'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+        if user_id is None:
+            user_id = b''
+
+        self._add_peer(sender.bytes)
+        subsystem = frames.at(5)
+        if not recipient.bytes:
+                       ^
+------------------------------------------------------------
+
+routercy.pyx:284:24: Type 'object (Frame)' not acceptable as a boolean
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+        if not recipient.bytes:
+            # Handle requests directed at the router
+            name = subsystem.bytes
+            if name == b'hello':
+                frames.clear()
+                frames = [sender, recipient, proto, user_id, msg_id,
+                        ^
+------------------------------------------------------------
+
+routercy.pyx:289:25: Cannot coerce list to type 'Queue'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+            name = subsystem.bytes
+            if name == b'hello':
+                frames.clear()
+                frames = [sender, recipient, proto, user_id, msg_id,
+                          b'hello', b'welcome', b'1.0', socket.identity, sender]
+                frames.append(sender)
+                                   ^
+------------------------------------------------------------
+
+routercy.pyx:291:36: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+            if name == b'hello':
+                frames.clear()
+                frames = [sender, recipient, proto, user_id, msg_id,
+                          b'hello', b'welcome', b'1.0', socket.identity, sender]
+                frames.append(sender)
+                frames.append(recipient)
+                                      ^
+------------------------------------------------------------
+
+routercy.pyx:292:39: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.clear()
+                frames = [sender, recipient, proto, user_id, msg_id,
+                          b'hello', b'welcome', b'1.0', socket.identity, sender]
+                frames.append(sender)
+                frames.append(recipient)
+                frames.append(proto)
+                                  ^
+------------------------------------------------------------
+
+routercy.pyx:293:35: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames = [sender, recipient, proto, user_id, msg_id,
+                          b'hello', b'welcome', b'1.0', socket.identity, sender]
+                frames.append(sender)
+                frames.append(recipient)
+                frames.append(proto)
+                frames.append(user_id)
+                                    ^
+------------------------------------------------------------
+
+routercy.pyx:294:37: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                          b'hello', b'welcome', b'1.0', socket.identity, sender]
+                frames.append(sender)
+                frames.append(recipient)
+                frames.append(proto)
+                frames.append(user_id)
+                frames.append(msg_id)
+                                   ^
+------------------------------------------------------------
+
+routercy.pyx:295:36: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.append(sender)
+                frames.append(recipient)
+                frames.append(proto)
+                frames.append(user_id)
+                frames.append(msg_id)
+                frames.append(CyFrame(b'hello'))
+                                    ^
+------------------------------------------------------------
+
+routercy.pyx:296:37: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.append(recipient)
+                frames.append(proto)
+                frames.append(user_id)
+                frames.append(msg_id)
+                frames.append(CyFrame(b'hello'))
+                frames.append(CyFrame(b'welcome'))
+                                    ^
+------------------------------------------------------------
+
+routercy.pyx:297:37: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.append(proto)
+                frames.append(user_id)
+                frames.append(msg_id)
+                frames.append(CyFrame(b'hello'))
+                frames.append(CyFrame(b'welcome'))
+                frames.append(CyFrame(b'1.0'))
+                                    ^
+------------------------------------------------------------
+
+routercy.pyx:298:37: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.append(user_id)
+                frames.append(msg_id)
+                frames.append(CyFrame(b'hello'))
+                frames.append(CyFrame(b'welcome'))
+                frames.append(CyFrame(b'1.0'))
+                frames.append(socket.identity)
+                                   ^
+------------------------------------------------------------
+
+routercy.pyx:299:36: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.append(msg_id)
+                frames.append(CyFrame(b'hello'))
+                frames.append(CyFrame(b'welcome'))
+                frames.append(CyFrame(b'1.0'))
+                frames.append(socket.identity)
+                frames.append(sender)
+                                   ^
+------------------------------------------------------------
+
+routercy.pyx:300:36: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.append(CyFrame(b'1.0'))
+                frames.append(socket.identity)
+                frames.append(sender)
+            elif name == b'ping':
+                frames.clear()
+                frames.append(sender)
+                                   ^
+------------------------------------------------------------
+
+routercy.pyx:303:36: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.append(socket.identity)
+                frames.append(sender)
+            elif name == b'ping':
+                frames.clear()
+                frames.append(sender)
+                frames.append(recipient)
+                                      ^
+------------------------------------------------------------
+
+routercy.pyx:304:39: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.append(sender)
+            elif name == b'ping':
+                frames.clear()
+                frames.append(sender)
+                frames.append(recipient)
+                frames.append(proto)
+                                  ^
+------------------------------------------------------------
+
+routercy.pyx:305:35: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+            elif name == b'ping':
+                frames.clear()
+                frames.append(sender)
+                frames.append(recipient)
+                frames.append(proto)
+                frames.append(user_id)
+                                    ^
+------------------------------------------------------------
+
+routercy.pyx:306:37: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.clear()
+                frames.append(sender)
+                frames.append(recipient)
+                frames.append(proto)
+                frames.append(user_id)
+                frames.append(msg_id)
+                                   ^
+------------------------------------------------------------
+
+routercy.pyx:307:36: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.append(sender)
+                frames.append(recipient)
+                frames.append(proto)
+                frames.append(user_id)
+                frames.append(msg_id)
+                frames.append(CyFrame(b'ping'))
+                                    ^
+------------------------------------------------------------
+
+routercy.pyx:308:37: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.append(recipient)
+                frames.append(proto)
+                frames.append(user_id)
+                frames.append(msg_id)
+                frames.append(CyFrame(b'ping'))
+                frames.append(CyFrame(b'pong'))
+                                    ^
+------------------------------------------------------------
+
+routercy.pyx:309:37: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                try:
+                    op = frames[6].bytes
+                except IndexError:
+                    op = None
+                frames.clear()
+                frames.append(sender)
+                                   ^
+------------------------------------------------------------
+
+routercy.pyx:316:36: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                    op = frames[6].bytes
+                except IndexError:
+                    op = None
+                frames.clear()
+                frames.append(sender)
+                frames.append(recipient)
+                                      ^
+------------------------------------------------------------
+
+routercy.pyx:317:39: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                except IndexError:
+                    op = None
+                frames.clear()
+                frames.append(sender)
+                frames.append(recipient)
+                frames.append(proto)
+                                  ^
+------------------------------------------------------------
+
+routercy.pyx:318:35: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                    op = None
+                frames.clear()
+                frames.append(sender)
+                frames.append(recipient)
+                frames.append(proto)
+                frames.append(CyFrmae(b''))
+                                    ^
+------------------------------------------------------------
+
+routercy.pyx:319:37: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.clear()
+                frames.append(sender)
+                frames.append(recipient)
+                frames.append(proto)
+                frames.append(CyFrmae(b''))
+                frames.append(msg_id)
+                                   ^
+------------------------------------------------------------
+
+routercy.pyx:320:36: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.append(sender)
+                frames.append(recipient)
+                frames.append(proto)
+                frames.append(CyFrmae(b''))
+                frames.append(msg_id)
+                frames.append(CyFrame(subsystem))
+                                    ^
+------------------------------------------------------------
+
+routercy.pyx:321:37: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.append(proto)
+                frames.append(CyFrmae(b''))
+                frames.append(msg_id)
+                frames.append(CyFrame(subsystem))
+                if op == b'list':
+                    frames.append(CyFrmae(b'listing'))
+                                        ^
+------------------------------------------------------------
+
+routercy.pyx:323:41: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.append(CyFrmae(b''))
+                frames.append(msg_id)
+                frames.append(CyFrame(subsystem))
+                if op == b'list':
+                    frames.append(CyFrmae(b'listing'))
+                    frames.append(recipient)
+                                          ^
+------------------------------------------------------------
+
+routercy.pyx:324:43: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.append(msg_id)
+                frames.append(CyFrame(subsystem))
+                if op == b'list':
+                    frames.append(CyFrmae(b'listing'))
+                    frames.append(recipient)
+                    frames.append(CyFrame(b'listing'))
+                                        ^
+------------------------------------------------------------
+
+routercy.pyx:325:41: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                    frames.append(recipient)
+                    frames.append(CyFrame(b'listing'))
+                    frames.extend(self._peers) #???
+                else:
+                    error = (b'unknown' if op else b'missing') + b' operation'
+                    frames.append(CyFrmae(b'error'))
+                                        ^
+------------------------------------------------------------
+
+routercy.pyx:329:41: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                    frames.append(CyFrame(b'listing'))
+                    frames.extend(self._peers) #???
+                else:
+                    error = (b'unknown' if op else b'missing') + b' operation'
+                    frames.append(CyFrmae(b'error'))
+                    frames.append(error)
+                                      ^
+------------------------------------------------------------
+
+routercy.pyx:330:39: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                if response is None:
+                    # Handler does not know of the subsystem
+                    errnum, errmsg = error = _INVALID_SUBSYSTEM
+                    issue(self.ERROR, frames, error)
+                    frames.clear()
+                    frames.append(sender)
+                                       ^
+------------------------------------------------------------
+
+routercy.pyx:340:40: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                    # Handler does not know of the subsystem
+                    errnum, errmsg = error = _INVALID_SUBSYSTEM
+                    issue(self.ERROR, frames, error)
+                    frames.clear()
+                    frames.append(sender)
+                    frames.append(recipient)
+                                          ^
+------------------------------------------------------------
+
+routercy.pyx:341:43: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                    errnum, errmsg = error = _INVALID_SUBSYSTEM
+                    issue(self.ERROR, frames, error)
+                    frames.clear()
+                    frames.append(sender)
+                    frames.append(recipient)
+                    frames.append(proto)
+                                      ^
+------------------------------------------------------------
+
+routercy.pyx:342:39: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                    issue(self.ERROR, frames, error)
+                    frames.clear()
+                    frames.append(sender)
+                    frames.append(recipient)
+                    frames.append(proto)
+                    frames.append(CyFrame(b''))
+                                        ^
+------------------------------------------------------------
+
+routercy.pyx:343:41: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                    frames.clear()
+                    frames.append(sender)
+                    frames.append(recipient)
+                    frames.append(proto)
+                    frames.append(CyFrame(b''))
+                    frames.append(msg_id)
+                                       ^
+------------------------------------------------------------
+
+routercy.pyx:344:40: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                    frames.append(sender)
+                    frames.append(recipient)
+                    frames.append(proto)
+                    frames.append(CyFrame(b''))
+                    frames.append(msg_id)
+                    frames.append(CyFrame(b'error'))
+                                        ^
+------------------------------------------------------------
+
+routercy.pyx:345:41: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                    frames.append(recipient)
+                    frames.append(proto)
+                    frames.append(CyFrame(b''))
+                    frames.append(msg_id)
+                    frames.append(CyFrame(b'error'))
+                    frames.append(CyFrame(b'errnum'))
+                                        ^
+------------------------------------------------------------
+
+routercy.pyx:346:41: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                    frames.append(proto)
+                    frames.append(CyFrame(b''))
+                    frames.append(msg_id)
+                    frames.append(CyFrame(b'error'))
+                    frames.append(CyFrame(b'errnum'))
+                    frames.append(CyFrame(b'errmsg'))
+                                        ^
+------------------------------------------------------------
+
+routercy.pyx:347:41: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                    frames.append(CyFrame(b''))
+                    frames.append(msg_id)
+                    frames.append(CyFrame(b'error'))
+                    frames.append(CyFrame(b'errnum'))
+                    frames.append(CyFrame(b'errmsg'))
+                    frames.append(CyFrame(b''))
+                                        ^
+------------------------------------------------------------
+
+routercy.pyx:348:41: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                    frames.append(msg_id)
+                    frames.append(CyFrame(b'error'))
+                    frames.append(CyFrame(b'errnum'))
+                    frames.append(CyFrame(b'errmsg'))
+                    frames.append(CyFrame(b''))
+                    frames.append(CyFrame(subsystem))
+                                        ^
+------------------------------------------------------------
+
+routercy.pyx:349:41: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                else:
+                    frames = response
+        else:
+            # Route all other requests to the recipient
+            frames.clear()
+            frames.append(sender)
+                               ^
+------------------------------------------------------------
+
+routercy.pyx:358:32: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                    frames = response
+        else:
+            # Route all other requests to the recipient
+            frames.clear()
+            frames.append(sender)
+            frames.append(recipient)
+                                  ^
+------------------------------------------------------------
+
+routercy.pyx:359:35: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+        else:
+            # Route all other requests to the recipient
+            frames.clear()
+            frames.append(sender)
+            frames.append(recipient)
+            frames.append(proto)
+                              ^
+------------------------------------------------------------
+
+routercy.pyx:360:31: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                error = None
+            if error is None:
+                raise
+            issue(ERROR, frames, error)
+            if exc.errno == EHOSTUNREACH:
+                drop.append(bytes(recipient))
+                                ^
+------------------------------------------------------------
+
+routercy.pyx:399:33: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+            if exc.errno != EHOSTUNREACH or sender is not frames[0]:
+                # Only send errors if the sender and recipient differ
+                proto, user_id, msg_id, subsystem = frames[2:6]
+                #frames = [sender, b'', proto, user_id, msg_id,
+                #          b'error', errnum, errmsg, recipient, subsystem]
+                frames.append(sender)
+                                   ^
+------------------------------------------------------------
+
+routercy.pyx:406:36: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                # Only send errors if the sender and recipient differ
+                proto, user_id, msg_id, subsystem = frames[2:6]
+                #frames = [sender, b'', proto, user_id, msg_id,
+                #          b'error', errnum, errmsg, recipient, subsystem]
+                frames.append(sender)
+                frames.append(CyFrame(b''))
+                                    ^
+------------------------------------------------------------
+
+routercy.pyx:407:37: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                proto, user_id, msg_id, subsystem = frames[2:6]
+                #frames = [sender, b'', proto, user_id, msg_id,
+                #          b'error', errnum, errmsg, recipient, subsystem]
+                frames.append(sender)
+                frames.append(CyFrame(b''))
+                frames.append(proto)
+                                  ^
+------------------------------------------------------------
+
+routercy.pyx:408:35: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                #frames = [sender, b'', proto, user_id, msg_id,
+                #          b'error', errnum, errmsg, recipient, subsystem]
+                frames.append(sender)
+                frames.append(CyFrame(b''))
+                frames.append(proto)
+                frames.append(user_id)
+                                    ^
+------------------------------------------------------------
+
+routercy.pyx:409:37: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                #          b'error', errnum, errmsg, recipient, subsystem]
+                frames.append(sender)
+                frames.append(CyFrame(b''))
+                frames.append(proto)
+                frames.append(user_id)
+                frames.append(msg_id)
+                                   ^
+------------------------------------------------------------
+
+routercy.pyx:410:36: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.append(sender)
+                frames.append(CyFrame(b''))
+                frames.append(proto)
+                frames.append(user_id)
+                frames.append(msg_id)
+                frames.append(CyFrame(b'error'))
+                                    ^
+------------------------------------------------------------
+
+routercy.pyx:411:37: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.append(CyFrame(b''))
+                frames.append(proto)
+                frames.append(user_id)
+                frames.append(msg_id)
+                frames.append(CyFrame(b'error'))
+                frames.append(errnum)
+                                   ^
+------------------------------------------------------------
+
+routercy.pyx:412:36: Cannot assign type 'string' to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.append(proto)
+                frames.append(user_id)
+                frames.append(msg_id)
+                frames.append(CyFrame(b'error'))
+                frames.append(errnum)
+                frames.append(errmsg)
+                                   ^
+------------------------------------------------------------
+
+routercy.pyx:413:36: Cannot assign type 'string' to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.append(user_id)
+                frames.append(msg_id)
+                frames.append(CyFrame(b'error'))
+                frames.append(errnum)
+                frames.append(errmsg)
+                frames.append(recipient)
+                                      ^
+------------------------------------------------------------
+
+routercy.pyx:414:39: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                frames.append(msg_id)
+                frames.append(CyFrame(b'error'))
+                frames.append(errnum)
+                frames.append(errmsg)
+                frames.append(recipient)
+                frames.append(subsystem)
+                                      ^
+------------------------------------------------------------
+
+routercy.pyx:415:39: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+                        error = None
+                    if error is None:
+                        raise
+                    issue(ERROR, frames, error)
+                    if exc.errno == EHOSTUNREACH:
+                        drop.append(bytes(sender))
+                                        ^
+------------------------------------------------------------
+
+routercy.pyx:429:41: Cannot convert Python object to 'void *'
+
+Error compiling Cython file:
+------------------------------------------------------------
+...
+
+
+
+@cname("__Pyx_CFunc_object____Frame___to_py")
+cdef object __Pyx_CFunc_object____Frame___to_py(object (*f)(Frame) ):
+    def wrap(Frame self):
+            ^
+------------------------------------------------------------
+
+cfunc.to_py:65:13: 'Frame' is not a type identifier
+Compiling routercy.pyx because it changed.
+Compiling routermaincy.pyx because it changed.
+[1/2] Cythonizing routercy.pyx
+Traceback (most recent call last):
+  File "setup.py", line 6, in <module>
+    ext_modules = cythonize(["routercy.pyx", "routermaincy.pyx"], language="c++")
+  File "/usr/local/lib/python2.7/dist-packages/Cython/Build/Dependencies.py", line 912, in cythonize
+    cythonize_one(*args)
+  File "/usr/local/lib/python2.7/dist-packages/Cython/Build/Dependencies.py", line 1034, in cythonize_one
+    raise CompileError(None, pyx_file)
+Cython.Compiler.Errors.CompileError: routercy.pyx
