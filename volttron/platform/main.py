@@ -97,6 +97,7 @@ from .agent import utils
 from .agent.known_identities import MASTER_WEB
 from .vip.agent.subsystems.pubsub import ProtectedPubSubTopics
 from .keystore import KeyStore, KnownHostsStore
+from .pubsubservice import PubSubService
 
 try:
     import volttron.restricted
@@ -316,6 +317,7 @@ class Router(BaseRouter):
             if not address.domain:
                 address.domain = 'vip'
             address.bind(sock)
+            print("Address {}".format(address))
             _log.debug('Additional VIP router bound to %s' % address)
 
     def issue(self, topic, frames, extra=None):
@@ -371,42 +373,42 @@ class Router(BaseRouter):
             return frames
 
 
-class PubSubService(Agent):
-    def __init__(self, protected_topics_file, *args, **kwargs):
-        super(PubSubService, self).__init__(*args, **kwargs)
-        self._protected_topics_file = os.path.abspath(protected_topics_file)
-
-    @Core.receiver('onstart')
-    def setup_agent(self, sender, **kwargs):
-        self._read_protected_topics_file()
-        self.core.spawn(utils.watch_file, self._protected_topics_file,
-                        self._read_protected_topics_file)
-        self.vip.pubsub.add_bus('')
-
-    def _read_protected_topics_file(self):
-        _log.info('loading protected-topics file %s',
-                  self._protected_topics_file)
-        try:
-            utils.create_file_if_missing(self._protected_topics_file)
-            with open(self._protected_topics_file) as fil:
-                # Use gevent FileObject to avoid blocking the thread
-                data = FileObject(fil, close=False).read()
-                topics_data = jsonapi.loads(data) if data else {}
-        except Exception:
-            _log.exception('error loading %s', self._protected_topics_file)
-        else:
-            write_protect = topics_data.get('write-protect', [])
-            topics = ProtectedPubSubTopics()
-            try:
-                for entry in write_protect:
-                    topics.add(entry['topic'], entry['capabilities'])
-            except KeyError:
-                _log.exception('invalid format for protected topics '
-                               'file {}'.format(self._protected_topics_file))
-            else:
-                self.vip.pubsub.protected_topics = topics
-                _log.info('protected-topics file %s loaded',
-                          self._protected_topics_file)
+# class PubSubService(Agent):
+#     def __init__(self, protected_topics_file, *args, **kwargs):
+#         super(PubSubService, self).__init__(*args, **kwargs)
+#         self._protected_topics_file = os.path.abspath(protected_topics_file)
+#
+#     @Core.receiver('onstart')
+#     def setup_agent(self, sender, **kwargs):
+#         self._read_protected_topics_file()
+#         self.core.spawn(utils.watch_file, self._protected_topics_file,
+#                         self._read_protected_topics_file)
+#         self.vip.pubsub.add_bus('')
+#
+#     def _read_protected_topics_file(self):
+#         _log.info('loading protected-topics file %s',
+#                   self._protected_topics_file)
+#         try:
+#             utils.create_file_if_missing(self._protected_topics_file)
+#             with open(self._protected_topics_file) as fil:
+#                 # Use gevent FileObject to avoid blocking the thread
+#                 data = FileObject(fil, close=False).read()
+#                 topics_data = jsonapi.loads(data) if data else {}
+#         except Exception:
+#             _log.exception('error loading %s', self._protected_topics_file)
+#         else:
+#             write_protect = topics_data.get('write-protect', [])
+#             topics = ProtectedPubSubTopics()
+#             try:
+#                 for entry in write_protect:
+#                     topics.add(entry['topic'], entry['capabilities'])
+#             except KeyError:
+#                 _log.exception('invalid format for protected topics '
+#                                'file {}'.format(self._protected_topics_file))
+#             else:
+#                 self.vip.pubsub.protected_topics = topics
+#                 _log.info('protected-topics file %s loaded',
+#                           self._protected_topics_file)
 
 
 def start_volttron_process(opts):
@@ -596,8 +598,8 @@ def start_volttron_process(opts):
             ControlService(opts.aip, address=address, identity='control',
                            tracker=tracker, heartbeat_autostart=True,
                            enable_store=False),
-            PubSubService(protected_topics_file, address=address,
-                          identity='pubsub', heartbeat_autostart=True,
+            PubSubService(protected_topics_file, zmq.Context.instance(), 'tcp://127.0.0.1:22989', address=address,
+                          secretkey=secretkey, publickey=publickey, identity='pubsub', heartbeat_autostart=True,
                           enable_store=False),
             CompatPubSub(address=address, identity='pubsub.compat',
                          publish_address=opts.publish_address,
@@ -720,6 +722,9 @@ def main(argv=sys.argv):
     agents.add_argument(
         '--volttron-central-serverkey', default=None,
         help='The serverkey of volttron central.')
+    agents.add_argument(
+        '--vip-pub-address', metavar='ZMQADDR',
+        help='ZeroMQ URL to bind for pubsub communication')
     agents.add_argument(
         '--instance-name', default=None,
         help='The name of the instance that will be reported to '

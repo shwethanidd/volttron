@@ -72,7 +72,10 @@ from .base import SubsystemBase
 from ..decorators import annotate, annotations, dualmethod, spawn
 from ..errors import Unreachable
 from .... import jsonrpc
+from ... import green as vip
 from volttron.platform.agent import utils
+import urlparse
+import gevent
 
 __all__ = ['PubSub']
 min_compatible_version = '3.0'
@@ -100,20 +103,28 @@ class PubSub(SubsystemBase):
         self._peer_subscriptions = {}
         self._my_subscriptions = {}
         self.protected_topics = ProtectedPubSubTopics()
+        self._pub_address = 'tcp://127.0.0.1:22989'
+        self._pub_sock = None
+        self._greenlet = None
 
         def setup(sender, **kwargs):
             # pylint: disable=unused-argument
             rpc_subsys.export(self._peer_sync, 'pubsub.sync')
-            rpc_subsys.export(self._peer_subscribe, 'pubsub.subscribe')
-            rpc_subsys.export(self._peer_unsubscribe, 'pubsub.unsubscribe')
+            #rpc_subsys.export(self._peer_subscribe, 'pubsub.subscribe')
+            #rpc_subsys.export(self._peer_unsubscribe, 'pubsub.unsubscribe')
             rpc_subsys.export(self._peer_list, 'pubsub.list')
             rpc_subsys.export(self._peer_publish, 'pubsub.publish')
             rpc_subsys.export(self._peer_push, 'pubsub.push')
+            self._pub_sock = vip.Socket(zmq.Context.instance())
+            #self._add_keys_to_addr()
+            self._pub_sock.identity = self.core().identity
+            self._pub_sock.connect(self._pub_address)
+            _log.debug("Connected to address {}".format(self._pub_address))
             core.onconnected.connect(self._connected)
             core.onviperror.connect(self._viperror)
             peerlist_subsys.onadd.connect(self._peer_add)
             peerlist_subsys.ondrop.connect(self._peer_drop)
-
+            self._greenlet = gevent.spawn(self._make_subscription, self._pub_sock)
             def subscribe(member):   # pylint: disable=redefined-outer-name
                 for peer, bus, prefix in annotations(
                         member, set, 'pubsub.subscriptions'):
@@ -121,6 +132,24 @@ class PubSub(SubsystemBase):
                     self.add_subscription(peer, prefix, member, bus)
             inspect.getmembers(owner, subscribe)
         core.onsetup.connect(setup, self)
+
+    def _add_keys_to_addr(self):
+        '''Adds public, secret, and server keys to query in VIP address if
+        they are not already present'''
+
+        def add_param(query_str, key, value):
+            query_dict = urlparse.parse_qs(query_str)
+            if not value or key in query_dict:
+                return ''
+            # urlparse automatically adds '?', but we need to add the '&'s
+            return '{}{}={}'.format('&' if query_str else '', key, value)
+
+        url = list(urlparse.urlsplit(self._pub_address))
+        if url[0] in ['tcp', 'ipc']:
+            url[3] += add_param(url[3], 'publickey', self.core().publickey)
+            url[3] += add_param(url[3], 'secretkey', self.core().secretkey)
+            url[3] += add_param(url[3], 'serverkey', self.core().serverkey)
+            self._pub_address = str(urlparse.urlunsplit(url))
 
     def add_bus(self, name):
         self._peer_subscriptions.setdefault(name, {})
@@ -179,10 +208,10 @@ class PubSub(SubsystemBase):
             subscriptions[prefix] = subscribers = set()
         subscribers.add(peer)
 
-    def _peer_subscribe(self, prefix, bus=''):
-        peer = bytes(self.rpc().context.vip_message.peer)
-        for prefix in prefix if isinstance(prefix, list) else [prefix]:
-            self._add_peer_subscription(peer, bus, prefix)
+    # def _peer_subscribe(self, prefix, bus=''):
+    #     peer = bytes(self.rpc().context.vip_message.peer)
+    #     for prefix in prefix if isinstance(prefix, list) else [prefix]:
+    #         self._add_peer_subscription(peer, bus, prefix)
 
     def _peer_unsubscribe(self, prefix, bus=''):
         peer = bytes(self.rpc().context.vip_message.peer)
@@ -247,7 +276,8 @@ class PubSub(SubsystemBase):
 
     def _peer_push(self, sender, bus, topic, headers, message):
         '''Handle incoming subscription pushes from peers.'''
-        peer = bytes(self.rpc().context.vip_message.peer)
+        #peer = bytes(self.rpc().context.vip_message.peer)
+        peer = 'pubsub'
         handled = 0
         try:
             subscriptions = self._my_subscriptions[peer][bus]
@@ -312,6 +342,7 @@ class PubSub(SubsystemBase):
         message is a possibly empty list of message parts.
         '''
         self.add_subscription(peer, prefix, callback, bus)
+        _log.debug("making rpc subscribe call {}".format(self._my_subscriptions))
         return self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
     
     @subscribe.classmethod
@@ -391,9 +422,24 @@ class PubSub(SubsystemBase):
 
         if peer is None:
             peer = 'pubsub'
-        return self.rpc().call(
-            peer, 'pubsub.publish', topic=topic, headers=headers,
-            message=message, bus=bus)
+        # return self.rpc().call(
+        #     peer, 'pubsub.publish', topic=topic, headers=headers,
+        #     message=message, bus=bus)
+
+        json_msg = jsonapi.dumps(
+            dict(identity=self.core().identity, bus=bus, headers=headers, message=message)
+        )
+        #topic should not be part of json msg
+        data = "%s %s"%(topic, json_msg)
+
+        data_frames = [zmq.Frame(str(data))]
+        sender = encode_peer(peer)
+        #sender = identity=self.core().identity
+        # frames = [zmq.Frame(b''), zmq.Frame(b''),
+        #           zmq.Frame(b'PUBSUB')]
+        #frames.extend(data_frames)
+        #self._pub_sock.send_multipart(frames, copy=False)
+        self._pub_sock.send_vip(sender, 'pubsub', data_frames, copy=False)
 
     def _check_if_protected_topic(self, topic):
         required_caps = self.protected_topics.get(topic)
@@ -406,6 +452,26 @@ class PubSub(SubsystemBase):
                       ' but capability list {} was'
                       ' provided').format(topic, required_caps, caps)
                 raise jsonrpc.exception_from_json(jsonrpc.UNAUTHORIZED, msg)
+
+    def _make_subscription(self, socket):
+        while True:
+            #frames = socket.recv_(copy=False)
+            frames = socket.recv_vip_object(flags=0, copy=False)
+            #self._peer_push(self, sender, bus, topic, headers, message)
+            data = frames.args
+            data = data[0].bytes
+            json0 = data.find('{')
+            topic = data[0:json0 - 1]
+            msg = jsonapi.loads(data[json0:])
+            headers = msg['headers']
+            message = msg['message']
+            # peer = bytes(self.vip.rpc.context.vip_message.peer)
+            peer = msg['identity']
+            bus = msg['bus']
+            #_log.debug("PUBSUB Got sub message {0}, {1}, {2}, {3}, {4}".format(peer, topic, headers, message, bus))
+            self._peer_push(peer, bus, topic, headers, message)
+            # for f in frames:
+            #     _log.debug("PUBSUB Got ext sub message : {}".format(f.bytes))
 
 class ProtectedPubSubTopics(object):
     '''Simple class to contain protected pubsub topics'''
