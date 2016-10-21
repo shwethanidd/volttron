@@ -1,0 +1,23 @@
+{
+    # configuration from mongo historian - START
+    "mongoconnection": {
+        "type": "mongodb",
+        "params": {
+            "host": "vc-db1.pnl.gov",
+            "port": 27017,
+            "database": "historian_dev2",
+            "user": "hdev",
+            "passwd": "Dev4Volttron",
+            "authSource":"admin"
+        }
+    },
+    # configuration from mongo historian - END
+    # configuration from sqllite historian - START
+    "sqlliteconnection": {
+        "type": "sqlite",
+        "params": {
+            "database": "~/git/volttron/scripts/historian-scripts/mongo-to-sql/historian.sqlite"
+        }
+    }
+    # configuration from sqllite historian - END
+}
