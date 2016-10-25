@@ -337,6 +337,7 @@ class Router(BaseRouter):
     def handle_subsystem(self, frames, user_id):
         subsystem = bytes(frames[5])
         if subsystem == b'quit':
+            self.logger.debug("reached")
             sender = bytes(frames[0])
             if sender == b'control' and user_id == self.default_user_id:
                 raise KeyboardInterrupt()

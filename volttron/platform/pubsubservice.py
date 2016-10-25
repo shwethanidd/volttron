@@ -91,9 +91,9 @@ class PubSubService(Agent):
         self._logger = logging.getLogger(__name__)
         # if self._logger.level == logging.NOTSET:
         #     self._logger.setLevel(logging.WARNING)
-        #self._pub_address = Address(pub_address)
+        self._pub_address = Address(pub_address)
 
-        self._pub_address = pub_address
+        #self._pub_address = pub_address
         self._context = context or zmq.Context.instance()
         self._secretkey = secretkey
         self._publickey = publickey
@@ -112,8 +112,8 @@ class PubSubService(Agent):
         #Create zmq.ROUTER type socket
         self._pub_sock = zmq.Socket(self._context, zmq.ROUTER)
         #Setup keys for the pub address
-        #self._set_keys_to_address()
-        self._pub_sock.bind(self._pub_address)
+        self._set_keys_to_address();
+        #self._pub_sock.bind(self._pub_address)
         self.add_bus('')
         #Create thread to route publish messages
         # Start pubsub router in separate thread to remain responsive
@@ -269,7 +269,8 @@ class PubSubService(Agent):
             socket = self.core.socket
             for subscriber in subscribers:
                 socket.send(subscriber, flags=SNDMORE)
-                grnlet = gevent.spawn(socket.send_multipart(frames, copy=False))
+                #grnlet = gevent.spawn(socket.send_multipart(frames, copy=False))
+                socket.send_multipart(frames, copy=False)
         return len(subscribers)
 
     def _pubsub_router(self):

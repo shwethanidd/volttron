@@ -1,3 +1,4 @@
+from __future__ import print_function
 from multiprocessing import Process, Lock, JoinableQueue
 from gevent.queue import Queue, Empty
 import sys
@@ -12,9 +13,12 @@ import os
 from math import sqrt, pow
 import argparse
 
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
 setup_logging()
 _log = logging.getLogger('multiagent')
-
+_log.setLevel(logging.WARNING)
 class MultiAgent(Process):
     def __init__(self, agentid, lock, dev, msgque):
         Process.__init__(self)
@@ -52,6 +56,7 @@ class MultiAgent(Process):
 
         #if self.count%21 == 0 or self.count%42 == 1:
         if self.count%self.devices == 0:
+            eprint("I'M HERE!")
             diff = client_time - header_time
             d_float = diff.seconds + (diff.microseconds* 0.000001)
             self.msg.append(d_float)
@@ -93,6 +98,7 @@ def main(argv=sys.argv):
     dev = opts.dev
     _log.debug("Num of listener agents {0}, Devices {1}, test output file: {2}".format(ps, dev, test_opt))
 
+
     try:
         proc = []
         time_delta_msg = []
@@ -128,13 +134,16 @@ def main(argv=sys.argv):
         try:
             fd = open(test_opt, 'w')
             fd.write('Mean=' + str(mean))
-            fd.write('Total Mean= ' + str(sum(mean) / len(mean)))
+            total_mean = sum(mean) / len(mean)
+            fd.write('Total Mean= ' + str(total_mean))
+            eprint("TOTAL MEAN = {}".format(total_mean))
         except IOError:
             _log.debug("Error writing into file")
         finally:
             if fd:
                 fd.close()
-        _log.debug("I'M DONE WITH THE TEST.")
+        #_log.debug("I'M DONE WITH THE TEST.")
+        eprint("I'M DONE WITH THE TEST")
         for p in proc:
             p.task.join()
     except KeyboardInterrupt:

@@ -116,7 +116,7 @@ class PubSub(SubsystemBase):
             rpc_subsys.export(self._peer_publish, 'pubsub.publish')
             rpc_subsys.export(self._peer_push, 'pubsub.push')
             self._pub_sock = vip.Socket(zmq.Context.instance())
-            #self._add_keys_to_addr()
+            self._add_keys_to_addr()
             self._pub_sock.identity = self.core().identity
             self._pub_sock.connect(self._pub_address)
             _log.debug("Connected to address {}".format(self._pub_address))
