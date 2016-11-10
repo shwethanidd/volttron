@@ -23,6 +23,7 @@ Functional Capabilities
     * Time duration over which override behavior is applicable
 
 2. User shall also be able to disable/turn off the override behavior by specifying:
+
     * Entity on which the override/lock feature has be disabled. (example: campus/building/device/point1)
 
 3. Master driver shall set all the set points falling under the override condition to its default state/value immediately. This is to ensure that the devices are in fail-safe state when the override/lock feature is removed/
