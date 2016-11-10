@@ -82,6 +82,9 @@ from volttron.platform.dbutils.basedb import DbDriver
 from volttron.platform.agent.utils import get_aware_utc_now
 import threading
 import os
+from datetime import datetime, timedelta
+import pytz
+from bson.objectid import ObjectId
 
 description = """
 This script retrieves all the topics in the "topics" table in MongoDb and
@@ -97,20 +100,30 @@ topic_string        #Topic pattern that needs to copied from MongoDb to SQLite
 """
 
 class MongodbToSQLHistorian:
-    def __init__(self, config_path, topic_pattern, **kwargs):
+    def __init__(self, config_path, topic_pattern, start_time, period, **kwargs):
         self.mongodbclient = None
         self._topic_collection = 'topics'
-        self.topic_id_map = {}
-        self.dbfuncts_class = None
-        self.sqlobj = None
-        self.sql_topic_id_map = {}
-        self.sql_topic_name_map = {}
-        self.topic_prefix_pattern = topic_pattern
+        self._meta_collections = 'meta'
+        self._data_collections = 'data'
+        self._mongo_topic_id_map = {}
+        self._sqldbclient = None
+        self._sql_topic_id_map = {}
+        self._sql_topic_name_map = {}
+        self._mongo_to_sql_topic_id = {}
+        self._topic_prefix_pattern = topic_pattern
+        self._start_time = datetime.strptime(
+            start_time,
+            '%Y-%m-%dT%H:%M:%S.%f').replace(tzinfo=pytz.utc)
+        print("Collection time: {0}, {1}".format(self._start_time, period))
+        self._end_time = self.compute_collection_time(self._start_time, period)
+        print("Collection time: {0}, {1}".format(self._start_time, self._end_time))
         with open(config_path) as f:
             db_config = parse_json_config(f.read())
+        #Set up remote Mongo DB and local SQLite DB connections
         self.mongodb_setup(db_config)
         self.sqldb_setup(db_config)
 
+    '''Set up MongoDB client'''
     def mongodb_setup(self, config):
         if not config or not isinstance(config, dict):
             raise ValueError("Configuration should be a valid json")
@@ -118,67 +131,57 @@ class MongodbToSQLHistorian:
         connection = config.get('mongoconnection')
         self.mongodbclient = mongoutils.get_mongo_client(connection['params'])
 
+    '''Get table from MongoDB and dump into SQLite DB
+    1. Run query on topics table to get list of topics (and topic ids) matching the topics pattern
+    2. Dump it into SQLite DB
+    3. Run query on data table of MongoDB for given time period and topic pattern
+    4. Dump result into data table of SQLite DB
+    5. Run query on meta table of MongoDB to get metadata for the topic ids
+    6. Dump the results into SQLite DB'''
     def copy_from_mongo_to_sqllite(self):
-        self.topic_id_map, name_map = self.get_topic_by_pattern(self.topic_prefix_pattern)
-        i = 0
-        for topic_lower in name_map:
-            print("Topic: {}".format(name_map[topic_lower]))
-            self.write_to_sqldb(name_map[topic_lower])
-            #self.commit_insertions()
-        #self.commit_insertions()
+        print("Running Query for Topics Table")
+        self._mongo_topic_id_map, name_map = self.get_topic_by_pattern(self._topic_prefix_pattern)
 
+        topic_ids = self._mongo_topic_id_map.values()
+
+        #Dump topic table into SQLite
+        for topic_lower in name_map:
+            self.dump_topics_to_sqldb(name_map[topic_lower])
+            self._mongo_to_sql_topic_id[self._mongo_topic_id_map[topic_lower]] = self._sql_topic_id_map[topic_lower]
+
+        print("Running Query for Data Table")
+        #Dump data table into SQLite DB
+        self.dump_data_to_sqldb_inchunk(topic_ids)
+
+        print("Running Query for Meta Table")
+        #Dump metadata table into SQLite
+        self.dump_meta_to_sqldb(topic_ids)
+
+    '''Setup SQLite DB client'''
     def sqldb_setup(self, config):
         if not config or not isinstance(config, dict):
             raise ValueError("Configuration should be a valid json")
         tables_def = {"table_prefix": "",
                       "data_table": "data",
                       "topics_table": "topics",
-                      "meta_table": "meta",
-                      "agg_topics_table": "agg_topics",
-                      "agg_meta_table": "agg_meta"
+                      "meta_table": "meta"
                         }
         table_names = dict(tables_def)
 
-        # 1. Check connection to db instantiate db functions class
-        #connection = config.get('sqlliteconnection', None)
-        # database_type = config['sqlliteconnection']['type']
-        # db_functs_class = sqlutils.get_dbfuncts_class(database_type)
-        # print("connecting to database {}".format(config['sqlliteconnection']['params']))
-        # self.sqlobj = db_functs_class(config['sqlliteconnection']['params'],
-        #                                table_names)
-        #self.sqlobj.setup_historian_tables()
-        self.sqlobj = MySqlLiteFuncts(config['sqlliteconnection']['params'],
+        self._sqldbclient = MySqlLiteFuncts(config['sqlliteconnection']['params'],
                                       table_names)
-        self.sqlobj.setup_historian_tables()
-        topic_id_map, topic_name_map = self.sqlobj.get_topic_map()
+        self._sqldbclient.setup_historian_tables()
+        topic_id_map, topic_name_map = self._sqldbclient.get_topic_map()
         if topic_id_map is not None:
-            self.sql_topic_id_map.update(topic_id_map)
+            self._sql_topic_id_map.update(topic_id_map)
         if topic_name_map is not None:
-            self.sql_topic_name_map.update(topic_name_map)
+            self._sql_topic_name_map.update(topic_name_map)
 
-    def commit_insertions(self):
-        self.sqlobj.commit()
-
-    #Returns dict of topics entries under topics table in Mongodb
-    def get_topic_map(self, topics_collection):
-        _log.debug("In get topic map")
-        db = self.mongodbclient.get_default_database()
-        #print("db: {}".format(db.getName()))
-        cursor = db[topics_collection].find()
-        topic_id_map = dict()
-        topic_name_map = dict()
-        for document in cursor:
-            topic_id_map[document['topic_name'].lower()] = document['_id']
-            topic_name_map[document['topic_name'].lower()] = \
-                document['topic_name']
-        _log.debug("Returning map from get_topic_map")
-        return topic_id_map, topic_name_map
-
-    #Returns dict of topics entries under topics table matching the query pattern in Mongodb
+    '''Runs a query on the topics table in MongoDB for topics pattern and returns the result'''
     def get_topic_by_pattern(self, pattern):
         topic_id_map, topic_name_map = self.find_topics_by_pattern(pattern)
-        for topic_lower in topic_name_map:
-            print("Patterned topic name: {0}".format(topic_name_map[topic_lower]))
+        # for topic_lower in topic_name_map:
+        #     print("Patterned topic name: {0}".format(topic_name_map[topic_lower]))
         return topic_id_map, topic_name_map
 
     def find_topics_by_pattern(self, topics_pattern):
@@ -196,27 +199,90 @@ class MongodbToSQLHistorian:
                 document['topic_name']
         return topic_id_map, topic_name_map
 
-    def write_to_sqldb(self, topic):
+    '''Runs a query on the meta table in MongoDB for list of topic ids and writes the result into SQLite DB'''
+    def dump_meta_to_sqldb(self, topic_ids):
+        db = self.mongodbclient.get_default_database()
+        pattern = {'topic_id': { "$in": topic_ids}}
+        cursor = db[self._meta_collections].find(pattern)
+        for row in cursor:
+            print("meta data: {0} {1}".format(row['meta'], row['topic_id']))
+            sql_topic_id = self._mongo_to_sql_topic_id[row['topic_id']]
+            self._sqldbclient.insert_meta_into_sqllite(sql_topic_id, row['meta'])
+
+    '''Runs a query on the data table in MongoDB for list of topic ids and time period and
+    writes the result into SQLite DB'''
+    def dump_data_to_sqldb(self, topic_ids):
+        db = self.mongodbclient.get_default_database()
+        # pattern = [
+        #       { "$match": { "$and": [{'ts': { "$gte": self._start_time, "$lt": self._end_time}}, {'topic_id': { "$in": topic_ids}}]}}]
+        # pattern = {"$and": [{'topic_id': { "$in": topic_ids}}, {'ts': { "$gte": self._start_time, "$lt": self._end_time}}]}
+        pattern = {'ts': {"$gte": self._start_time, "$lt": self._end_time}}
+
+        cursor = db[self._data_collections].find(pattern)
+        for num in xrange(cursor.count()):
+            print("num: {}".format(num))
+            row = cursor[num]
+            try:
+                if row['topic_id'] in topic_ids:
+                    print("topic id: {}".format(row['topic_id']))
+                    sql_topic_id = self._mongo_to_sql_topic_id[row['topic_id']]
+                    # Dump data table into SQL
+                    self._sqldbclient.insert_data_into_sqllite(row['ts'], sql_topic_id, row['value'])
+            except Exception as e:
+                _log.exception('unhandled exception' + e.message)
+
+    def dump_data_to_sqldb_inchunk(self, topic_ids):
+        db = self.mongodbclient.get_default_database()
+        pattern = {"$and": [{'topic_id': { "$in": topic_ids}}, {'ts': { "$gte": self._start_time, "$lt": self._end_time}}]}
+
+        cursor = db[self._data_collections].find(pattern)
+        for num in xrange(cursor.count()):
+            print("num: {}".format(num))
+            row = cursor[num]
+            try:
+                print("topic id: {}".format(row['topic_id']))
+                sql_topic_id = self._mongo_to_sql_topic_id[row['topic_id']]
+                # Dump data table into SQL
+                self._sqldbclient.insert_data_into_sqllite(row['ts'], sql_topic_id, row['value'])
+            except pymongo.errors as e:
+                _log.exception('PyMongo exception' + e.message)
+
+    '''Writes a topic into topics table of SQLite DB'''
+    def dump_topics_to_sqldb(self, topic):
         # look at the topics that are stored in the database
         # already to see if this topic has a value
         lowercase_name = topic.lower()
-        topic_id = self.sql_topic_id_map.get(lowercase_name, None)
-        db_topic_name = self.sql_topic_name_map.get(lowercase_name,
+        topic_id = self._sql_topic_id_map.get(lowercase_name, None)
+        db_topic_name = self._sql_topic_name_map.get(lowercase_name,
                                                 None)
         if topic_id is None:
             # Insert topic name as is in db
-            #row = self.sqlobj.insert_topic(topic)
-            row = self.sqlobj.insert_topic_into_sqllite(topic)
+            #row = self._sqldbclient.insert_topic(topic)
+            row = self._sqldbclient.insert_topic_into_sqllite(topic)
             topic_id = row[0]
             # user lower case topic name when storing in map
             # for case insensitive comparison
-            self.sql_topic_id_map[lowercase_name] = topic_id
-            self.sql_topic_name_map[lowercase_name] = topic
+            self._sql_topic_id_map[lowercase_name] = topic_id
+            self._sql_topic_name_map[lowercase_name] = topic
             #_log.debug('TopicId: {} => {}'.format(topic_id, topic))
         elif db_topic_name != topic:
             _log.debug('Updating topic: {}'.format(topic))
-            self.sqlobj.update_topic_into_sqllite(topic, topic_id)
-            self.sql_topic_name_map[lowercase_name] = topic
+            self._sqldbclient.update_topic_into_sqllite(topic, topic_id)
+            self._sql_topic_name_map[lowercase_name] = topic
+
+    '''Computes collection period'''
+    def compute_collection_time(self, _start_time, period):
+        print("period: {}".format(period[:-1]))
+        period_int = int(period[:-1])
+        unit = period[-1:]
+        if unit == 'm':
+            return _start_time + timedelta(minutes=period_int)
+        elif unit == 'h':
+            return _start_time + timedelta(hours=period_int)
+        elif unit == 'd':
+            return _start_time + timedelta(days=period_int)
+        elif unit == 'w':
+            return _start_time + timedelta(weeks=period_int)
 
 def parse_json_config(config_str):
     """Parse a JSON-encoded configuration file."""
@@ -256,9 +322,13 @@ class MySqlLiteFuncts(DbDriver):
 
         print (connect_params)
         self.topics_table = None
+        self.data_table = None
+        self.meta_table = None
 
         if table_names:
+            self.data_table = table_names['data_table']
             self.topics_table = table_names['topics_table']
+            self.meta_table = table_names['meta_table']
         super(MySqlLiteFuncts, self).__init__('sqlite3', **connect_params)
 
     def setup_historian_tables(self):
@@ -274,11 +344,58 @@ class MySqlLiteFuncts(DbDriver):
                             ts timestamp NOT NULL,
                             topic_name TEXT NOT NULL,
                             UNIQUE(ts, topic_name))''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS ''' + self.data_table +
+                       ''' (ts timestamp NOT NULL,
+                       topic_id INTEGER NOT NULL,
+                       value_string TEXT NOT NULL,
+                       UNIQUE(topic_id, ts))''')
+
+        cursor.execute('''CREATE INDEX IF NOT EXISTS data_idx
+                                    ON ''' + self.data_table + ''' (ts ASC)''')
+
+        cursor.execute('''CREATE TABLE IF NOT EXISTS ''' + self.meta_table +
+                       '''(topic_id INTEGER PRIMARY KEY,
+                        metadata TEXT NOT NULL)''')
+
         _log.debug("Created data topics and meta tables")
 
         conn.commit()
         conn.close()
 
+    def insert_meta_into_sqllite(self, topic_id, metadata):
+        conn = sqlite3.connect(
+            self.__database,
+            detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES)
+
+        print("metadata: {0}, {1}".format(topic_id, metadata))
+        if conn is None:
+            return False
+
+        cursor = conn.cursor()
+        timestamp = get_aware_utc_now()
+        cursor.execute(self.insert_meta_stmt(),
+                       (topic_id, jsonapi.dumps(metadata)))
+        row = [cursor.lastrowid]
+        conn.commit()
+        conn.close()
+        return row
+
+    def insert_data_into_sqllite(self, ts, topic_id, data):
+        conn = sqlite3.connect(
+            self.__database,
+            detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES)
+
+        if conn is None:
+            return False
+
+        cursor = conn.cursor()
+        timestamp = get_aware_utc_now()
+        cursor.execute(self.insert_data_stmt(),
+                       (ts, topic_id, jsonapi.dumps(data)))
+        row = [cursor.lastrowid]
+        conn.commit()
+        conn.close()
+        return row
 
     def insert_topic_into_sqllite(self, topic):
         conn = sqlite3.connect(
@@ -322,6 +439,14 @@ class MySqlLiteFuncts(DbDriver):
         return '''UPDATE ''' + self.topics_table + ''' SET topic_name = ?, ts = ?
             WHERE topic_id = ?'''
 
+    def insert_data_stmt(self):
+        return '''REPLACE INTO ''' + self.data_table + \
+               '''  values(?, ?, ?)'''
+
+    def insert_meta_stmt(self):
+        return '''INSERT OR REPLACE INTO ''' + self.meta_table + \
+               ''' values(?, ?)'''
+
     def get_topic_map(self):
         _log.debug("in get_topic_map")
         q = "SELECT topic_id, topic_name FROM " + self.topics_table
@@ -336,24 +461,24 @@ class MySqlLiteFuncts(DbDriver):
 
 def main(argv=sys.argv):
     args = argv[1:]
-    parser = ArgumentParser(description="Retreive the topics data from mongo database"
+    parser = ArgumentParser(description="Retreive the topics, data, meta table from mongo database"
                                         "and store in sqllite database")
-    # parser.add_argument(
-    #     '-f', '--file', metavar='FILE', dest = "config_file",
-    #     help='Config file containing the connection info of Mongo and SQLLite db')
+
     parser.add_argument("config_file", help="Config file containing the connection info of Mongo and SQLLite db")
     parser.add_argument("topic_string", help="topic query pattern")
-
+    parser.add_argument("start_time", help="Start time for the query")
+    parser.add_argument("end_time", help="Collection period")
     parser.set_defaults(
         config_file='config.db',
         topic_string='',
+        start_time='2016-03-31T01:15:23.123456',
+        end_time='2016-03-31T01:35:23.123456'
     )
 
     args = parser.parse_args(args)
+
     try:
-        #utils.vip_main(MongodbToSQLHistorian)
-        print("config file name: {}".format(args.config_file))
-        msdb = MongodbToSQLHistorian(args.config_file, args.topic_string)
+        msdb = MongodbToSQLHistorian(args.config_file, args.topic_string, args.start_time, args.end_time)
         msdb.copy_from_mongo_to_sqllite()
     except Exception as e:
         _log.exception('unhandled exception' + e.message)
