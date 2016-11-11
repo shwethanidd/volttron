@@ -62,7 +62,7 @@ import os
 
 import zmq
 from zmq import Frame, NOBLOCK, ZMQError, EINVAL, EHOSTUNREACH
-
+from .pubsubservice import PubSubService
 
 __all__ = ['BaseRouter', 'OUTGOING', 'INCOMING', 'UNROUTABLE', 'ERROR']
 
@@ -216,6 +216,10 @@ class BaseRouter(object):
         for peer in drop:
             self._drop_peer(peer)
 
+    def drop_pubsub_peers(self, peer):
+        '''Drop peers for pubsub subsystem. To be handled by subclasses'''
+        pass
+
     def _add_peer(self, peer):
         if peer in self._peers:
             return
@@ -242,7 +246,10 @@ class BaseRouter(object):
         issue = self.issue
         # Expecting incoming frames:
         #   [SENDER, RECIPIENT, PROTO, USER_ID, MSG_ID, SUBSYS, ...]
+
         frames = socket.recv_multipart(copy=False)
+        # for f in frames:
+        #     print("Received frames: {}".format(f.bytes))
         issue(INCOMING, frames)
         if len(frames) < 6:
             # Cannot route if there are insufficient frames, such as
@@ -305,6 +312,7 @@ class BaseRouter(object):
             frames[:4] = [recipient, sender, proto, user_id]
         for peer in self._send(frames):
             self._drop_peer(peer)
+
 
     def _send(self, frames):
         issue = self.issue
