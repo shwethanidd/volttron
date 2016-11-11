@@ -97,10 +97,11 @@ The script expects the following as input parameter:
 config_file         #Path of the Configuration file containing
                     database connection details
 topic_string        #Topic pattern that needs to copied from MongoDb to SQLite
+start_time          #Start time for the data table query
+end_time            #End time for the data table query
 """
-
 class MongodbToSQLHistorian:
-    def __init__(self, config_path, topic_pattern, start_time, period, **kwargs):
+    def __init__(self, config_path, topic_pattern, start_time, end_time, **kwargs):
         self.mongodbclient = None
         self._topic_collection = 'topics'
         self._meta_collections = 'meta'
@@ -111,17 +112,42 @@ class MongodbToSQLHistorian:
         self._sql_topic_name_map = {}
         self._mongo_to_sql_topic_id = {}
         self._topic_prefix_pattern = topic_pattern
-        self._start_time = datetime.strptime(
-            start_time,
-            '%Y-%m-%dT%H:%M:%S.%f').replace(tzinfo=pytz.utc)
-        print("Collection time: {0}, {1}".format(self._start_time, period))
-        self._end_time = self.compute_collection_time(self._start_time, period)
-        print("Collection time: {0}, {1}".format(self._start_time, self._end_time))
+        self._time_period = '5m'
+        #Check and set the start and end time for data query
+        self.check_time_format(start_time, end_time)
+        _log.info("Start time: {0}, End Time: {1}".format(self._start_time, self._end_time))
+
         with open(config_path) as f:
             db_config = parse_json_config(f.read())
         #Set up remote Mongo DB and local SQLite DB connections
         self.mongodb_setup(db_config)
         self.sqldb_setup(db_config)
+
+    '''Check the time format of input parameters - start_time and end_time'''
+    def check_time_format(self, start_time, end_time):
+        try:
+            self._start_time = datetime.strptime(
+                start_time,
+                '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
+        except ValueError:
+            self._start_time = datetime.strptime(
+                '2016-01-01T00:00:00',
+                '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
+            _log.error("Wrong time format. Valid Time Format: {0}. Setting Start time to default: {1}".
+                       format('%Y-%m-%dT%H:%M:%S', self._start_time))
+        try:
+            self._end_time = datetime.strptime(
+                end_time,
+                '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
+        except ValueError:
+            #Check if end time is a time period, If yes, calculate end time
+            try:
+                self._end_time = self.compute_collection_time(self._start_time, end_time)
+            except ValueError:
+                #Setting end time to current
+                self._end_time = datetime.utcnow().replace(tzinfo=pytz.utc)
+                _log.error("Wrong time format. Valid Time Format: {0}. Setting end time to default current time: {1}".
+                           format('%Y-%m-%dT%H:%M:%S', self._end_time))
 
     '''Set up MongoDB client'''
     def mongodb_setup(self, config):
@@ -139,7 +165,7 @@ class MongodbToSQLHistorian:
     5. Run query on meta table of MongoDB to get metadata for the topic ids
     6. Dump the results into SQLite DB'''
     def copy_from_mongo_to_sqllite(self):
-        print("Running Query for Topics Table")
+        _log.info("Running Query for Topics Table")
         self._mongo_topic_id_map, name_map = self.get_topic_by_pattern(self._topic_prefix_pattern)
 
         topic_ids = self._mongo_topic_id_map.values()
@@ -149,13 +175,21 @@ class MongodbToSQLHistorian:
             self.dump_topics_to_sqldb(name_map[topic_lower])
             self._mongo_to_sql_topic_id[self._mongo_topic_id_map[topic_lower]] = self._sql_topic_id_map[topic_lower]
 
-        print("Running Query for Data Table")
-        #Dump data table into SQLite DB
-        self.dump_data_to_sqldb_inchunk(topic_ids)
-
-        print("Running Query for Meta Table")
+        _log.info("Running Query for Meta Table")
         #Dump metadata table into SQLite
         self.dump_meta_to_sqldb(topic_ids)
+        last = False
+        next_compute_time = self._end_time
+        i = 1
+        _log.info("Running Query for Data Table")
+        while not last:
+            #Compute time slice
+            start_time, end_time, last = self.compute_next_collection_time(next_compute_time, self._time_period)
+            _log.info("Slice {0}: Start: {1}, End: {2}".format(i, start_time, end_time))
+            #Dump data table into SQLite DB for a time slice
+            #self.dump_data_to_sqldb_in_chunk(topic_ids, start_time, end_time)
+            next_compute_time = start_time
+            i += 1
 
     '''Setup SQLite DB client'''
     def sqldb_setup(self, config):
@@ -205,42 +239,21 @@ class MongodbToSQLHistorian:
         pattern = {'topic_id': { "$in": topic_ids}}
         cursor = db[self._meta_collections].find(pattern)
         for row in cursor:
-            print("meta data: {0} {1}".format(row['meta'], row['topic_id']))
+            #_log.info("meta data: {0} {1}".format(row['meta'], row['topic_id']))
             sql_topic_id = self._mongo_to_sql_topic_id[row['topic_id']]
             self._sqldbclient.insert_meta_into_sqllite(sql_topic_id, row['meta'])
 
     '''Runs a query on the data table in MongoDB for list of topic ids and time period and
     writes the result into SQLite DB'''
-    def dump_data_to_sqldb(self, topic_ids):
+    def dump_data_to_sqldb_in_chunk(self, topic_ids, start_time, end_time):
         db = self.mongodbclient.get_default_database()
-        # pattern = [
-        #       { "$match": { "$and": [{'ts': { "$gte": self._start_time, "$lt": self._end_time}}, {'topic_id': { "$in": topic_ids}}]}}]
-        # pattern = {"$and": [{'topic_id': { "$in": topic_ids}}, {'ts': { "$gte": self._start_time, "$lt": self._end_time}}]}
-        pattern = {'ts': {"$gte": self._start_time, "$lt": self._end_time}}
+        pattern = {"$and": [{'topic_id': { "$in": topic_ids}}, {'ts': { "$gte": start_time, "$lt": end_time}}]}
 
         cursor = db[self._data_collections].find(pattern)
         for num in xrange(cursor.count()):
-            print("num: {}".format(num))
+            _log.info("num: {}".format(num))
             row = cursor[num]
             try:
-                if row['topic_id'] in topic_ids:
-                    print("topic id: {}".format(row['topic_id']))
-                    sql_topic_id = self._mongo_to_sql_topic_id[row['topic_id']]
-                    # Dump data table into SQL
-                    self._sqldbclient.insert_data_into_sqllite(row['ts'], sql_topic_id, row['value'])
-            except Exception as e:
-                _log.exception('unhandled exception' + e.message)
-
-    def dump_data_to_sqldb_inchunk(self, topic_ids):
-        db = self.mongodbclient.get_default_database()
-        pattern = {"$and": [{'topic_id': { "$in": topic_ids}}, {'ts': { "$gte": self._start_time, "$lt": self._end_time}}]}
-
-        cursor = db[self._data_collections].find(pattern)
-        for num in xrange(cursor.count()):
-            print("num: {}".format(num))
-            row = cursor[num]
-            try:
-                print("topic id: {}".format(row['topic_id']))
                 sql_topic_id = self._mongo_to_sql_topic_id[row['topic_id']]
                 # Dump data table into SQL
                 self._sqldbclient.insert_data_into_sqllite(row['ts'], sql_topic_id, row['value'])
@@ -270,9 +283,33 @@ class MongodbToSQLHistorian:
             self._sqldbclient.update_topic_into_sqllite(topic, topic_id)
             self._sql_topic_name_map[lowercase_name] = topic
 
-    '''Computes collection period'''
+    def compute_next_collection_time(self, end_time, period):
+        last = False
+        period_int = int(period[:-1])
+        unit = period[-1:]
+        if unit == 'm':
+            start_time = end_time - timedelta(minutes=period_int)
+        elif unit == 'h':
+            start_time = end_time - timedelta(hours=period_int)
+        elif unit == 'd':
+            start_time = end_time - timedelta(days=period_int)
+        elif unit == 'w':
+            start_time = end_time - timedelta(weeks=period_int)
+        elif unit == 'M':
+            period_int *= 30
+            timedelta(days=period_int)
+        else:
+            raise ValueError(
+                "Invalid unit {} for collection period. "
+                "Unit should be m/h/d/w/M".format(unit))
+        #To check
+        if start_time <= self._start_time:
+            last = True
+            start_time = self._start_time
+        return start_time, end_time, last
+
     def compute_collection_time(self, _start_time, period):
-        print("period: {}".format(period[:-1]))
+        _log.info("period: {}".format(period[:-1]))
         period_int = int(period[:-1])
         unit = period[-1:]
         if unit == 'm':
@@ -283,6 +320,14 @@ class MongodbToSQLHistorian:
             return _start_time + timedelta(days=period_int)
         elif unit == 'w':
             return _start_time + timedelta(weeks=period_int)
+        elif unit == 'M':
+            period_int *= 30
+            return _start_time + timedelta(days=period_int)
+        else:
+            raise ValueError(
+                "Invalid unit {} for collection period. "
+                "Unit should be m/h/d/w/M".format(unit))
+
 
 def parse_json_config(config_str):
     """Parse a JSON-encoded configuration file."""
@@ -466,16 +511,19 @@ def main(argv=sys.argv):
 
     parser.add_argument("config_file", help="Config file containing the connection info of Mongo and SQLLite db")
     parser.add_argument("topic_string", help="topic query pattern")
-    parser.add_argument("start_time", help="Start time for the query")
-    parser.add_argument("end_time", help="Collection period")
+    parser.add_argument("start_time", help="Start time for query. Format: yy-mm-ddTHH:MM:SS")
+    parser.add_argument("end_time", help="End time for query. Format: yy-mm-ddTHH:MM:SS")
     parser.set_defaults(
         config_file='config.db',
-        topic_string='',
-        start_time='2016-03-31T01:15:23.123456',
-        end_time='2016-03-31T01:35:23.123456'
+        topic_string='campus/building',
+        start_time= datetime.strptime(
+            '2016-01-01T00:00:00',
+            '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc),
+        end_time= datetime.utcnow().replace(tzinfo=pytz.utc),
     )
 
     args = parser.parse_args(args)
+    print("Arguments: {0}, {1}, {2}, {3}".format(args.topic_string, args.config_file,args.start_time, args.end_time))
 
     try:
         msdb = MongodbToSQLHistorian(args.config_file, args.topic_string, args.start_time, args.end_time)
