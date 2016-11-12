@@ -115,9 +115,7 @@ class PubSub(SubsystemBase):
             # rpc_subsys.export(self._peer_publish, 'pubsub.publish')
             # rpc_subsys.export(self._peer_push, 'pubsub.push')
             core.onconnected.connect(self._connected)
-            core.onviperror.connect(self._viperror)
             peerlist_subsys.onadd.connect(self._peer_add)
-            peerlist_subsys.ondrop.connect(self._peer_drop)
             self.vip_socket = self.core().socket
             def subscribe(member):   # pylint: disable=redefined-outer-name
                 for peer, bus, prefix in annotations(
@@ -127,29 +125,14 @@ class PubSub(SubsystemBase):
             inspect.getmembers(owner, subscribe)
         core.onsetup.connect(setup, self)
 
-    def add_bus(self, name):
-        self._peer_subscriptions.setdefault(name, {})
-
-    def remove_bus(self, name):
-        del self._peer_subscriptions[name]
-        # XXX: notify subscribers of removed bus
-        #      or disallow removal of non-empty bus?
-
     def _connected(self, sender, **kwargs):
         _log.debug("connected so sync up")
         self.synchronize(None)
-
-    def _viperror(self, sender, error, **kwargs):
-        if isinstance(error, Unreachable):
-            self._peer_drop(self, error.peer)
 
     def _peer_add(self, sender, peer, **kwargs):
         # Delay sync by some random amount to prevent reply storm.
         delay = random.random()
         self.core().spawn_later(delay, self.synchronize, peer)
-
-    def _peer_drop(self, sender, peer, **kwargs):
-        self._sync(peer, {})
 
     def _peer_push(self, sender, bus, topic, headers, message):
         '''Handle incoming subscription pushes from peers.'''
