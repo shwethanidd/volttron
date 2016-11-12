@@ -187,7 +187,7 @@ class MongodbToSQLHistorian:
             start_time, end_time, last = self.compute_next_collection_time(next_compute_time, self._time_period)
             _log.info("Slice {0}: Start: {1}, End: {2}".format(i, start_time, end_time))
             #Dump data table into SQLite DB for a time slice
-            #self.dump_data_to_sqldb_in_chunk(topic_ids, start_time, end_time)
+            self.dump_data_to_sqldb_in_chunk(topic_ids, start_time, end_time)
             next_compute_time = start_time
             i += 1
 
