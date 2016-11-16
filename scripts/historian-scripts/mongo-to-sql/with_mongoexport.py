@@ -106,96 +106,110 @@ class MongodbToSQLHistorian:
     def __init__(self, config_path, topic_pattern, start_time, end_time, **kwargs):
         self.mongodbclient = None
         self._topic_collection = 'topics'
-        self._meta_collections = 'meta'
-        self._data_collections = 'data'
+        self._meta_collection = 'meta'
+        self._data_collection = 'data'
         self._mongo_topic_id_map = {}
         self._sqldbclient = None
         self._sql_topic_id_map = {}
         self._sql_topic_name_map = {}
         self._mongo_to_sql_topic_id = {}
         self._topic_prefix_pattern = topic_pattern
-        self._time_period = '5d'
+        self._time_period = '1M'
+        self._hosts = ''
+        self._db_name = ''
+        self._user = ''
+        self._passwd = ''
+        self._authsource = ''
         #Check and set the start and end time for data query
-        self.check_time_format(start_time, end_time)
+        #self.check_time_format(start_time, end_time)
+        self._start_time = start_time
+        self._end_time = end_time
         _log.info("Start time: {0}, End Time: {1}".format(self._start_time, self._end_time))
         self.db_config = None
         with open(config_path) as f:
             self.db_config = parse_json_config(f.read())
         #Set up remote Mongo DB and local SQLite DB connections
-        #self.mongodb_setup(db_config, topic_pattern)
+        self.mongodb_setup()
         self.sqldb_setup(self.db_config)
 
-    '''Check the time format of input parameters - start_time and end_time'''
-    def check_time_format(self, start_time, end_time):
-        try:
-            # self._start_time = datetime.strptime(
-            #     start_time,
-            #     '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
-            self._start_time = datetime.strptime(
-                start_time,
-                '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
-        except ValueError:
-            self._start_time = datetime.strptime(
-                '2016-01-01T00:00:00',
-                '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
-            _log.error("Wrong time format. Valid Time Format: {0}. Setting Start time to default: {1}".
-                       format('%Y-%m-%dT%H:%M:%S', self._start_time))
-        try:
-            # self._end_time = datetime.strptime(
-            #     end_time,
-            #     '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
-            self._end_time = datetime.strptime(
-                end_time,
-                '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
-        except ValueError:
-            # Check if end time is a time period, If yes, calculate end time
-            try:
-                self._end_time = self.compute_collection_time(self._start_time, end_time)
-            except ValueError:
-                # Setting end time to current
-                self._end_time = datetime.utcnow().replace(tzinfo=pytz.utc)
-                _log.error("Wrong time format. Valid Time Format: {0}. Setting end time to default current time: {1}".
-                           format('%Y-%m-%dT%H:%M:%S', self._end_time))
-
-    def copy_from_mongo_to_sqllite(self):
+    def mongodb_setup(self):
         if not self.db_config or not isinstance(self.db_config, dict):
             raise ValueError("Configuration should be a valid json")
         # Get MongoDB connection details
         connection = self.db_config.get('mongoconnection')
         params = connection["params"]
-        hosts = '{}:{}'.format(params["host"], params["port"])
-        db_name = params["database"]
-        topic_collection = 'topics'
-        user = params['user']
-        passwd = params['passwd']
-        authsource = params['authSource']
+        self._hosts = '{}:{}'.format(params["host"], params["port"])
+        self._db_name = params["database"]
+        self._topic_collection = 'topics'
+        self._user = params['user']
+        self._passwd = params['passwd']
+        self._authsource = params['authSource']
 
+    def copy_from_mongo_to_sqllite(self):
         _log.info("Running Query for Topics Table")
         #Export Topics table
         topics_pattern = self._topic_prefix_pattern.replace('/', '\/')
         query_pattern = {'topic_name': {'$regex': topics_pattern, '$options': 'i'}}
         topics_query_pattern = str(query_pattern)
         outfile = 'topics.json'
-        subprocess.call(["mongoexport", "--host", hosts, "--db", db_name, "--authenticationDatabase", authsource,
-                         "--username", user, "--password", passwd, "--collection", topic_collection, "--query",
+        subprocess.call(["mongoexport", "--host", self._hosts, "--db", self._db_name, "--authenticationDatabase", self._authsource,
+                         "--username", self._user, "--password", self._passwd, "--collection", self._topic_collection, "--query",
                          topics_query_pattern, "--out", outfile])
         #Dump topics table into SQLite
+        _log.info("Dumping topics into SQLite")
         self._mongo_topic_id_map, topic_name_map = self.dump_topics_to_sqldb()
         topic_ids = self._mongo_topic_id_map.values()
+        # Export Meta table
+        _log.info("Running Query for Meta Table {}".format(len(topic_ids)))
+        #self.process_meta_table_entries(topic_ids)
+        self.process_data_table_entries(topic_ids)
 
-        #Export Meta table
-        _log.info("Running Query for Meta Table")
-        meta_collection = 'meta'
-        query_pattern = {'topic_id': {"$in": topic_ids}}
-        meta_query_pattern = str(query_pattern)
-        outfile = 'meta.json'
-        subprocess.call(["mongoexport", "--host", hosts, "--db", db_name, "--authenticationDatabase", authsource,
-                         "--username", user, "--password", passwd, "--collection", meta_collection, "--query",
-                         meta_query_pattern, "--out", outfile])
-        #"mongoexport - h id.mongolab.com:47307 - d heroku_app - c domain - u username123 - p password123 - o domain - bk.json"
+    def process_meta_table_entries(self, topic_ids):
+        metafilenames = []
+        args = ["mongoexport", "--host", self._hosts, "--db", self._db_name, "--authenticationDatabase",
+                self._authsource, "--username", self._user, "--password", self._passwd, "--collection",
+                self._meta_collection, "--query", "", "--out", ""]
+        i = 0
+        if len(topic_ids) <= 2000:
+            query_pattern = {'topic_id': {"$in": topic_ids}}
+            meta_query_pattern = str(query_pattern)
+            outfile = 'meta' + str(i) + '.json'
+            args[14] = meta_query_pattern
+            args[16] = outfile
+            print("Mongodb export args: {}".format(args))
+            subprocess.call(args)
+        else:
+            chk_cnt = int(len(topic_ids) / 2000)
+            cnk_addl = len(topic_ids) % 2000
+            for i in range(chk_cnt):
+                new_list = topic_ids[i * 2000: (i + 1) * 2000 - 1]
+                print("len: {0}, start: {1}, end: {2}".format(len(new_list), i * 2000, (i + 1) * 2000 - 1))
+                outfile = 'meta' + str(i) + '.json'
+                query_pattern = {'topic_id': {"$in": new_list}}
+                meta_query_pattern = str(query_pattern)
+                metafilenames.append(outfile)
+                args[14] = meta_query_pattern
+                args[16] = outfile
+                print("Mongodb export args: {}".format(args))
+                subprocess.call(args)
+            new_list = topic_ids[(i + 1) * 2000:]
+            print("len: {}".format(len(new_list)))
+            outfile = 'meta' + str(i + 1) + '.json'
+            query_pattern = {'topic_id': {"$in": new_list}}
+            meta_query_pattern = str(query_pattern)
+            metafilenames.append(outfile)
+            args[14] = meta_query_pattern
+            args[16] = outfile
+            print("Mongodb export args: {}".format(args))
+            subprocess.call(args)
+        _log.info("Dumping Meta into SQLite")
+        for f in metafilenames:
+            self.dump_meta_to_sqldb(f)
 
-        #Dump metadata table into SQLite
-        self.dump_meta_to_sqldb()
+    def process_data_table_entries(self, topic_ids):
+        args = ["mongoexport", "--host", self._hosts, "--db", self._db_name, "--authenticationDatabase",
+                self._authsource, "--username", self._user, "--password", self._passwd, "--collection",
+                self._data_collection, "--query", "", "--out", ""]
         last = False
         next_compute_time = self._end_time
         i = 1
@@ -204,27 +218,59 @@ class MongodbToSQLHistorian:
         ps = []
         datafilenames = []
         while not last:
-            outfile = 'data' + str(i) + '.json'
-            datafilenames.append(outfile)
             # Compute time slice
             start_time, end_time, last = self.compute_next_collection_time(next_compute_time, self._time_period)
             start_time_string = start_time.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
             end_time_string = end_time.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
             _log.info("Slice {0}: Start: {1}, End: {2}".format(i, start_time_string, end_time_string))
-            # Dump data table into SQLite DB for a time slice
-            #query_pattern = {"ts": {"$gte": {"$date": "2016-01-28T20:18:50.000Z"}, "$lt": {"$date": "2016-01-28T20:38:50.000Z"}}}
-            query_pattern = {"$and": [{"topic_id": {"$in": topic_ids}}, {"ts": {"$gte": {"$date": start_time_string}, "$lt": {"$date": end_time_string}}}]}
-            #query_pattern = {"ts": {"$gte": {"$date": start_time_string}, "$lt": {"$date": end_time_string}}}
-            data_query_pattern = str(query_pattern)
-            #print("query: {}".format(data_query_pattern))
+            if len(topic_ids) <= 2000:
+                outfile = 'data' + str(i) + '.json'
+                datafilenames.append(outfile)
 
-            p = subprocess.Popen(["mongoexport", "--host", hosts, "--db", db_name, "--authenticationDatabase", authsource,
-                             "--username", user, "--password", passwd, "--collection", data_collection, "--query",
-                             data_query_pattern, "--out", outfile])
-            ps.append(p)
+                # Dump data table into SQLite DB for a time slice
+                # query_pattern = {"ts": {"$gte": {"$date": "2016-01-28T20:18:50.000Z"}, "$lt": {"$date": "2016-01-28T20:38:50.000Z"}}}
+                query_pattern = {"$and": [{"topic_id": {"$in": topic_ids}}, {
+                    "ts": {"$gte": {"$date": start_time_string}, "$lt": {"$date": end_time_string}}}]}
+                # query_pattern = {"ts": {"$gte": {"$date": start_time_string}, "$lt": {"$date": end_time_string}}}
+                data_query_pattern = str(query_pattern)
+                args[14] = data_query_pattern
+                args[16] = outfile
+                # print("query: {}".format(data_query_pattern))
+                p = subprocess.Popen(args)
+                ps.append(p)
+            else:
+                chk_cnt = int(len(topic_ids) / 2000)
+                cnk_addl = len(topic_ids) % 2000
+                j = 0
+                for j in range(chk_cnt):
+                    outfile = 'data' + str(i) + str(j) + '.json'
+                    datafilenames.append(outfile)
+                    new_list = topic_ids[j*2000: (j+1)*2000 - 1]
+                    print("len: {0}, start: {1}, end: {2}".format(len(new_list), j * 2000, (j + 1) * 2000 - 1))
+                    query_pattern = {"$and": [{"topic_id": {"$in": new_list}}, {
+                        "ts": {"$gte": {"$date": start_time_string}, "$lt": {"$date": end_time_string}}}]}
+                    data_query_pattern = str(query_pattern)
+                    # print("query: {}".format(data_query_pattern))
+                    data_query_pattern = str(query_pattern)
+                    args[14] = data_query_pattern
+                    args[16] = outfile
+                    p = subprocess.Popen(args)
+                    ps.append(p)
+                #Final chunk
+                new_list = topic_ids[(j + 1) * 2000:]
+                outfile = 'data' + str(i) + str(j+1) + '.json'
+                datafilenames.append(outfile)
+                print("len: {}".format(len(new_list)))
+                query_pattern = {"$and": [{"topic_id": {"$in": new_list}}, {
+                    "ts": {"$gte": {"$date": start_time_string}, "$lt": {"$date": end_time_string}}}]}
+                data_query_pattern = str(query_pattern)
+                args[14] = data_query_pattern
+                args[16] = outfile
+                #print("mongdbexport: {}".format(args))
+                p = subprocess.Popen(args)
+                ps.append(p)
             next_compute_time = start_time
             i += 1
-
         for p in ps:
             p.wait()
         for f in datafilenames:
@@ -270,8 +316,8 @@ class MongodbToSQLHistorian:
             self._sql_topic_name_map[topic] = topic
 
     '''Runs a query on the meta table in MongoDB for list of topic ids and writes the result into SQLite DB'''
-    def dump_meta_to_sqldb(self):
-        with open('meta.json', 'rb') as metafile:
+    def dump_meta_to_sqldb(self, input):
+        with open(input, 'rb') as metafile:
             for row in metafile:
                 data = jsonapi.loads(row)
                 # _log.info("meta data: {0} {1}".format(row['meta'], row['topic_id']))
@@ -301,7 +347,7 @@ class MongodbToSQLHistorian:
             start_time = end_time - timedelta(weeks=period_int)
         elif unit == 'M':
             period_int *= 30
-            timedelta(days=period_int)
+            start_time = end_time - timedelta(days=period_int)
         else:
             raise ValueError(
                 "Invalid unit {} for collection period. "
@@ -523,10 +569,31 @@ def main(argv=sys.argv):
 
     args = parser.parse_args(args)
     print("Arguments: {0}, {1}, {2}, {3}".format(args.topic_string, args.config_file,args.start_time, args.end_time))
-
+    input_check = True
+    '''Check the time format of input parameters - start_time and end_time'''
     try:
-        msdb = MongodbToSQLHistorian(args.config_file, args.topic_string, args.start_time, args.end_time)
-        msdb.copy_from_mongo_to_sqllite()
+        start_time = datetime.strptime(
+            args.start_time,
+            '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
+    except ValueError:
+        # self._start_time = datetime.strptime(
+        #     '2016-01-01T00:00:00',
+        #     '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
+        _log.error("Wrong time format for start time: {0}. Valid Time Format: {1}.".
+                   format(args.start_time, '%Y-%m-%dT%H:%M:%S'))
+        input_check = False
+    try:
+        end_time = datetime.strptime(
+            args.end_time,
+            '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
+    except ValueError:
+        _log.error("Wrong time format for end time: {0}. Valid Time Format: {1}.".
+                   format(args.end_time, '%Y-%m-%dT%H:%M:%S'))
+        input_check = False
+    try:
+        if input_check == True:
+            msdb = MongodbToSQLHistorian(args.config_file, args.topic_string, start_time, end_time)
+            msdb.copy_from_mongo_to_sqllite()
         #msdb.dump_data_to_sqldb_in_chunk('data1.csv')
     except Exception as e:
         _log.exception('unhandled exception' + e.message)
