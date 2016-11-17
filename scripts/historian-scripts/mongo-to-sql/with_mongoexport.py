@@ -161,7 +161,7 @@ class MongodbToSQLHistorian:
         topic_ids = self._mongo_topic_id_map.values()
         # Export Meta table
         _log.info("Running Query for Meta Table {}".format(len(topic_ids)))
-        #self.process_meta_table_entries(topic_ids)
+        self.process_meta_table_entries(topic_ids)
         self.process_data_table_entries(topic_ids)
 
     def process_meta_table_entries(self, topic_ids):
@@ -169,14 +169,15 @@ class MongodbToSQLHistorian:
         args = ["mongoexport", "--host", self._hosts, "--db", self._db_name, "--authenticationDatabase",
                 self._authsource, "--username", self._user, "--password", self._passwd, "--collection",
                 self._meta_collection, "--query", "", "--out", ""]
-        i = 0
-        if len(topic_ids) <= 2000:
+        i = 1
+        if len(topic_ids) <= 3000:
             query_pattern = {'topic_id': {"$in": topic_ids}}
             meta_query_pattern = str(query_pattern)
             outfile = 'meta' + str(i) + '.json'
+            metafilenames.append(outfile)
             args[14] = meta_query_pattern
             args[16] = outfile
-            print("Mongodb export args: {}".format(args))
+            #print("Mongodb export args: {}".format(args))
             subprocess.call(args)
         else:
             chk_cnt = int(len(topic_ids) / 2000)
@@ -223,7 +224,7 @@ class MongodbToSQLHistorian:
             start_time_string = start_time.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
             end_time_string = end_time.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
             _log.info("Slice {0}: Start: {1}, End: {2}".format(i, start_time_string, end_time_string))
-            if len(topic_ids) <= 2000:
+            if len(topic_ids) <= 3000:
                 outfile = 'data' + str(i) + '.json'
                 datafilenames.append(outfile)
 
@@ -246,7 +247,7 @@ class MongodbToSQLHistorian:
                     outfile = 'data' + str(i) + str(j) + '.json'
                     datafilenames.append(outfile)
                     new_list = topic_ids[j*2000: (j+1)*2000 - 1]
-                    print("len: {0}, start: {1}, end: {2}".format(len(new_list), j * 2000, (j + 1) * 2000 - 1))
+                    print("len: {0}, start: {1}, end: {2} outfile {3}".format(len(new_list), j * 2000, (j + 1) * 2000 - 1, outfile))
                     query_pattern = {"$and": [{"topic_id": {"$in": new_list}}, {
                         "ts": {"$gte": {"$date": start_time_string}, "$lt": {"$date": end_time_string}}}]}
                     data_query_pattern = str(query_pattern)
@@ -254,13 +255,14 @@ class MongodbToSQLHistorian:
                     data_query_pattern = str(query_pattern)
                     args[14] = data_query_pattern
                     args[16] = outfile
-                    p = subprocess.Popen(args)
-                    ps.append(p)
+                    # p = subprocess.Popen(args)
+                    # ps.append(p)
                 #Final chunk
                 new_list = topic_ids[(j + 1) * 2000:]
                 outfile = 'data' + str(i) + str(j+1) + '.json'
                 datafilenames.append(outfile)
-                print("len: {}".format(len(new_list)))
+                print("len: {0}, start: {1}, end: {2} outfile {3}".format(len(new_list), (j+1) * 2000, len(topic_ids),
+                                                                          outfile))
                 query_pattern = {"$and": [{"topic_id": {"$in": new_list}}, {
                     "ts": {"$gte": {"$date": start_time_string}, "$lt": {"$date": end_time_string}}}]}
                 data_query_pattern = str(query_pattern)
@@ -274,7 +276,10 @@ class MongodbToSQLHistorian:
         for p in ps:
             p.wait()
         for f in datafilenames:
-            self.dump_data_to_sqldb_in_chunk(f)
+            conn = self._sqldbclient.connect_sqllite()
+            if conn is not None:
+                self.dump_data_to_sqldb_in_chunk(conn, f)
+                self._sqldbclient.close_sqllite(conn)
 
     '''Writes a topic into topics table of SQLite DB'''
     def dump_topics_to_sqldb(self):
@@ -324,14 +329,14 @@ class MongodbToSQLHistorian:
                 sql_topic_id = self._mongo_to_sql_topic_id[data['topic_id']['$oid']]
                 self._sqldbclient.insert_meta_into_sqllite(sql_topic_id, data['meta'])
 
-    def dump_data_to_sqldb_in_chunk(self, input):
+    def dump_data_to_sqldb_in_chunk(self, conn, input):
         with open(input, 'rb') as datafile:
             for row in datafile:
                 data = jsonapi.loads(row)
                 # _log.info("meta data: {0} {1}".format(row['meta'], row['topic_id']))
                 sql_topic_id = self._mongo_to_sql_topic_id[data['topic_id']['$oid']]
-                #print("ts: {0}, {1}, {2}".format(data['ts'], sql_topic_id, data['value']))
-                self._sqldbclient.insert_data_into_sqllite(data['ts']['$date'], sql_topic_id, data['value'])
+                print("ts: {0}, {1}, {2}".format(data['ts'], sql_topic_id, data['value']))
+                self._sqldbclient.insert_data_into_sqllite(conn, data['ts']['$date'], sql_topic_id, data['value'])
 
     def compute_next_collection_time(self, end_time, period):
         last = False
@@ -470,21 +475,31 @@ class MySqlLiteFuncts(DbDriver):
         conn.close()
         return row
 
-    def insert_data_into_sqllite(self, ts, topic_id, data):
+    def connect_sqllite(self):
         conn = sqlite3.connect(
             self.__database,
             detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES)
+        return conn
 
-        if conn is None:
-            return False
+    def close_sqllite(self, conn):
+        conn.commit()
+        conn.close()
+
+    def insert_data_into_sqllite(self, conn, ts, topic_id, data):
+        # conn = sqlite3.connect(
+        #     self.__database,
+        #     detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES)
+        #
+        # if conn is None:
+        #     return False
 
         cursor = conn.cursor()
         timestamp = get_aware_utc_now()
         cursor.execute(self.insert_data_stmt(),
                        (ts, topic_id, jsonapi.dumps(data)))
         row = [cursor.lastrowid]
-        conn.commit()
-        conn.close()
+        # conn.commit()
+        # conn.close()
         return row
 
     def insert_topic_into_sqllite(self, topic):
