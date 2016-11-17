@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*- {{{
 # vim: set fenc=utf-8 ft=python sw=4 ts=4 sts=4 et:
 
-# Copyright (c) 2016, Battelle Memorial Institute
+# Copyright (c) 2015, Battelle Memorial Institute
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -110,6 +110,7 @@ class PubSub(SubsystemBase):
         self._cypubsub = PubSubCy(self.core().socket)
         #self._processgreenlet = gevent.spawn(self._process_loop)
         self._cython = True
+        self._my_subscriptions = {}
 
         def setup(sender, **kwargs):
             # pylint: disable=unused-argument
@@ -127,8 +128,10 @@ class PubSub(SubsystemBase):
             def subscribe(member):   # pylint: disable=redefined-outer-name
                 for peer, bus, prefix in annotations(
                         member, set, 'pubsub.subscriptions'):
+                    self.add_hello_subscription(peer, prefix, member, bus)
                     # XXX: needs updated in light of onconnected signal
-                    if self._cython: self._cypubsub.add_my_subscriptions(peer, prefix, member, bus)
+                    #if self._cython: self._cypubsub.add_my_subscriptions(peer, prefix, member, bus)
+
             inspect.getmembers(owner, subscribe)
         core.onsetup.connect(setup, self)
 
@@ -162,6 +165,57 @@ class PubSub(SubsystemBase):
         #_log.debug("Inside pubsub _sync: {}".format(peer))
         self._cypubsub.sync(peer, items)
 
+    def add_hello_subscription(self, peer, prefix, callback, bus=''):
+        _log.debug("add sub: {0}, {1}".format(peer, prefix))
+        print("add sub: {0}, {1}".format(peer, prefix))
+        if not callable(callback):
+            raise ValueError('callback %r is not callable' % (callback,))
+        try:
+            buses = self._my_subscriptions[peer]
+        except KeyError:
+            self._my_subscriptions[peer] = buses = {}
+        try:
+            subscriptions = buses[bus]
+        except KeyError:
+            buses[bus] = subscriptions = {}
+        try:
+            callbacks = subscriptions[prefix]
+        except KeyError:
+            subscriptions[prefix] = callbacks = set()
+        callbacks.add(callback)
+
+    def _peer_push(self, sender, bus, topic, headers, message):
+        '''Handle incoming subscription pushes from peers.'''
+        peer = bytes(self.rpc().context.vip_message.peer)
+        handled = 0
+        try:
+            subscriptions = self._my_subscriptions[peer][bus]
+        except KeyError:
+            pass
+        else:
+            sender = decode_peer(sender)
+            for prefix, callbacks in subscriptions.iteritems():
+                if topic.startswith(prefix):
+                    handled += 1
+                    for callback in callbacks:
+                        callback(peer, sender, bus, topic, headers, message)
+        #if not handled:
+            # No callbacks for topic; synchronize with sender
+        #    self.synchronize(peer)
+
+    def synchronize(self, peer):
+        '''Unsubscribe from stale/forgotten/unsolicited subscriptions.'''
+        if peer is None:
+            items = [(peer, {bus: subscriptions.keys()
+                             for bus, subscriptions in buses.iteritems()})
+                     for peer, buses in self._my_subscriptions.iteritems()]
+        else:
+            buses = self._my_subscriptions.get(peer) or {}
+            items = [(peer, {bus: subscriptions.keys()
+                             for bus, subscriptions in buses.iteritems()})]
+        for (peer, subscriptions) in items:
+            self.rpc().notify(peer, 'pubsub.sync', subscriptions)
+
     def _peer_sync(self, items):
         #_log.debug("Inside pubsub _peer_sync: {}".format(items))
         peer = bytes(self.rpc().context.vip_message.peer)
@@ -169,6 +223,7 @@ class PubSub(SubsystemBase):
         self._sync(peer, items)
 
     def _peer_subscribe(self, prefix, bus=''):
+        _log.debug("peer_subscribe {0} {1}".format(prefix, bus))
         peer = bytes(self.rpc().context.vip_message.peer)
         for prefix in prefix if isinstance(prefix, list) else [prefix]:
             self._cypubsub.add_peer_subscriptions(peer, prefix, bus)
@@ -195,9 +250,10 @@ class PubSub(SubsystemBase):
         # thread.start()
         # thread.join(1)
 
-    def _peer_push(self, sender, bus, topic, headers, message):
-        peer = bytes(self.rpc().context.vip_message.peer)
-        self._cypubsub.peer_push(peer, sender, headers, topic, message, bus)
+    # def _peer_push(self, sender, bus, topic, headers, message):
+    #     peer = bytes(self.rpc().context.vip_message.peer)
+    #     #self._cypubsub.peer_push(peer, sender, headers, topic, message, bus)
+    #     self.peer_push(peer, sender, headers, topic, message, bus)
 
     def add_subscription(self, peer, prefix, callback, bus=''):
         if not callable(callback):
@@ -243,10 +299,10 @@ class PubSub(SubsystemBase):
         message is a possibly empty list of message parts.
         '''
         _log.debug("subscribe {0}, {1}, {2}".format(peer, prefix, bus))
-        self.add_subscription(peer, prefix, callback, bus)
-        self._cypubsub.add_my_subscriptions(peer, prefix, callback, bus)
+        self.add_hello_subscription(peer, prefix, callback, bus)
+        #self._cypubsub.add_my_subscriptions(peer, prefix, callback, bus)
         return self.rpc().call(peer, 'pubsub.subscribe', prefix, bus=bus)
-    
+
     @subscribe.classmethod
     def subscribe(cls, peer, prefix, bus=''):
         def decorate(method):
@@ -374,6 +430,3 @@ class ProtectedPubSubTopics(object):
             if regex.match(topic):
                 return capabilities
         return None
-
-
-

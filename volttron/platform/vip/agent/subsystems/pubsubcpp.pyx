@@ -140,7 +140,7 @@ cdef class PubSubCy:
                     prefix = dereference(it).first
                     mytopic = topic.substr(0, prefix.size())
                     #if self._debug: print("PUBSUBCPP In distribute: prefix: {0}, topic: {1}".format(prefix, mytopic))
-                    if mytopic.compare(prefix) == 0:
+                    if mytopic.compare(prefix) == 0 or mytopic == '':
                     #if self.is_prefix_in_topic(prefix, topic):
                         peerset = dereference(it).second
                         #if self._debug: print("PUBSUBCPP In distribute Peerset size: {0}".format(peerset.size()))
@@ -155,7 +155,7 @@ cdef class PubSubCy:
         cdef set[string].iterator it
 
         if (subscribers.empty()):
-            if self._debug: print("subscribers empty")
+            #if self._debug: print("subscribers empty")
             return
         else:
             if self._debug: print("PUBSUBCPP Forming json message")
@@ -200,7 +200,7 @@ cdef class PubSubCy:
                 if(buses.find(bus) != buses.end()):
                     #if self._debug: print("PUBSUBCPP12")
                     sub = buses[bus]
-                    #if self._debug: print("PUBSUBCPPfinding topic: %s" % topic)
+                    #f self._debug: print("PUBSUBCPPfinding topic: %s" % topic)
                     end = sub.end()
                     it = sub.begin()
                     while it != end:
