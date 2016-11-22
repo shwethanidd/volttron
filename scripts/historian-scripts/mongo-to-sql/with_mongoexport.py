@@ -65,7 +65,7 @@ import logging
 import sys
 import errno
 import sqlite3
-import bson
+#import bson
 import pymongo
 import time
 from volttron.platform.agent import utils
@@ -180,21 +180,21 @@ class MongodbToSQLHistorian:
             #print("Mongodb export args: {}".format(args))
             subprocess.call(args)
         else:
-            chk_cnt = int(len(topic_ids) / 2000)
-            cnk_addl = len(topic_ids) % 2000
+            chk_cnt = int(len(topic_ids) / 3000)
+            cnk_addl = len(topic_ids) % 3000
             for i in range(chk_cnt):
-                new_list = topic_ids[i * 2000: (i + 1) * 2000 - 1]
-                print("len: {0}, start: {1}, end: {2}".format(len(new_list), i * 2000, (i + 1) * 2000 - 1))
+                new_list = topic_ids[i * 3000: (i + 1) * 3000 - 1]
+                #print("len: {0}, start: {1}, end: {2}".format(len(new_list), i * 3000, (i + 1) * 3000 - 1))
                 outfile = 'meta' + str(i) + '.json'
                 query_pattern = {'topic_id': {"$in": new_list}}
                 meta_query_pattern = str(query_pattern)
                 metafilenames.append(outfile)
                 args[14] = meta_query_pattern
                 args[16] = outfile
-                print("Mongodb export args: {}".format(args))
+                #print("Mongodb export args: {}".format(args))
                 subprocess.call(args)
-            new_list = topic_ids[(i + 1) * 2000:]
-            print("len: {}".format(len(new_list)))
+            new_list = topic_ids[(i + 1) * 3000:]
+            #print("len: {}".format(len(new_list)))
             outfile = 'meta' + str(i + 1) + '.json'
             query_pattern = {'topic_id': {"$in": new_list}}
             meta_query_pattern = str(query_pattern)
@@ -240,14 +240,14 @@ class MongodbToSQLHistorian:
                 p = subprocess.Popen(args)
                 ps.append(p)
             else:
-                chk_cnt = int(len(topic_ids) / 2000)
-                cnk_addl = len(topic_ids) % 2000
+                chk_cnt = int(len(topic_ids) / 3000)
+                cnk_addl = len(topic_ids) % 3000
                 j = 0
                 for j in range(chk_cnt):
                     outfile = 'data' + str(i) + str(j) + '.json'
                     datafilenames.append(outfile)
-                    new_list = topic_ids[j*2000: (j+1)*2000 - 1]
-                    print("len: {0}, start: {1}, end: {2} outfile {3}".format(len(new_list), j * 2000, (j + 1) * 2000 - 1, outfile))
+                    new_list = topic_ids[j*3000: (j+1)*3000 - 1]
+                    #print("len: {0}, start: {1}, end: {2} outfile {3}".format(len(new_list), j * 3000, (j + 1) * 3000 - 1, outfile))
                     query_pattern = {"$and": [{"topic_id": {"$in": new_list}}, {
                         "ts": {"$gte": {"$date": start_time_string}, "$lt": {"$date": end_time_string}}}]}
                     data_query_pattern = str(query_pattern)
@@ -255,14 +255,14 @@ class MongodbToSQLHistorian:
                     data_query_pattern = str(query_pattern)
                     args[14] = data_query_pattern
                     args[16] = outfile
-                    # p = subprocess.Popen(args)
-                    # ps.append(p)
+                    p = subprocess.Popen(args)
+                    ps.append(p)
                 #Final chunk
-                new_list = topic_ids[(j + 1) * 2000:]
+                new_list = topic_ids[(j + 1) * 3000:]
                 outfile = 'data' + str(i) + str(j+1) + '.json'
                 datafilenames.append(outfile)
-                print("len: {0}, start: {1}, end: {2} outfile {3}".format(len(new_list), (j+1) * 2000, len(topic_ids),
-                                                                          outfile))
+                # print("len: {0}, start: {1}, end: {2} outfile {3}".format(len(new_list), (j+1) * 3000, len(topic_ids),
+                #                                                           outfile))
                 query_pattern = {"$and": [{"topic_id": {"$in": new_list}}, {
                     "ts": {"$gte": {"$date": start_time_string}, "$lt": {"$date": end_time_string}}}]}
                 data_query_pattern = str(query_pattern)
@@ -289,14 +289,14 @@ class MongodbToSQLHistorian:
             for row in topicsfile:
                 data = jsonapi.loads(row)
                 topic = data['topic_name']
-                topic_lower = data['topic_name'].lower()
+                #topic_lower = data['topic_name'].lower()
                 #print("Topic name: {}".format(topic_lower))
-                topic_id_map[topic_lower] = data['_id']
-                topic_name_map[topic_lower] = \
+                topic_id_map[topic] = data['_id']
+                topic_name_map[topic] = \
                     data['topic_name']
-                self.dump_topics(topic_lower)
-                #print("Topic id: {}".format(topic_id_map[topic_lower]))
-                self._mongo_to_sql_topic_id[topic_id_map[topic_lower]['$oid']] = self._sql_topic_id_map[topic_lower]
+                self.dump_topics(topic)
+                #print("Topic id: {}".format(data['topic_name']))
+                self._mongo_to_sql_topic_id[topic_id_map[topic]['$oid']] = self._sql_topic_id_map[topic]
         return topic_id_map, topic_name_map
 
     def dump_topics(self, topic):
@@ -335,7 +335,7 @@ class MongodbToSQLHistorian:
                 data = jsonapi.loads(row)
                 # _log.info("meta data: {0} {1}".format(row['meta'], row['topic_id']))
                 sql_topic_id = self._mongo_to_sql_topic_id[data['topic_id']['$oid']]
-                print("ts: {0}, {1}, {2}".format(data['ts'], sql_topic_id, data['value']))
+                #print("ts: {0}, {1}, {2}".format(data['ts'], sql_topic_id, data['value']))
                 self._sqldbclient.insert_data_into_sqllite(conn, data['ts']['$date'], sql_topic_id, data['value'])
 
     def compute_next_collection_time(self, end_time, period):
