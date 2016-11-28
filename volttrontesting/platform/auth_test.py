@@ -187,44 +187,52 @@ def pubsub_authorized(volttron_instance_encrypt, topic='foo', regex=None, peer='
 
 
 @pytest.mark.auth
+@pytest.mark.xfail(reason='Protected pubsub implementation will change')
 def test_pubsub_unauthorized(volttron_instance_encrypt):
     pubsub_unauthorized(volttron_instance_encrypt)
 
 
 @pytest.mark.auth
+@pytest.mark.xfail(reason='Protected pubsub implementation will change')
 def test_pubsub_authorized(volttron_instance_encrypt):
     pubsub_authorized(volttron_instance_encrypt)
 
 
 @pytest.mark.auth
+@pytest.mark.xfail(reason='Protected pubsub implementation will change')
 def test_pubsub_unauthorized_none_peer(volttron_instance_encrypt):
     pubsub_unauthorized(volttron_instance_encrypt, peer=None)
 
 
 @pytest.mark.auth
+@pytest.mark.xfail(reason='Protected pubsub implementation will change')
 def test_pubsub_authorized_none_peer(volttron_instance_encrypt):
     pubsub_authorized(volttron_instance_encrypt, peer=None)
 
 
 @pytest.mark.auth
+@pytest.mark.xfail(reason='Protected pubsub implementation will change')
 def test_pubsub_unauthorized_regex1(volttron_instance_encrypt):
     pubsub_unauthorized(volttron_instance_encrypt,
                         topic='foo', regex='/foo*/')
 
 
 @pytest.mark.auth
+@pytest.mark.xfail(reason='Protected pubsub implementation will change')
 def test_pubsub_authorized_regex1(volttron_instance_encrypt):
     pubsub_authorized(volttron_instance_encrypt,
                       topic='foo', regex='/foo*/')
 
 
 @pytest.mark.auth
+@pytest.mark.xfail(reason='Protected pubsub implementation will change')
 def test_pubsub_unauthorized_regex2(volttron_instance_encrypt):
     pubsub_unauthorized(volttron_instance_encrypt,
                         topic='foo/bar', regex='/foo\/.*/')
 
 
 @pytest.mark.auth
+@pytest.mark.xfail(reason='Protected pubsub implementation will change')
 def test_pubsub_authorized_regex2(volttron_instance_encrypt):
     pubsub_authorized(volttron_instance_encrypt,
                       topic='foo/bar', regex='/foo\/.*/')

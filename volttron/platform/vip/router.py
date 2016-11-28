@@ -65,8 +65,8 @@ from zmq import Frame, NOBLOCK, ZMQError, EINVAL, EHOSTUNREACH
 from .pubsubservice import PubSubService
 
 __all__ = ['BaseRouter', 'OUTGOING', 'INCOMING', 'UNROUTABLE', 'ERROR']
-
-
+import logging
+_log = logging.getLogger(__name__)
 OUTGOING = 0
 INCOMING = 1
 UNROUTABLE = 2
@@ -216,8 +216,12 @@ class BaseRouter(object):
         for peer in drop:
             self._drop_peer(peer)
 
-    def drop_pubsub_peers(self, peer):
+    def _drop_pubsub_peers(self, peer):
         '''Drop peers for pubsub subsystem. To be handled by subclasses'''
+        pass
+
+    def _add_pubsub_peers(self, peer):
+        '''Add peers for pubsub subsystem. To be handled by subclasses'''
         pass
 
     def _add_peer(self, peer):
@@ -225,6 +229,7 @@ class BaseRouter(object):
             return
         self._distribute(b'peerlist', b'add', peer)
         self._peers.add(peer)
+        self._drop_pubsub_peers(peer)
 
     def _drop_peer(self, peer):
         try:
@@ -232,6 +237,7 @@ class BaseRouter(object):
         except KeyError:
             return
         self._distribute(b'peerlist', b'drop', peer)
+        self._add_pubsub_peers(peer)
 
     def route(self):
         '''Route one message and return.
@@ -246,10 +252,9 @@ class BaseRouter(object):
         issue = self.issue
         # Expecting incoming frames:
         #   [SENDER, RECIPIENT, PROTO, USER_ID, MSG_ID, SUBSYS, ...]
-
         frames = socket.recv_multipart(copy=False)
         # for f in frames:
-        #     print("Received frames: {}".format(f.bytes))
+        #     _log.debug("ROUTER receive frames: {}".format(bytes(f)))
         issue(INCOMING, frames)
         if len(frames) < 6:
             # Cannot route if there are insufficient frames, such as
@@ -321,6 +326,8 @@ class BaseRouter(object):
         recipient, sender = frames[:2]
         # Expecting outgoing frames:
         #   [RECIPIENT, SENDER, PROTO, USER_ID, MSG_ID, SUBSYS, ...]
+        # for f in frames:
+        #     _log.debug("ROUTER sending frames: {}".format(bytes(f)))
         try:
             # Try sending the message to its recipient
             socket.send_multipart(frames, flags=NOBLOCK, copy=False)

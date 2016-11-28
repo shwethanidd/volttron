@@ -381,7 +381,10 @@ class Router(BaseRouter):
             return False
 
     def drop_pubsub_peers(self, peer):
-        self._pubsub._peer_drop(peer)
+        self._pubsub.peer_drop(peer)
+
+    def add_pubsub_peers(self, peer):
+        self._pubsub.peer_add(peer)
 
 # class PubSubService(Agent):
 #     def __init__(self, protected_topics_file, *args, **kwargs):

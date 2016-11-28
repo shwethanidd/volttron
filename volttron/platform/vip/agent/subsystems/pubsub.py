@@ -75,6 +75,7 @@ from ..errors import Unreachable
 from .... import jsonrpc
 from volttron.platform.agent import utils
 from ..results import ResultsDictionary
+from gevent.queue import Queue, Empty
 
 __all__ = ['PubSub']
 min_compatible_version = '3.0'
@@ -105,6 +106,9 @@ class PubSub(SubsystemBase):
         core.register('pubsub', self._handle_subsystem, self._handle_error)
         self.vip_socket = None
         self._results = ResultsDictionary()
+        self._event_queue = Queue()
+        self._retry_period = 300.0
+        self._processgreenlet = None
 
         def setup(sender, **kwargs):
             # pylint: disable=unused-argument
@@ -114,6 +118,7 @@ class PubSub(SubsystemBase):
             # rpc_subsys.export(self._peer_list, 'pubsub.list')
             # rpc_subsys.export(self._peer_publish, 'pubsub.publish')
             # rpc_subsys.export(self._peer_push, 'pubsub.push')
+            self._processgreenlet = gevent.spawn(self._process_loop)
             core.onconnected.connect(self._connected)
             peerlist_subsys.onadd.connect(self._peer_add)
             self.vip_socket = self.core().socket
@@ -122,17 +127,18 @@ class PubSub(SubsystemBase):
                         member, set, 'pubsub.subscriptions'):
                     # XXX: needs updated in light of onconnected signal
                     self.add_subscription(peer, prefix, member, bus)
+                    _log.debug("PUBSUB SUBSYS subscribe with annotate. prefix {0}, identity: {1}".format(prefix, self.core().identity))
             inspect.getmembers(owner, subscribe)
         core.onsetup.connect(setup, self)
 
     def _connected(self, sender, **kwargs):
         _log.debug("connected so sync up")
-        self.synchronize(None)
+        self.synchronize(None, True)
 
     def _peer_add(self, sender, peer, **kwargs):
         # Delay sync by some random amount to prevent reply storm.
         delay = random.random()
-        self.core().spawn_later(delay, self.synchronize, peer)
+        self.core().spawn_later(delay, self.synchronize, peer, False)
 
     def _peer_push(self, sender, bus, topic, headers, message):
         '''Handle incoming subscription pushes from peers.'''
@@ -152,9 +158,9 @@ class PubSub(SubsystemBase):
                         callback(peer, sender, bus, topic, headers, message)
         if not handled:
             # No callbacks for topic; synchronize with sender
-            self.synchronize(peer)
+            self.synchronize(peer, False)
 
-    def synchronize(self, peer):
+    def synchronize(self, peer, connected_event):
         '''Unsubscribe from stale/forgotten/unsolicited subscriptions.'''
         if peer is None:
             items = [(peer, {bus: subscriptions.keys()
@@ -164,15 +170,14 @@ class PubSub(SubsystemBase):
             buses = self._my_subscriptions.get(peer) or {}
             items = [(peer, {bus: subscriptions.keys()
                              for bus, subscriptions in buses.iteritems()})]
-        for (peer, subscriptions) in items:
-            sync_msg = jsonapi.dumps(
-                dict(identity=self.core().identity, subscriptions=subscriptions)
-            )
-            frames = [b'synchronize', sync_msg]
-            # frames.append(zmq.Frame(b'subscribe'))
-            # frames.append(zmq.Frame(str(sub_msg)))
-            _log.debug("Syncing: {}".format(sync_msg))
-            self.vip_socket.send_vip(b'', 'pubsub', frames, copy=False)
+        if connected_event:
+            for (peer, subscriptions) in items:
+                sync_msg = jsonapi.dumps(
+                    dict(identity=self.core().identity, subscriptions=subscriptions)
+                )
+                frames = [b'synchronize', sync_msg]
+                _log.debug("Syncing: {}".format(sync_msg))
+                self.vip_socket.send_vip(b'', 'pubsub', frames, copy=False)
             #self.rpc().notify(peer, 'pubsub.sync', subscriptions)
 
     def list(self, peer, prefix='', bus='', subscribed=True, reverse=False):
@@ -225,13 +230,14 @@ class PubSub(SubsystemBase):
             dict(identity=self.core().identity, prefix=prefix, bus=bus)
         )
         frames = [b'subscribe', sub_msg]
-        _log.debug("Subscribing: {}".format(sub_msg))
+        _log.debug("PUBSUB SUBSYS Subscribing: {}".format(sub_msg))
         self.vip_socket.send_vip(b'', 'pubsub', frames, copy=False)
         #return result
         return FakeAsyncResult()
     
     @subscribe.classmethod
     def subscribe(cls, peer, prefix, bus=''):
+        _log.debug("PUBSUB SUBSYS subscribe with classmethod. prefix {}".format(prefix))
         def decorate(method):
             annotate(method, set, 'pubsub.subscriptions', (peer, bus, prefix))
             return method
@@ -337,8 +343,10 @@ class PubSub(SubsystemBase):
                 raise jsonrpc.exception_from_json(jsonrpc.UNAUTHORIZED, msg)
 
     def _handle_subsystem(self, message):
-        #_log.debug("Pubsub Agent handle subsystem: ")
+        self._event_queue.put(message)
 
+    def _process_incoming_message(self, message):
+        #_log.debug("Pubsub Agent handle subsystem: ")
         op = message.args[0].bytes
         #_log.debug("OP: {}".format(op))
         if op == 'subscribe_response':
@@ -363,6 +371,8 @@ class PubSub(SubsystemBase):
             bus = msg['bus']
             #_log.debug("PUBSUB Got pub message {0}, {1}, {2}, {3}, {4}".format(peer, topic, headers, message, bus))
             self._peer_push(peer, bus, topic, headers, message)
+            # if self.core().identity == "platform.actuator":
+            #     _log.debug("PUBSUB SUBSYS: Done with callback{}")
         elif op == 'publish_response':
             #_log.debug("publish response message value: {}".format(message.args[1].bytes))
             try:
@@ -378,6 +388,33 @@ class PubSub(SubsystemBase):
                 _log.debug("list response key error")
                 return
             result.set([bytes(arg) for arg in message.args[1:]])
+
+    # Incoming message processing loop
+    def _process_loop(self):
+        new_msg_list = []
+        # _log.debug("Reading from/waiting for queue.")
+        while True:
+            try:
+                new_msg_list = []
+                # _log.debug("PUBSUB Reading from/waiting for queue.")
+                new_msg_list = [
+                    self._event_queue.get(True, self._retry_period)]
+
+            except Empty:
+                # _log.debug("Queue wait timed out. Falling out.")
+                new_to_publish = []
+
+            if len(new_msg_list) != 0:
+                # _log.debug("Checking for queue build up.")
+                while True:
+                    try:
+                        new_msg_list.append(self._event_queue.get_nowait())
+                    except Empty:
+                        break
+
+            # _log.debug('SUB: Length of data got from event queue {}'.format(len(new_msg_list)))
+            for msg in new_msg_list:
+                self._process_incoming_message(msg)
 
     def _handle_error(self, sender, message, error, **kwargs):
         #_log.debug("Error is generated {0}, {1}, {2}".format(sender, message, error))

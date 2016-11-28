@@ -73,7 +73,7 @@ else:
 
 # Requirements which must be built separately with the provided options.
 option_requirements = [
-    ('pyzmq>=15,<16', ['--zmq=bundled']),
+    ('pyzmq>=16,<17', ['--zmq=bundled']),
 ]
 
 optional_requirements = set()

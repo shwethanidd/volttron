@@ -97,6 +97,9 @@ class PubSubService(object):
         self._peer_subscriptions = {}
         self._vip_sock = socket
         self.add_bus('')
+        # self._read_protected_topics_file()
+        # self.read_protected_greenlet = gevent.spawn(utils.watch_file, self._protected_topics_file,
+        #             self._read_protected_topics_file)
 
     def _read_protected_topics_file(self):
         self._logger.info('loading protected-topics file %s',
@@ -139,7 +142,12 @@ class PubSubService(object):
     def add_bus(self, name):
         self._peer_subscriptions.setdefault(name, {})
 
+    def peer_add(self, peer, **kwargs):
+        self._logger.debug("PUBSUBSERVICE: PEER ADD {}".format(peer))
+        #gevent.spawn(self._sync(peer, {}))
+
     def peer_drop(self, peer, **kwargs):
+        self._logger.debug("PUBSUBSERVICE: PEER DROP {}".format(peer))
         self._sync(peer, {})
 
     def _sync(self, peer, items):
@@ -182,11 +190,11 @@ class PubSubService(object):
             peer = msg['identity']
             prefix = msg['prefix']
             bus = msg['bus']
-        self._logger.debug("Subscription: peer: {0}, prefix: {1}, bus: {2}".format(peer, prefix, bus))
+        #self._logger.debug("Subscription: peer: {0}, prefix: {1}, bus: {2}".format(peer, prefix, bus))
         #peer = bytes(self.vip.rpc.context.vip_message.peer)
         for prefix in prefix if isinstance(prefix, list) else [prefix]:
             self._add_peer_subscription(peer, bus, prefix)
-        self._logger.debug("Peer subscriptions: {}".format(self._peer_subscriptions))
+        #self._logger.debug("Peer subscriptions after subscribe: {}".format(self._peer_subscriptions))
 
     def _peer_unsubscribe(self, frames):
 #        peer = bytes(self.rpc().context.vip_message.peer)
@@ -226,7 +234,9 @@ class PubSubService(object):
         # #frames[0] = recipient
         # frames[0] = zmq.Frame(b'Agent0')
         # self._pub_sock.send_multipart(frames, copy=False)
-
+        # for f in frames:
+        #     self._logger.debug("PUBSUBSERIVE: publish frames {}".format(bytes(f)))
+        # self._logger.debug("PUBSUBSERVICE peer subscriptions {}".format(self._peer_subscriptions))
         if len(frames) > 7:
             topic = frames[7].bytes
             data = frames[8].bytes
@@ -278,10 +288,11 @@ class PubSubService(object):
 
     def router_distribute(self, frames, peer, topic, headers, message=None, bus=''):
         #self._check_if_protected_topic(topic)
-        drop = []
+        drop_peer = []
         subscriptions = self._peer_subscriptions[bus]
         subscribers = set()
-
+        # for f in frames:
+        #     self._logger.debug("PUBSUBSERVICE: sending frames: {}".format(f.bytes))
         sender = frames[0]
         for prefix, subscription in subscriptions.iteritems():
             if subscription and topic.startswith(prefix):
@@ -292,12 +303,14 @@ class PubSubService(object):
                 frames[0] = zmq.Frame(subscriber)
                 try:
                     #Send the message to the subscriber
-                    drop = self._send(frames, sender)
+                    for pr in self._send(frames, sender):
+                        # Drop the subscriber if unreachable
+                        self.peer_drop(pr)
                 except ZMQError:
                     raise
-            #Drop the subscriber if unreachable
-            for peer in drop:
-                self.peer_drop(peer)
+
+            # for peer in drop_peer:
+            #     self.peer_drop(peer)
 
         return len(subscribers)
 
@@ -306,6 +319,7 @@ class PubSubService(object):
         subscriber = frames[0]
         # Expecting outgoing frames:
         #   [RECIPIENT, SENDER, PROTO, USER_ID, MSG_ID, SUBSYS, ...]
+
         try:
             # Try sending the message to its recipient
             self._vip_sock.send_multipart(frames, flags=NOBLOCK, copy=False)
@@ -345,6 +359,7 @@ class PubSubService(object):
             if op == b'subscribe':
                 self._logger.debug("subscribe something")
                 self._peer_subscribe(frames)
+                #self._peer_subscribe(frames)
             elif op == b'publish':
                 #print("publish something")
                 try:
