@@ -329,7 +329,7 @@ class VolttronCentralPlatform(Agent):
                                   #address=jsonresp['vip-address']
                                   )
                 authfile = AuthFile(get_home() + "/auth.json")
-                authfile.add(entry)
+                authfile.add(entry, overwrite=True)
                 self._volttron_central_tcp_address = jsonresp['vip-address']
                 self._volttron_central_serverkey = jsonresp['serverkey']
 
@@ -362,7 +362,7 @@ class VolttronCentralPlatform(Agent):
                     credentials= self._volttron_central_publickey,
                     capabilities=['manager'])
                 authfile = AuthFile()
-                authfile.add(entry)
+                authfile.add(entry, overwrite=True)
 
             self._volttron_central_connection = vc_conn
 
@@ -871,9 +871,18 @@ class VolttronCentralPlatform(Agent):
             if is_running:
                 identity = self.vip.rpc.call('control', 'agent_vip_identity',
                                              a['uuid']).get(timeout=30)
-                status = self.vip.rpc.call(identity,
-                                           'health.get_status').get(timeout=30)
-                uuid_to_status[a['uuid']]['health'] = status
+                try:
+                    status = self.vip.rpc.call(identity,
+                                               'health.get_status').get(timeout=5)
+                    uuid_to_status[a['uuid']]['health'] = status
+                except gevent.Timeout:
+                    _log.error("Couldn't get health from {} uuid: {}".format(
+                        identity, a['uuid']
+                    ))
+                except Unreachable:
+                    _log.error("Couldn't reach agent identity {} uuid: {}".format(
+                        identity, a['uuid']
+                    ))
         for a in agents:
             if a['uuid'] in uuid_to_status.keys():
                 _log.debug('UPDATING STATUS OF: {}'.format(a['uuid']))

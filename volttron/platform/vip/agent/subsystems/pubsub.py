@@ -100,6 +100,7 @@ class PubSub(SubsystemBase):
         self.core = weakref.ref(core)
         self.rpc = weakref.ref(rpc_subsys)
         self.peerlist = weakref.ref(peerlist_subsys)
+        self._owner = owner
         self._peer_subscriptions = {}
         self._my_subscriptions = {}
         self.protected_topics = ProtectedPubSubTopics()
@@ -234,7 +235,7 @@ class PubSub(SubsystemBase):
         self.vip_socket.send_vip(b'', 'pubsub', frames, copy=False)
         #return result
         return FakeAsyncResult()
-    
+
     @subscribe.classmethod
     def subscribe(cls, peer, prefix, bus=''):
         _log.debug("PUBSUB SUBSYS subscribe with classmethod. prefix {}".format(prefix))
@@ -334,8 +335,7 @@ class PubSub(SubsystemBase):
         required_caps = self.protected_topics.get(topic)
         if required_caps:
             user = str(self.rpc().context.vip_message.user)
-            caps = self.rpc().call('auth', 'get_capabilities',
-                                   user_id=user).get(timeout=5)
+            caps = self._owner.vip.auth.get_capabilities(user)
             if not set(required_caps) <= set(caps):
                 msg = ('to publish to topic "{}" requires capabilities {},'
                       ' but capability list {} was'
