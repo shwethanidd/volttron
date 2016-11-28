@@ -392,6 +392,7 @@ class PubSub(SubsystemBase):
     # Incoming message processing loop
     def _process_loop(self):
         new_msg_list = []
+        #Testing
         # _log.debug("Reading from/waiting for queue.")
         while True:
             try:
