@@ -97,10 +97,11 @@ class PubSubService(object):
         self._peer_subscriptions = {}
         self._vip_sock = socket
         self.add_bus('')
-        # self._read_protected_topics_file()
-        # self.read_protected_greenlet = gevent.spawn(utils.watch_file, self._protected_topics_file,
-        #             self._read_protected_topics_file)
-
+        self._user_capabilities = {}
+        self._protected_topics = ProtectedPubSubTopics()
+        self._read_protected_topics_file()
+        self._read_protected_greenlet = gevent.spawn(utils.watch_file, self._protected_topics_file,
+                                                    self._read_protected_topics_file)
     def _read_protected_topics_file(self):
         self._logger.info('loading protected-topics file %s',
                   self._protected_topics_file)
@@ -122,9 +123,10 @@ class PubSubService(object):
                 self._logger.exception('invalid format for protected topics '
                                'file {}'.format(self._protected_topics_file))
             else:
-                self.vip.pubsub.protected_topics = topics
+                self._protected_topics = topics
                 self._logger.info('protected-topics file %s loaded',
                           self._protected_topics_file)
+        #self._logger.debug("PUBSUBSERVICE: protect file contents {0}, {1}".format(self._protected_topics._dict, self._protected_topics._re_list))
 
     def _add_peer_subscription(self, peer, bus, prefix):
         try:
@@ -205,8 +207,8 @@ class PubSubService(object):
             peer = msg['identity']
             prefix = msg['prefix']
             bus = msg['bus']
-            self._logger.debug("UnSubscription: peer: {0}, prefix: {1}, bus: {2}".format(peer, prefix, bus))
-            self._logger.debug("Peer subscriptions: {}".format(self._peer_subscriptions))
+            #self._logger.debug("UnSubscription: peer: {0}, prefix: {1}, bus: {2}".format(peer, prefix, bus))
+            #self._logger.debug("Peer subscriptions: {}".format(self._peer_subscriptions))
             subscriptions = self._peer_subscriptions[bus]
             if prefix is None:
                 remove = []
@@ -218,22 +220,14 @@ class PubSubService(object):
                     del subscriptions[topic]
             else:
                 for prefix in prefix if isinstance(prefix, list) else [prefix]:
-                    self._logger.debug("subscriptions: {}".format(subscriptions))
+                    #self._logger.debug("subscriptions: {}".format(subscriptions))
                     subscribers = subscriptions[prefix]
                     subscribers.discard(peer)
                     if not subscribers:
                         del subscriptions[prefix]
-            self._logger.debug("Peer subscriptions: {}".format(self._peer_subscriptions))
+            #self._logger.debug("Peer subscriptions: {}".format(self._peer_subscriptions))
 
-    def _peer_publish(self, frames):
-        #for f in frames:
-        #    self._logger.debug("received from pub sock: {}".format(f.bytes))
-        #REDIRECTION WORKS!!!
-        # sender = frames[0]
-        # recipient = frames[1]
-        # #frames[0] = recipient
-        # frames[0] = zmq.Frame(b'Agent0')
-        # self._pub_sock.send_multipart(frames, copy=False)
+    def _peer_publish(self, frames, user_id):
         # for f in frames:
         #     self._logger.debug("PUBSUBSERIVE: publish frames {}".format(bytes(f)))
         # self._logger.debug("PUBSUBSERVICE peer subscriptions {}".format(self._peer_subscriptions))
@@ -241,19 +235,16 @@ class PubSubService(object):
             topic = frames[7].bytes
             data = frames[8].bytes
             try:
-                #json0 = data.find('{')
-                #topic = data[0:json0 - 1]
-                #msg = jsonapi.loads(data[json0:])
                 msg = jsonapi.loads(data)
                 headers = msg['headers']
                 message = msg['message']
                 bus = ''
                 peer = msg['identity']
                 bus = msg['bus']
-                return self.router_distribute(frames, peer, topic, headers, message, bus)
             except ValueError:
                 self._logger.debug("JSON decode error. Invalid character")
                 return 0
+            return self.router_distribute(frames, peer, topic, headers, message, bus, user_id)
 
     def _peer_list(self, frames):
         results = []
@@ -286,14 +277,26 @@ class PubSubService(object):
         self._logger.debug("Peer list: {}".format(results))
         return results
 
-    def router_distribute(self, frames, peer, topic, headers, message=None, bus=''):
-        #self._check_if_protected_topic(topic)
-        drop_peer = []
+    def router_distribute(self, frames, peer, topic, headers, message=None, bus='', user_id=b''):
+        #self._logger.debug("PUBSUBSERVICE checking protected topic for USER_ID: {}".format(user_id))
+        errmsg = self._check_if_protected_topic(user_id, topic)
+        #Send error message back as unauthorized publish for the topic
+        if errmsg is not None:
+            publisher, receiver, proto, user_id, msg_id, subsystem = frames[0:6]
+            try:
+                frames = [publisher, b'', proto, user_id, msg_id,
+                      b'error', zmq.Frame(bytes(jsonrpc.UNAUTHORIZED)), zmq.Frame(str(errmsg)), b'', subsystem]
+            except ValueError:
+                self._logger.debug("Value error")
+            self._send(frames, publisher)
+            return 0
+
         subscriptions = self._peer_subscriptions[bus]
         subscribers = set()
         # for f in frames:
         #     self._logger.debug("PUBSUBSERVICE: sending frames: {}".format(f.bytes))
-        sender = frames[0]
+        publisher = frames[0]
+        frames[3] = bytes(user_id)
         for prefix, subscription in subscriptions.iteritems():
             if subscription and topic.startswith(prefix):
                 subscribers |= subscription
@@ -303,18 +306,14 @@ class PubSubService(object):
                 frames[0] = zmq.Frame(subscriber)
                 try:
                     #Send the message to the subscriber
-                    for pr in self._send(frames, sender):
+                    for sub in self._send(frames, publisher):
                         # Drop the subscriber if unreachable
-                        self.peer_drop(pr)
+                        self.peer_drop(sub)
                 except ZMQError:
                     raise
-
-            # for peer in drop_peer:
-            #     self.peer_drop(peer)
-
         return len(subscribers)
 
-    def _send(self, frames, sender):
+    def _send(self, frames, publisher):
         drop = []
         subscriber = frames[0]
         # Expecting outgoing frames:
@@ -335,7 +334,7 @@ class PubSubService(object):
                 self._logger.debug("EAGAIN error {}".format(subscriber.bytes))
                 # Only send EAGAIN errors
                 proto, user_id, msg_id, subsystem = frames[2:6]
-                frames = [sender, b'', proto, user_id, msg_id,
+                frames = [publisher, b'', proto, user_id, msg_id,
                           b'error', errnum, errmsg, subscriber, subsystem]
                 try:
                     self._vip_sock.send_multipart(frames, flags=NOBLOCK, copy=False)
@@ -344,10 +343,22 @@ class PubSubService(object):
                     pass
         return drop
 
-    def handle_subsystem(self, frames):
+    def update_caps_users(self, frames):
+        if len(frames) > 7:
+            data = frames[7].bytes
+            #self._logger.debug("PUBSUBSERVICE: user capabilities from auth: {}".format(data))
+            try:
+                json0 = data.find('{')
+                msg = jsonapi.loads(data[json0:])
+                self._user_capabilities = msg['capabilities']
+            except ValueError:
+                pass
+            #self._logger.debug("PUBSUBSERVICE: user capabilities from auth after update: {}".format(self._user_capabilities))
+
+    def handle_subsystem(self, frames, user_id):
         response = []
 
-        sender, recipient, proto, user_id, msg_id, subsystem = frames[:6]
+        sender, recipient, proto, usr_id, msg_id, subsystem = frames[:6]
         #subsystem = bytes(frames[5])
 
         if subsystem.bytes == b'pubsub':
@@ -363,7 +374,7 @@ class PubSubService(object):
             elif op == b'publish':
                 #print("publish something")
                 try:
-                    result = self._peer_publish(frames)
+                    result = self._peer_publish(frames, user_id)
                     #Form a response frame
                     response = [sender, recipient, proto, user_id, msg_id, subsystem]
                     response.append(zmq.Frame(b'publish_response'))
@@ -386,6 +397,60 @@ class PubSubService(object):
             elif op == b'synchronize':
                 print("synchronize all subscriptions")
                 self._peer_sync(frames)
+
+            elif op == b'auth_update':
+                print("update protected topics")
+                self.update_caps_users(frames)
             else:
                 pass
         return response
+
+    def _check_if_protected_topic(self, peer, topic):
+        msg = None
+        required_caps = self._protected_topics.get(topic)
+        #self._logger.debug("PUBSUBSERVCE: REQUIRED CAP {}".format(required_caps))
+        if required_caps:
+            user = peer
+            try:
+                caps = self._user_capabilities[user]
+            except KeyError:
+                return
+            if not set(required_caps) <= set(caps):
+                msg = ('to publish to topic "{}" requires capabilities {},'
+                       ' but capability list {} was'
+                       ' provided').format(topic, required_caps, caps)
+                #raise jsonrpc.exception_from_json(jsonrpc.UNAUTHORIZED, msg)
+        return msg
+
+class ProtectedPubSubTopics(object):
+    '''Simple class to contain protected pubsub topics'''
+    def __init__(self):
+        self._dict = {}
+        self._re_list = []
+
+    def add(self, topic, capabilities):
+        if isinstance(capabilities, basestring):
+            capabilities = [capabilities]
+        if len(topic) > 1 and topic[0] == topic[-1] == '/':
+            regex = re.compile('^' + topic[1:-1] + '$')
+            self._re_list.append((regex, capabilities))
+        else:
+            self._dict[topic] = capabilities
+
+    def get(self, topic):
+        if topic in self._dict:
+            return self._dict[topic]
+
+        prefix = self._isprefix(topic)
+        if prefix is not None:
+            return self._dict[prefix]
+        for regex, capabilities in self._re_list:
+            if regex.match(topic):
+                return capabilities
+        return None
+
+    def _isprefix(self, topic):
+        for prefix in self._dict.keys():
+            if topic[:len(prefix)] == prefix:
+                return prefix
+        return None

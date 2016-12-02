@@ -376,7 +376,7 @@ class Router(BaseRouter):
             return frames
         elif subsystem == b'pubsub':
             if self._pubsub is not None:
-                result = self._pubsub.handle_subsystem(frames)
+                result = self._pubsub.handle_subsystem(frames, user_id)
                 return result
             return False
 
