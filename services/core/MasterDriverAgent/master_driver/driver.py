@@ -275,15 +275,13 @@ class DriverAgent(BasicAgent):
             headers_mod.DATE: utcnow_string,
             headers_mod.TIMESTAMP: utcnow_string,
         }
-        
             
-
         if self.publish_depth_first or self.publish_breadth_first:
             for point, value in results.iteritems():
                 depth_first_topic, breadth_first_topic = self.get_paths_for_point(point)
                 message = [value, self.meta_data[point]]
-                   
-                if self.publish_depth_first:  
+
+                if self.publish_depth_first:
                     self._publish_wrapper(depth_first_topic, 
                                           headers=headers, 
                                           message=message)
