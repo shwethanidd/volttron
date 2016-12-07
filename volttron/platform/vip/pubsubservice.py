@@ -174,17 +174,23 @@ class PubSubService(object):
             self._add_peer_subscription(peer, bus, prefix)
 
     def _peer_sync(self, frames):
-        if len(frames) > 7:
-            data = frames[7].bytes
-            json0 = data.find('{')
-            msg = jsonapi.loads(data[json0:])
-            peer = msg['identity']
-            items = msg['subscriptions']
-            #peer = bytes(self.rpc().context.vip_message.peer)
-            assert isinstance(items, dict)
-            self._sync(peer, items)
+        self._logger.debug("PubSubService: In peer sync")
+        if len(frames) > 8:
+            conn = frames[7].bytes
+            #self._logger.debug("PubSubService: peer_sync: {0}".format(conn))
+            if conn == b'connected':
+                data = frames[8].bytes
+                json0 = data.find('{')
+                msg = jsonapi.loads(data[json0:])
+                peer = msg['identity']
+                items = msg['subscriptions']
+                #peer = bytes(self.rpc().context.vip_message.peer)
+                assert isinstance(items, dict)
+                self._sync(peer, items)
+            #self._logger.debug("PubSubService: peer_subscriptions: {0}".format(self._peer_subscriptions))
 
     def _peer_subscribe(self, frames):
+        #self._logger.debug("Peer subscriptions before subscribe: {}".format(self._peer_subscriptions))
         if len(frames) > 7:
             data = frames[7].bytes
             json0 = data.find('{')
@@ -196,7 +202,7 @@ class PubSubService(object):
         #peer = bytes(self.vip.rpc.context.vip_message.peer)
         for prefix in prefix if isinstance(prefix, list) else [prefix]:
             self._add_peer_subscription(peer, bus, prefix)
-        #self._logger.debug("Peer subscriptions after subscribe: {}".format(self._peer_subscriptions))
+        self._logger.debug("Peer subscriptions after subscribe: {}".format(self._peer_subscriptions))
 
     def _peer_unsubscribe(self, frames):
 #        peer = bytes(self.rpc().context.vip_message.peer)
@@ -230,7 +236,7 @@ class PubSubService(object):
     def _peer_publish(self, frames, user_id):
         # for f in frames:
         #     self._logger.debug("PUBSUBSERIVE: publish frames {}".format(bytes(f)))
-        # self._logger.debug("PUBSUBSERVICE peer subscriptions {}".format(self._peer_subscriptions))
+        #self._logger.debug("PUBSUBSERVICE PUBLISH peer subscriptions {}".format(self._peer_subscriptions))
         if len(frames) > 7:
             topic = frames[7].bytes
             data = frames[8].bytes
@@ -257,7 +263,7 @@ class PubSubService(object):
             bus = msg['bus']
             subscribed = msg['subscribed']
             reverse = msg['reverse']
-            self._logger.debug("List request: peer: {0}, prefix: {1}, bus: {2}".format(peer, prefix, bus))
+            #self._logger.debug("List request: peer: {0}, prefix: {1}, bus: {2}".format(peer, prefix, bus))
 
             #peer = bytes(self.rpc().context.vip_message.peer)
             if bus is None:

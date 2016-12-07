@@ -84,7 +84,6 @@ _INVALID_SUBSYSTEM = (
     zmq.Frame(os.strerror(zmq.EPROTONOSUPPORT).encode('ascii'))
 )
 
-
 class BaseRouter(object):
     '''Abstract base class of VIP router implementation.
 
@@ -212,8 +211,10 @@ class BaseRouter(object):
         frames.extend(Frame(f) for f in parts)
         for peer in self._peers:
             frames[0] = peer
+            #_log.debug("ROUTER: DISTRIBUTE NEW PEER LIST {}".format(bytes(peer)))
             drop.update(self._send(frames))
         for peer in drop:
+            #_log.debug("ROUTER: HOST UNREACHEABLE DISTRIB {}".format(bytes(peer)))
             self._drop_peer(peer)
 
     def _drop_pubsub_peers(self, peer):
@@ -227,17 +228,19 @@ class BaseRouter(object):
     def _add_peer(self, peer):
         if peer in self._peers:
             return
+        #_log.debug("ROUTER: adding peer and distribute peer {}".format(peer))
         self._distribute(b'peerlist', b'add', peer)
         self._peers.add(peer)
-        self._drop_pubsub_peers(peer)
+        self._add_pubsub_peers(peer)
 
     def _drop_peer(self, peer):
+        #_log.debug("ROUTER: dropping peer and distribute peer {}".format(peer))
         try:
             self._peers.remove(peer)
         except KeyError:
             return
         self._distribute(b'peerlist', b'drop', peer)
-        self._add_pubsub_peers(peer)
+        self._drop_pubsub_peers(peer)
 
     def route(self):
         '''Route one message and return.
@@ -273,8 +276,10 @@ class BaseRouter(object):
         user_id = self.lookup_user_id(sender, recipient, auth_token)
         if user_id is None:
             user_id = b''
-
+        #_log.debug("ROUTER: CURRENT PEERLIST {}".format(self._peers))
         self._add_peer(sender.bytes)
+        # for f in frames:
+        #     _log.debug("ROUTER recieving frames: {}".format(bytes(f)))
         subsystem = frames[5]
         if not recipient.bytes:
             # Handle requests directed at the router
@@ -318,7 +323,6 @@ class BaseRouter(object):
         for peer in self._send(frames):
             self._drop_peer(peer)
 
-
     def _send(self, frames):
         issue = self.issue
         socket = self.socket
@@ -341,6 +345,9 @@ class BaseRouter(object):
                 raise
             issue(ERROR, frames, error)
             if exc.errno == EHOSTUNREACH:
+                # for f in frames:
+                #     _log.debug("ROUTER sending frames: {}".format(bytes(f)))
+                #_log.debug("ROUTER: HOST UNREACHEABLE {}".format(bytes(recipient)))
                 drop.append(bytes(recipient))
             if exc.errno != EHOSTUNREACH or sender is not frames[0]:
                 # Only send errors if the sender and recipient differ

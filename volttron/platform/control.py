@@ -74,6 +74,7 @@ import uuid
 import base64
 import hashlib
 
+import zmq
 import gevent
 import gevent.event
 from volttron.platform.vip.agent.subsystems.query import Query
@@ -172,7 +173,11 @@ class ControlService(BaseAgent):
             raise TypeError("expected a string for 'uuid';"
                             "got {!r} from identity: {}".format(
                 type(uuid).__name__, identity))
+        ident = self.agent_vip_identity(uuid)
         self._aip.stop_agent(uuid)
+        #Send message to router that agent is shutting down
+        frames = [bytes(ident)]
+        self.core.socket.send_vip(b'', 'agentstop', frames, copy=False)
 
     @RPC.export
     def restart_agent(self, uuid):
@@ -747,7 +752,6 @@ def create_cgroups(opts):
     except ValueError as exc:
         _stderr.write('{}: error: {}\n'.format(opts.command, exc))
         return os.EX_NOUSER
-
 
 def _send_agent(connection, peer, path):
     wheel = open(path, 'rb')

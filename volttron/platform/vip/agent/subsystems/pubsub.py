@@ -128,16 +128,17 @@ class PubSub(SubsystemBase):
                         member, set, 'pubsub.subscriptions'):
                     # XXX: needs updated in light of onconnected signal
                     self.add_subscription(peer, prefix, member, bus)
-                    _log.debug("PUBSUB SUBSYS subscribe with annotate. prefix {0}, identity: {1}".format(prefix, self.core().identity))
+                    #_log.debug("PUBSUB SUBSYS subscribe with annotate. prefix {0}, identity: {1}".format(prefix, self.core().identity))
             inspect.getmembers(owner, subscribe)
         core.onsetup.connect(setup, self)
 
     def _connected(self, sender, **kwargs):
-        _log.debug("connected so sync up")
+        #_log.debug("PUBSUB SUBSYS: connected so sync up {}".format(sender))
         self.synchronize(None, True)
 
     def _peer_add(self, sender, peer, **kwargs):
         # Delay sync by some random amount to prevent reply storm.
+        #_log.debug("PUBSUB SUBSYS: peer add {}".format(peer))
         delay = random.random()
         self.core().spawn_later(delay, self.synchronize, peer, False)
 
@@ -162,6 +163,7 @@ class PubSub(SubsystemBase):
             self.synchronize(peer, False)
 
     def synchronize(self, peer, connected_event):
+        #_log.debug("AGENT PUBSUB {0} before synchronize: {1}".format(self.core().identity, self._my_subscriptions))
         '''Unsubscribe from stale/forgotten/unsolicited subscriptions.'''
         if peer is None:
             items = [(peer, {bus: subscriptions.keys()
@@ -171,14 +173,20 @@ class PubSub(SubsystemBase):
             buses = self._my_subscriptions.get(peer) or {}
             items = [(peer, {bus: subscriptions.keys()
                              for bus, subscriptions in buses.iteritems()})]
-        if connected_event:
-            for (peer, subscriptions) in items:
-                sync_msg = jsonapi.dumps(
-                    dict(identity=self.core().identity, subscriptions=subscriptions)
-                )
-                frames = [b'synchronize', sync_msg]
-                _log.debug("Syncing: {}".format(sync_msg))
+        for (peer, subscriptions) in items:
+            #self.rpc().notify(peer, 'pubsub.sync', subscriptions)
+            sync_msg = jsonapi.dumps(
+                dict(identity=self.core().identity, subscriptions=subscriptions)
+            )
+            if connected_event:
+                #_log.debug("AGENT PUBSUB Syncing: {}".format(sync_msg))
+                frames = [b'synchronize', b'connected', sync_msg]
                 self.vip_socket.send_vip(b'', 'pubsub', frames, copy=False)
+                # else:
+                #     frames = [b'synchronize', b'', sync_msg]
+                #_log.debug("Syncing: {}".format(sync_msg))
+                #self.vip_socket.send_vip(b'', 'pubsub', frames, copy=False)
+
             #self.rpc().notify(peer, 'pubsub.sync', subscriptions)
 
     def list(self, peer, prefix='', bus='', subscribed=True, reverse=False):
@@ -231,14 +239,14 @@ class PubSub(SubsystemBase):
             dict(identity=self.core().identity, prefix=prefix, bus=bus)
         )
         frames = [b'subscribe', sub_msg]
-        _log.debug("PUBSUB SUBSYS Subscribing: {}".format(sub_msg))
+        #_log.debug("PUBSUB SUBSYS Subscribing: {}".format(sub_msg))
         self.vip_socket.send_vip(b'', 'pubsub', frames, copy=False)
         #return result
         return FakeAsyncResult()
 
     @subscribe.classmethod
     def subscribe(cls, peer, prefix, bus=''):
-        _log.debug("PUBSUB SUBSYS subscribe with classmethod. prefix {}".format(prefix))
+        #_log.debug("PUBSUB SUBSYS subscribe with classmethod. prefix {}".format(prefix))
         def decorate(method):
             annotate(method, set, 'pubsub.subscriptions', (peer, bus, prefix))
             return method
@@ -300,7 +308,7 @@ class PubSub(SubsystemBase):
         frames = [b'unsubscribe', unsub_msg]
         # frames.append(zmq.Frame(b'subscribe'))
         # frames.append(zmq.Frame(str(sub_msg)))
-        _log.debug("UnSubscribing: {}".format(unsub_msg))
+        #_log.debug("UnSubscribing: {}".format(unsub_msg))
         self.vip_socket.send_vip(b'', 'pubsub', frames, copy=False)
         return FakeAsyncResult()
         #return result
