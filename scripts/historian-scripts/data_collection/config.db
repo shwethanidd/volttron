@@ -1,0 +1,16 @@
+{
+    # configuration from mongo historian - START
+    "mongoconnection": {
+        "type": "mongodb",
+        "params": {
+            "host": "130.20.116.175",
+            #"host": "volttrondev.pnl.gov",
+            "port": 27017,
+            "database": "historian",
+            "user": "historian",
+            "passwd": "volttron",
+            "authSource":"historian"
+        }
+    },
+    "device_config":"/home/volttron/git/volttron/scripts/historian-scripts/data_collection/test_config"
+}
