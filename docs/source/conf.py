@@ -318,14 +318,15 @@ def setup(app):
     """
     app.connect('builder-inited', generate_apidoc)
     app.connect('build-finished', clean_apirst)
-    app.connect('autodoc-process-docstring', inherit_docstring)
+
+
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 apidocs_base_dir =os.path.abspath(script_dir + "/apidocs")
 def generate_apidoc(app):
     """
-        Generates apidocs for modules under volttron/platform
-        and volttron/services/core
+        Generates apidocs for modules under volttron/platform,
+        volttron/services/core, and volttron/applications
         :param app:
         :return:
         """
@@ -334,6 +335,7 @@ def generate_apidoc(app):
 
     os.makedirs(apidocs_base_dir, 0755)
     file_name = os.path.join(script_dir,"../docs_exclude_list.txt" )
+    application_excludes = []
     services_excludes = []
     volttron_excludes = []
     examples_excludes = []
@@ -361,6 +363,11 @@ def generate_apidoc(app):
     docs_subdir = os.path.join(apidocs_base_dir, "examples")
     agent_dirs = glob(script_dir + "/../../examples/*/")
     run_apidoc(docs_subdir, agent_dirs, examples_excludes)
+
+    # generate api-docs for applications
+    docs_subdir = os.path.join(apidocs_base_dir, "applications")
+    agent_dirs = glob(script_dir + "/../../applications/*/*/")
+    run_apidoc(docs_subdir, agent_dirs, application_excludes)
 
     # generate api-docs for platform core and drivers
 
@@ -394,7 +401,7 @@ def run_apidoc(docs_dir, agent_dirs, exclude_list):
         sys.path.insert(0, agent_dir)
         print "Added to syspath {}".format(agent_dir)
         name = os.path.basename(agent_dir)
-        cmd = ["sphinx-apidoc", '-M', '-d 4', '-o',
+        cmd = ["sphinx-apidoc", '-o',
              os.path.join(docs_dir, name),
              agent_dir, os.path.join(agent_dir, "setup.py"),
              '--force']
@@ -413,33 +420,3 @@ def clean_apirst(app, exception):
     import shutil
     print("Cleanup: Removing apidocs directory {}".format(apidocs_base_dir))
     shutil.rmtree(apidocs_base_dir)
-
-def inherit_docstring(app, what, name, obj, options, lines):
-    """
-    If docstring is empty and if it one of historian or aggregate
-    historian implementation methods, set the docstring as the parent class
-    method's docstring
-    :param app: the Sphinx application object
-    :param what: the type of the object which the docstring belongs to (one
-                 of "module", "class", "exception", "function", "method",
-                 "attribute")
-    :param name: the fully qualified name of the object
-    :param obj: the object itself
-    :param options: the options given to the directive: an object with
-                    attributes inherited_members, undoc_members,
-                    show_inheritance and noindex that are true if the flag
-                    option of same name was given to the auto directive
-    :param lines: the lines of the docstring
-    """
-    if what == "method":
-        parts = name.split('.')
-
-        if parts[-2] in ["SQLHistorian",
-                         "MongodbHistorian",
-                         "SQLAggregateHistorian",
-                         "MongodbAggregateHistorian"]:
-            if not lines:
-                parent_method = getattr(obj.im_class.__bases__[0], parts[-1],
-                                        None)
-                if parent_method:
-                    lines.extend(parent_method.__doc__.split("\n"))
