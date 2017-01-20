@@ -1,0 +1,58 @@
+2017-01-17 18:43:03,171 () volttron.platform.main DEBUG: open file resource limit increased from 1024 to 4096
+2017-01-17 18:43:03,171 () volttron.platform.main DEBUG: using key-store file /home/volttron/.volttron2/keystore
+2017-01-17 18:43:03,171 () volttron.platform.main INFO: public key: 7-uOn07IZS5uttfleBeIbbE8zDOpkPLdqPGg5zm9Wis
+2017-01-17 18:43:03,173 () volttron.platform.vip.agent.core DEBUG: address: inproc://vip
+2017-01-17 18:43:03,173 () volttron.platform.vip.agent.core DEBUG: identity: config.store
+2017-01-17 18:43:03,174 () volttron.platform.vip.agent.core DEBUG: agent_uuid: None
+2017-01-17 18:43:03,174 () volttron.platform.vip.agent.core DEBUG: serverkey: None
+2017-01-17 18:43:03,175 () volttron.platform.store INFO: Initializing configuration store
+2017-01-17 18:43:03,175 () volttron.platform.store DEBUG: Configuration directory already exists.
+2017-01-17 18:43:03,176 () volttron.platform.vip.agent.core DEBUG: address: inproc://vip
+2017-01-17 18:43:03,176 () volttron.platform.vip.agent.core DEBUG: identity: platform.auth
+2017-01-17 18:43:03,176 () volttron.platform.vip.agent.core DEBUG: agent_uuid: None
+2017-01-17 18:43:03,177 () volttron.platform.vip.agent.core DEBUG: serverkey: None
+2017-01-17 18:43:03,178 () volttron.platform.auth INFO: loading auth file /home/volttron/.volttron2/auth.json
+2017-01-17 18:43:03,178 () volttron.platform.auth INFO: auth file /home/volttron/.volttron2/auth.json loaded
+2017-01-17 18:43:03,180 () volttron.platform.main DEBUG: In-process VIP router bound to inproc://vip
+2017-01-17 18:43:03,180 () volttron.platform.main DEBUG: Local VIP router bound to ipc://@/home/volttron/.volttron2/run/vip.socket?secretkey=XXXXX&domain=vip&server=CURVE#26546ba1-dcb4-4f32-a7b8-ac820a8c73a1
+2017-01-17 18:43:03,180 () volttron.platform.main DEBUG: Additional VIP router bound to tcp://127.0.0.2:22916?secretkey=XXXXX&domain=vip&server=CURVE#26546ba1-dcb4-4f32-a7b8-ac820a8c73a1
+2017-01-17 18:43:03,181 () volttron.platform.vip.agent.core INFO: Connected to platform: router: 26546ba1-dcb4-4f32-a7b8-ac820a8c73a1 version: 1.0 identity: config.store
+2017-01-17 18:43:03,181 () volttron.platform.vip.agent.core DEBUG: Running onstart methods.
+2017-01-17 18:43:03,184 () volttron.platform.vip.agent.core INFO: Connected to platform: router: 26546ba1-dcb4-4f32-a7b8-ac820a8c73a1 version: 1.0 identity: platform.auth
+2017-01-17 18:43:03,184 () volttron.platform.vip.agent.core DEBUG: Running onstart methods.
+2017-01-17 18:43:03,187 () volttron.platform.vip.agent.subsystems.configstore DEBUG: Processing callbacks for affected files: {}
+2017-01-17 18:43:03,283 () volttron.platform.main DEBUG: protected topics file /home/volttron/.volttron2/protected_topics.json
+2017-01-17 18:43:03,284 () volttron.platform.vip.agent.core DEBUG: address: inproc://vip
+2017-01-17 18:43:03,284 () volttron.platform.vip.agent.core DEBUG: identity: control
+2017-01-17 18:43:03,285 () volttron.platform.vip.agent.core DEBUG: agent_uuid: None
+2017-01-17 18:43:03,285 () volttron.platform.vip.agent.core DEBUG: serverkey: None
+2017-01-17 18:43:03,289 () volttron.platform.vip.agent.core DEBUG: address: inproc://vip
+2017-01-17 18:43:03,289 () volttron.platform.vip.agent.core DEBUG: identity: pubsub
+2017-01-17 18:43:03,289 () volttron.platform.vip.agent.core DEBUG: agent_uuid: None
+2017-01-17 18:43:03,290 () volttron.platform.vip.agent.core DEBUG: serverkey: None
+2017-01-17 18:43:03,292 () volttron.platform.vip.agent.core DEBUG: address: inproc://vip
+2017-01-17 18:43:03,292 () volttron.platform.vip.agent.core DEBUG: identity: pubsub.compat
+2017-01-17 18:43:03,293 () volttron.platform.vip.agent.core DEBUG: agent_uuid: None
+2017-01-17 18:43:03,293 () volttron.platform.vip.agent.core DEBUG: serverkey: None
+2017-01-17 18:43:03,294 () volttron.platform.vip.agent.core DEBUG: address: inproc://vip
+2017-01-17 18:43:03,295 () volttron.platform.vip.agent.core DEBUG: identity: master.web
+2017-01-17 18:43:03,295 () volttron.platform.vip.agent.core DEBUG: agent_uuid: None
+2017-01-17 18:43:03,295 () volttron.platform.vip.agent.core DEBUG: serverkey: None
+2017-01-17 18:43:03,319 () volttron.platform.vip.agent.core INFO: Connected to platform: router: 26546ba1-dcb4-4f32-a7b8-ac820a8c73a1 version: 1.0 identity: control
+2017-01-17 18:43:03,320 () volttron.platform.vip.agent.core DEBUG: Running onstart methods.
+2017-01-17 18:43:03,328 () volttron.platform.vip.agent.core INFO: Connected to platform: router: 26546ba1-dcb4-4f32-a7b8-ac820a8c73a1 version: 1.0 identity: master.web
+2017-01-17 18:43:03,329 () volttron.platform.vip.agent.core DEBUG: Running onstart methods.
+2017-01-17 18:43:03,330 () volttron.platform.vip.agent.core INFO: Connected to platform: router: 26546ba1-dcb4-4f32-a7b8-ac820a8c73a1 version: 1.0 identity: pubsub.compat
+2017-01-17 18:43:03,331 () volttron.platform.vip.agent.core DEBUG: Running onstart methods.
+2017-01-17 18:43:03,334 () volttron.platform.vip.agent.core INFO: Connected to platform: router: 26546ba1-dcb4-4f32-a7b8-ac820a8c73a1 version: 1.0 identity: pubsub
+2017-01-17 18:43:03,334 () volttron.platform.vip.agent.core DEBUG: Running onstart methods.
+2017-01-17 18:43:03,335 () volttron.platform.web INFO: Web server not started.
+2017-01-17 18:43:03,335 () volttron.platform.main INFO: loading protected-topics file /home/volttron/.volttron2/protected_topics.json
+2017-01-17 18:43:03,336 () volttron.platform.main INFO: protected-topics file /home/volttron/.volttron2/protected_topics.json loaded
+2017-01-17 19:17:02,191 () volttron.platform.auth INFO: authentication success: domain='vip', address='localhost:1000:1000:9103', mechanism='CURVE', credentials=['7-uOn07IZS5uttfleBeIbbE8zDOpkPLdqPGg5zm9Wis'], user_id='platform'
+2017-01-17 19:17:02,196 () volttron.platform.vip.agent.core DEBUG: address: inproc://vip
+2017-01-17 19:17:02,196 () volttron.platform.vip.agent.core DEBUG: identity: aip
+2017-01-17 19:17:02,196 () volttron.platform.vip.agent.core DEBUG: agent_uuid: None
+2017-01-17 19:17:02,196 () volttron.platform.vip.agent.core DEBUG: serverkey: None
+2017-01-17 19:17:02,199 () volttron.platform.vip.agent.core INFO: Connected to platform: router: 26546ba1-dcb4-4f32-a7b8-ac820a8c73a1 version: 1.0 identity: aip
+2017-01-17 19:17:02,199 () volttron.platform.vip.agent.core DEBUG: Running onstart methods.
