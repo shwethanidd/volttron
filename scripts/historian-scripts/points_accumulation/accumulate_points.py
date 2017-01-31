@@ -45,7 +45,7 @@ class DataPoints_Accumulator:
                 _, device = device.split('/', 1)
                 device = device + '/'
 
-                _log.debug("Device: {0}, Registry: {1}".format(device, registry_config))
+                #_log.debug("Device: {0}, Registry: {1}".format(device, registry_config))
                 rows = self._read_csv(registry_config)
                 if rows:
                     self._write_csv(device, rows)
