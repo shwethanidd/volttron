@@ -1307,12 +1307,13 @@ class ActuatorAgent(Agent):
         
             The return values are described in `New Task Response`_.
         """
+        _log.debug("External RPC: I'm in actuator")
         rpc_peer = bytes(self.vip.rpc.context.vip_message.peer)
         return self._request_new_schedule(rpc_peer, task_id, priority, requests, publish_result=False)
 
     def _request_new_schedule(self, sender, task_id, priority, requests, publish_result=True):
         now = utils.get_aware_utc_now()
-
+        _log.debug("External RPC: I'm in _request_new_schedule")
         topic = topics.ACTUATOR_SCHEDULE_RESULT()
         headers = self._get_headers(sender, task_id=task_id)
         headers['type'] = SCHEDULE_ACTION_NEW
@@ -1340,7 +1341,7 @@ class ActuatorAgent(Agent):
         except StandardError as ex:
             return self._handle_unknown_schedule_error(ex, headers, requests)
 
-        _log.debug("Got new schedule request: {}, {}, {}, {}".
+        _log.debug("External RPC: Got new schedule request: {}, {}, {}, {}".
                    format(sender, task_id, priority, requests))
 
         result = self._schedule_manager.request_slots(sender, task_id,
@@ -1355,6 +1356,7 @@ class ActuatorAgent(Agent):
                 preempt_headers = self._get_headers(preempted_task[0],
                                                     task_id=preempted_task[1])
                 preempt_headers['type'] = SCHEDULE_ACTION_CANCEL
+                _log.debug("External RPC: Publishing cancel : {}".format(topic))
                 self.vip.pubsub.publish('pubsub', topic,
                                         headers=preempt_headers,
                                         message={
@@ -1374,7 +1376,7 @@ class ActuatorAgent(Agent):
         if publish_result:
             self.vip.pubsub.publish('pubsub', topic, headers=headers,
                                     message=results)
-
+        _log.debug("External RPC: Returning the result: {}".format(results))
         return results
 
     def _handle_unknown_schedule_error(self, ex, headers, message):

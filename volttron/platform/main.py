@@ -79,6 +79,7 @@ from zmq import green
 # Create a context common to the green and non-green zmq modules.
 green.Context._instance = green.Context.shadow(zmq.Context.instance().underlying)
 from zmq.utils import jsonapi
+import urlparse
 
 from . import aip
 from . import __version__
@@ -97,6 +98,8 @@ from .agent import utils
 from .agent.known_identities import MASTER_WEB, CONFIGURATION_STORE, AUTH
 from .vip.agent.subsystems.pubsub import ProtectedPubSubTopics
 from .keystore import KeyStore, KnownHostsStore
+import zmq
+from zmq import Frame, NOBLOCK, ZMQError, EINVAL, EHOSTUNREACH
 
 try:
     import volttron.restricted
@@ -265,6 +268,7 @@ class Router(BaseRouter):
             context=context, default_user_id=default_user_id)
         self.local_address = Address(local_address)
         self.addresses = addresses = [Address(addr) for addr in set(addresses)]
+
         self._secretkey = secretkey
         self._publickey = publickey
         self.logger = logging.getLogger('vip.router')
@@ -273,8 +277,9 @@ class Router(BaseRouter):
         self._monitor = monitor
         self._tracker = tracker
         self._volttron_central_address = volttron_central_address
+        _log.debug("_volttron_central_address: {}".format(self._volttron_central_address))
         if self._volttron_central_address:
-            parsed = urlparse(self._volttron_central_address)
+            parsed = urlparse.urlparse(self._volttron_central_address)
 
             assert parsed.scheme in ('http', 'https', 'tcp'), \
                 "volttron central address must begin with http(s) or tcp found"
@@ -284,10 +289,15 @@ class Router(BaseRouter):
         self._volttron_central_serverkey = volttron_central_serverkey
         self._instance_name = instance_name
         self._bind_web_address = bind_web_address
+        self.poller = zmq.Poller()
+        _log.debug("Keys: {0}, {1}".format(self._publickey, self._secretkey))
+        _log.debug("Local address: {}".format(local_address))
 
     def setup(self):
         sock = self.socket
         sock.identity = identity = str(uuid.uuid4())
+        self._socket_id_mapping[identity] = sock
+        _log.debug("Socket identity: {}".format(sock.identity))
         if self._monitor:
             Monitor(sock.get_monitor_socket()).start()
         sock.bind('inproc://vip')
@@ -316,6 +326,31 @@ class Router(BaseRouter):
                 address.domain = 'vip'
             address.bind(sock)
             _log.debug('Additional VIP router bound to %s' % address)
+
+        _log.debug("Instance name {0}, In proc socket identity: {1}".format(self._instance_name, sock.identity))
+        for addr in self.addresses:
+            _log.debug("Addr identity: {}".format(addr.identity))
+        self._poller.register(sock, zmq.POLLIN)
+        self.setup_extsocket()
+
+    def _add_keys_to_addr(self, address):
+        '''Adds public, secret, and server keys to query in VIP address if
+        they are not already present'''
+
+        def add_param(query_str, key, value):
+            query_dict = urlparse.parse_qs(query_str)
+            if not value or key in query_dict:
+                return ''
+            # urlparse automatically adds '?', but we need to add the '&'s
+            return '{}{}={}'.format('&' if query_str else '', key, value)
+
+        url = list(urlparse.urlsplit(address))
+        if url[0] in ['tcp', 'ipc']:
+            url[3] += add_param(url[3], 'publickey', self._publickey)
+            url[3] += add_param(url[3], 'secretkey', self._secretkey)
+            url[3] += add_param(url[3], 'serverkey', self._serverkey)
+            address = str(urlparse.urlunsplit(url))
+        return address
 
     def issue(self, topic, frames, extra=None):
         log = self.logger.debug
@@ -367,7 +402,102 @@ class Router(BaseRouter):
             frames[6:] = [b'', jsonapi.dumps(value)]
             frames[3] = b''
             return frames
+        elif subsystem == b'EXT_RPC':
+            try:
+                _log.debug("ROUTER: Received EXT_RPC sub system message")
+                #Reframe the frames
+                sender, recipient, proto, usr_id, msg_id, subsystem, msg = frames[:7]
+                # for f in frames:
+                #     _log.debug("Frames for EXT_RPC: {}".format(f))
 
+                msg_data = jsonapi.loads(bytes(msg))
+                to_platform = msg_data['to_platform']
+                if self._ext_sockets:
+                    sock = self._ext_sockets[0]
+                else:
+                    sock = self.socket
+                msg_data['from_platform'] = sock.identity
+                msg_data['from_peer'] = bytes(sender)
+                msg = jsonapi.dumps(msg_data)
+                _log.debug("ROUTER: EXT RPC message frames: sender {0}, recipient {1}, proto {2}, usr_id {3}, msg_id {4}, subsystem {5}, msg args {6}".
+                               format(bytes(sender), bytes(recipient), bytes(proto), bytes(usr_id), bytes(msg_id), bytes(subsystem), msg))
+                _log.debug("ROUTER: Sending EXT RPC message to: {}".format(to_platform))
+                frames[:7] = [to_platform, sender, proto, usr_id, msg_id, subsystem, msg]
+                try:
+                    if self._instance_name == 'tcp://127.0.0.2:22916':
+                        _log.debug("ROUTER: Instance: {0}, Sending EXT RPC message to: {1}".format(self._instance_name, to_platform))
+                        sock = self._ext_sockets[0]
+                        sock = self.router_server_socket
+                        peer = msg_data['to_peer']
+                        frames[:7] = [to_platform, proto, usr_id, msg_id, subsystem, msg]
+                        sock.send_multipart(frames, flags=NOBLOCK, copy=False)
+                    else:
+                        #_log.debug("Not sending anything")
+                        sock = self.socket.send_multipart(frames, flags=NOBLOCK, copy=False)
+                except ZMQError as ex:
+                    _log.error("ZMQ error: {}".format(ex))
+                    pass
+            except IndexError:
+                _log.error("Invalid EXT RPC message")
+
+    def setup_extsocket(self):
+        sock = self._socket_class(self.context, zmq.DEALER)
+        # sock.router_mandatory = True
+        sock.sndtimeo = 0
+        sock.tcp_keepalive = True
+        sock.tcp_keepalive_idle = 180
+        sock.tcp_keepalive_intvl = 20
+        sock.tcp_keepalive_cnt = 6
+
+        if self._instance_name == 'tcp://127.0.0.2:22916':
+            try:
+                sock.identity = identity = 'VIP2'
+                sock.zap_domain = 'vip'
+                self._serverkey = 'G1cLOh-fRnALpfFT101PcKUJkU14a0hhpD0iHM8Y4zw'
+                #address = self._add_keys_to_addr('tcp://127.0.0.1:22916')
+                keystore = KeyStore()
+                _log.debug("Keys: {0}, {1}".format(self._publickey, self._secretkey))
+                address = 'tcp://127.0.0.1:22916' + '?' + 'serverkey=' + str(self._serverkey) + '&' + 'publickey=' + str(keystore.public) + '&' + 'secretkey=' + str(keystore.secret)
+
+                address1 = Address(address)
+                _log.debug("External address: {}".format(address))
+                try:
+                    #sock.connect(address)
+                    address1.connect(sock)
+                    self._socket_id_mapping[identity] = sock
+                    _log.debug("establishing connection to {}".format(address))
+                except zmq.error.ZMQError, ex:
+                    _log.error("ZMQ error on external connection {}".format(ex))
+
+                self._ext_sockets.append(sock)
+                self.router_server_socket = sock
+                self._poller.register(sock, zmq.POLLIN)
+                gevent.sleep(2)
+                frames = [zmq.Frame('4cab589f-b904-481f-b76d-ca771e392eed'), zmq.Frame('External platform'), zmq.Frame('VIP1'), zmq.Frame('HELLLLLLLLLLLLLo')]
+                sock.send_multipart(frames, flags=NOBLOCK, copy=False)
+                gevent.sleep(1)
+                _log.debug("Sent message to external router")
+            except zmq.error.ZMQError, ex:
+                _log.error("ZMQ error on sendingn!!!!!!!!!!! {}".format(ex))
+        # else:
+        #     try:
+        #         sock.identity = 'VIP1'
+        #         address = 'tcp://127.0.0.1:5678'
+        #         _log.debug("External address: {}".format(address))
+        #         try:
+        #             #sock.connect(address)
+        #             sock.bind(address)
+        #             #sock.connect('tcp://127.0.0.1:22916')
+        #             _log.debug("establishing connection to {}".format(address))
+        #         except zmq.error.ZMQError, ex:
+        #             _log.error("ZMQ error on external connection {}".format(ex))
+        #
+        #         self._ext_sockets.append(sock)
+        #         self._poller.register(sock, zmq.POLLIN)
+        #         gevent.sleep(2)
+        #         _log.debug("External router added to Poller")
+        #     except zmq.error.ZMQError, ex:
+        #         _log.error("ZMQ error on sendingn!!!!!!!!!!! {}".format(ex))
 
 class PubSubService(Agent):
     def __init__(self, protected_topics_file, *args, **kwargs):
@@ -405,7 +535,6 @@ class PubSubService(Agent):
                 self.vip.pubsub.protected_topics = topics
                 _log.info('protected-topics file %s loaded',
                           self._protected_topics_file)
-
 
 def start_volttron_process(opts):
     '''Start the main volttron process.
@@ -527,7 +656,7 @@ def start_volttron_process(opts):
     # The following line doesn't appear to do anything, but it creates
     # a context common to the green and non-green zmq modules.
     zmq.Context.instance()   # DO NOT REMOVE LINE!!
-
+    _log.debug("opts.bind_web_address: ".format(opts.volttron_central_address))
     tracker = Tracker()
     # Main loops
     def router(stop):

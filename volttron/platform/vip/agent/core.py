@@ -630,6 +630,7 @@ class Core(BasicCore):
         if self.address[:4] in ['tcp:', 'ipc:']:
             self.spawn(monitor).join(0)
         self.socket.connect(self.address)
+
         if self.address.startswith('inproc:'):
             hello()
 

@@ -110,6 +110,7 @@ def encode_key(key):
 def decode_key(key):
     '''Parse and return a Z85 encoded key from other encodings.'''
     length = len(key)
+    _log.debug("Key: {0}, Length: {1}".format(key, length))
     if length == 40:
         return key
     elif length == 43:
