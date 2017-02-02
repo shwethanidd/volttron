@@ -68,16 +68,19 @@ import os
 import sys
 import threading
 import uuid
+import re
 
 import gevent
 from gevent.fileobject import FileObject
 import zmq
 from zmq import SNDMORE, EHOSTUNREACH, ZMQError, EAGAIN, NOBLOCK
 from zmq import green
+from collections import defaultdict
+
 # Create a context common to the green and non-green zmq modules.
 green.Context._instance = green.Context.shadow(zmq.Context.instance().underlying)
 from zmq.utils import jsonapi
-from ..agent import utils
+from volttron.platform.agent.utils import watch_file, create_file_if_missing
 from .agent.subsystems.pubsub import ProtectedPubSubTopics
 from .. import jsonrpc
 
@@ -88,71 +91,54 @@ _ROUTE_ERRORS = {
     for errnum in [zmq.EHOSTUNREACH, zmq.EAGAIN]
 }
 
+
 class PubSubService(object):
-    def __init__(self, protected_topics_file, socket, *args, **kwargs):
-        self._protected_topics_file = os.path.abspath(protected_topics_file)
+    def __init__(self, socket, protected_topics, *args, **kwargs):
         self._logger = logging.getLogger(__name__)
         # if self._logger.level == logging.NOTSET:
         #     self._logger.setLevel(logging.WARNING)
-        self._peer_subscriptions = {}
+
+        def subscriptions():
+            return defaultdict(set)
+
+        self._peer_subscriptions = defaultdict(subscriptions)
         self._vip_sock = socket
-        self.add_bus('')
         self._user_capabilities = {}
         self._protected_topics = ProtectedPubSubTopics()
-        self._read_protected_topics_file()
-        self._read_protected_greenlet = gevent.spawn(utils.watch_file, self._protected_topics_file,
-                                                    self._read_protected_topics_file)
-    def _read_protected_topics_file(self):
-        self._logger.info('loading protected-topics file %s',
-                  self._protected_topics_file)
-        try:
-            utils.create_file_if_missing(self._protected_topics_file)
-            with open(self._protected_topics_file) as fil:
-                # Use gevent FileObject to avoid blocking the thread
-                data = FileObject(fil, close=False).read()
-                topics_data = jsonapi.loads(data) if data else {}
-        except Exception:
-            self._logger.exception('error loading %s', self._protected_topics_file)
-        else:
-            write_protect = topics_data.get('write-protect', [])
-            topics = ProtectedPubSubTopics()
-            try:
-                for entry in write_protect:
-                    topics.add(entry['topic'], entry['capabilities'])
-            except KeyError:
-                self._logger.exception('invalid format for protected topics '
-                               'file {}'.format(self._protected_topics_file))
-            else:
-                self._protected_topics = topics
-                self._logger.info('protected-topics file %s loaded',
-                          self._protected_topics_file)
-        #self._logger.debug("PUBSUBSERVICE: protect file contents {0}, {1}".format(self._protected_topics._dict, self._protected_topics._re_list))
+        self._load_protected_topics(protected_topics)
+
 
     def _add_peer_subscription(self, peer, bus, prefix):
-        try:
-            subscriptions = self._peer_subscriptions[bus]
-        except KeyError:
-            self._peer_subscriptions.setdefault(bus, {})
-            subscriptions = self._peer_subscriptions[bus]
-        try:
-            subscribers = subscriptions[prefix]
-        except KeyError:
-            subscriptions[prefix] = subscribers = set()
-        subscribers.add(peer)
-        #self._logger.debug("Added peer in subscription list {0} {1}".format(peer, self._peer_subscriptions))
-
-    def add_bus(self, name):
-        self._peer_subscriptions.setdefault(name, {})
-
-    def peer_add(self, peer, **kwargs):
-        self._logger.debug("PUBSUBSERVICE: PEER ADD {}".format(peer))
-        #gevent.spawn(self._sync(peer, {}))
+        """
+        This maintains subscriptions for specified peer (subscriber), bus and prefix.
+        :param peer identity of the subscriber
+        :type peer str
+        :param bus bus.
+        :type str
+        :param prefix subscription prefix (peer is subscribing to all topics matching the prefix)
+        :type str
+        """
+        self._peer_subscriptions[bus][prefix].add(peer)
 
     def peer_drop(self, peer, **kwargs):
-        self._logger.debug("PUBSUBSERVICE: PEER DROP {}".format(peer))
+        """
+        Drop/Remove subscriptions related to the peer as it is no longer reachable/available.
+        :param peer agent to be dropped
+        :type peer str
+        :param **kwargs optional arguments
+        :type pointer to arguments
+        """
         self._sync(peer, {})
 
     def _sync(self, peer, items):
+        """
+        Synchronize the subscriptions with calling agent (peer) when it gets newly connected. OR Unsubscribe from
+        stale/forgotten/unsolicited subscriptions when the peer is dropped.
+        :param peer
+        :type peer str
+        :param items subcription items or empty dict
+        :type dict
+        """
         items = {(bus, prefix) for bus, topics in items.iteritems()
                  for prefix in topics}
         remove = []
@@ -174,47 +160,59 @@ class PubSubService(object):
             self._add_peer_subscription(peer, bus, prefix)
 
     def _peer_sync(self, frames):
-        self._logger.debug("PubSubService: In peer sync")
+        """
+        Synchronizes the subscriptions with the calling agent.
+        :param frames list of frames
+        :type frames list
+        """
         if len(frames) > 8:
             conn = frames[7].bytes
-            #self._logger.debug("PubSubService: peer_sync: {0}".format(conn))
             if conn == b'connected':
                 data = frames[8].bytes
-                json0 = data.find('{')
-                msg = jsonapi.loads(data[json0:])
-                peer = msg['identity']
+                msg = jsonapi.loads(data)
+                peer = frames[0].bytes
                 items = msg['subscriptions']
-                #peer = bytes(self.rpc().context.vip_message.peer)
                 assert isinstance(items, dict)
                 self._sync(peer, items)
-            #self._logger.debug("PubSubService: peer_subscriptions: {0}".format(self._peer_subscriptions))
 
     def _peer_subscribe(self, frames):
-        #self._logger.debug("Peer subscriptions before subscribe: {}".format(self._peer_subscriptions))
-        if len(frames) > 7:
+        """It stores the subscription information sent by the agent. It unpacks the frames to get identity of the
+        subscriber, prefix and bus and saves it for future use.
+        :param frames list of frames
+        :type frames list
+        """
+        if len(frames) < 8:
+            return False
+        else:
             data = frames[7].bytes
-            json0 = data.find('{')
-            msg = jsonapi.loads(data[json0:])
-            peer = msg['identity']
+            msg = jsonapi.loads(data)
+            peer = frames[0].bytes
             prefix = msg['prefix']
             bus = msg['bus']
-        #self._logger.debug("Subscription: peer: {0}, prefix: {1}, bus: {2}".format(peer, prefix, bus))
-        #peer = bytes(self.vip.rpc.context.vip_message.peer)
-        for prefix in prefix if isinstance(prefix, list) else [prefix]:
-            self._add_peer_subscription(peer, bus, prefix)
-        self._logger.debug("Peer subscriptions after subscribe: {}".format(self._peer_subscriptions))
+            for prefix in prefix if isinstance(prefix, list) else [prefix]:
+                self._add_peer_subscription(peer, bus, prefix)
+            return True
 
     def _peer_unsubscribe(self, frames):
-#        peer = bytes(self.rpc().context.vip_message.peer)
-        if len(frames) > 7:
+        """
+        It removes the subscription for the agent (peer) for the specified bus and prefix.
+        :param frames list of frames
+        :type frames list
+        :returns: success or failure
+        :rtype: boolean
+
+        :Return Values:
+        Return success or not
+        """
+        if len(frames) < 8:
+            return False
+        else:
             data = frames[7].bytes
-            json0 = data.find('{')
-            msg = jsonapi.loads(data[json0:])
-            peer = msg['identity']
+            msg = jsonapi.loads(data)
+            peer = frames[0].bytes
             prefix = msg['prefix']
             bus = msg['bus']
-            #self._logger.debug("UnSubscription: peer: {0}, prefix: {1}, bus: {2}".format(peer, prefix, bus))
-            #self._logger.debug("Peer subscriptions: {}".format(self._peer_subscriptions))
+
             subscriptions = self._peer_subscriptions[bus]
             if prefix is None:
                 remove = []
@@ -226,18 +224,25 @@ class PubSubService(object):
                     del subscriptions[topic]
             else:
                 for prefix in prefix if isinstance(prefix, list) else [prefix]:
-                    #self._logger.debug("subscriptions: {}".format(subscriptions))
                     subscribers = subscriptions[prefix]
                     subscribers.discard(peer)
                     if not subscribers:
                         del subscriptions[prefix]
-            #self._logger.debug("Peer subscriptions: {}".format(self._peer_subscriptions))
+            return True
 
     def _peer_publish(self, frames, user_id):
-        # for f in frames:
-        #     self._logger.debug("PUBSUBSERIVE: publish frames {}".format(bytes(f)))
-        #self._logger.debug("PUBSUBSERVICE PUBLISH peer subscriptions {}".format(self._peer_subscriptions))
-        if len(frames) > 7:
+        """Publish the incoming message to all the subscribers subscribed to the specified topic.
+        :param frames list of frames
+        :type frames list
+        :param user_id user id of the publishing agent. This is required for protected topics check.
+        :type user_id  UTF-8 encoded User-Id property
+        :returns: Count of subscribers.
+        :rtype: int
+
+        :Return Values:
+        Number of subscribers to whom the message was sent
+        """
+        if len(frames) > 8:
             topic = frames[7].bytes
             data = frames[8].bytes
             try:
@@ -245,27 +250,38 @@ class PubSubService(object):
                 headers = msg['headers']
                 message = msg['message']
                 bus = ''
-                peer = msg['identity']
+                peer = frames[0].bytes
                 bus = msg['bus']
+                pub_msg = jsonapi.dumps(
+                    dict(sender=peer, bus=bus, headers=headers, message=message)
+                )
+                frames[8] = zmq.Frame(str(pub_msg))
             except ValueError:
                 self._logger.debug("JSON decode error. Invalid character")
                 return 0
-            return self.router_distribute(frames, peer, topic, headers, message, bus, user_id)
+            return self._distribute(frames, peer, topic, headers, message, bus, user_id)
 
     def _peer_list(self, frames):
+        """Returns a list of subscriptions for a specific bus. If bus is None, then it returns list of subscriptions
+        for all the buses.
+        :param frames list of frames
+        :type frames list
+        :returns: list of tuples of bus, topic and flag to indicate if peer is a subscriber or not
+        :rtype: list
+
+        :Return Values:
+        List of tuples [(bus, topic, flag to indicate if peer is a subscriber or not)].
+        """
         results = []
         if len(frames) > 7:
             data = frames[7].bytes
-            json0 = data.find('{')
-            msg = jsonapi.loads(data[json0:])
-            peer = msg['identity']
+            msg = jsonapi.loads(data)
+            peer = frames[0].bytes
             prefix = msg['prefix']
             bus = msg['bus']
             subscribed = msg['subscribed']
             reverse = msg['reverse']
-            #self._logger.debug("List request: peer: {0}, prefix: {1}, bus: {2}".format(peer, prefix, bus))
 
-            #peer = bytes(self.rpc().context.vip_message.peer)
             if bus is None:
                 buses = self._peer_subscriptions.iteritems()
             else:
@@ -280,15 +296,37 @@ class PubSubService(object):
                         member = peer in subscribers
                         if not subscribed or member:
                             results.append((bus, topic, member))
-        self._logger.debug("Peer list: {}".format(results))
         return results
 
-    def router_distribute(self, frames, peer, topic, headers, message=None, bus='', user_id=b''):
-        #self._logger.debug("PUBSUBSERVICE checking protected topic for USER_ID: {}".format(user_id))
+    def _distribute(self, frames, peer, topic, headers, message=None, bus='', user_id=b''):
+        """
+        Distributes the message to all the subscribers subscribed to the same bus and topic. Check if the topic
+        is protected before distributing the message. For protected topics, only authorized publishers can publish
+        the message for the topic.
+        :param frames list of frames
+        :type frames list
+        :param peer identity of the publishing agent
+        :type peer str
+        :param topic topic of the message
+        :type topic  str
+        :headers message header containing timestamp and version information
+        :type headers dict
+        :param message actual message
+        :type message None or any
+        :param bus message bus
+        :type bus str
+        :param user_id user id of the publishing agent. This is required for protected topics check.
+        :type user_id  UTF-8 encoded User-Id property
+        :returns: Count of subscribers.
+        :rtype: int
+
+        :Return Values:
+        Number of subscribers to whom the message was sent
+        """
+        #Check if peer is authorized to publish the topic
         errmsg = self._check_if_protected_topic(user_id, topic)
-        #Send error message back as unauthorized publish for the topic
+        #Send error message as peer is not authorized to publish to the topic
         if errmsg is not None:
-            #self._logger.debug("PUBSUBSERVICE Protected topic error message: {}".format(errmsg))
             publisher, receiver, proto, user_id, msg_id, subsystem = frames[0:6]
             try:
                 frames = [publisher, b'', proto, user_id, msg_id,
@@ -300,8 +338,7 @@ class PubSubService(object):
 
         subscriptions = self._peer_subscriptions[bus]
         subscribers = set()
-        # for f in frames:
-        #     self._logger.debug("PUBSUBSERVICE: sending frames: {}".format(f.bytes))
+
         publisher = frames[0]
         frames[3] = bytes(user_id)
         for prefix, subscription in subscriptions.iteritems():
@@ -309,7 +346,6 @@ class PubSubService(object):
                 subscribers |= subscription
         if subscribers:
             for subscriber in subscribers:
-                #self._logger.debug("Sending to subscriber: {}".format(subscriber))
                 frames[0] = zmq.Frame(subscriber)
                 try:
                     #Send the message to the subscriber
@@ -321,6 +357,19 @@ class PubSubService(object):
         return len(subscribers)
 
     def _send(self, frames, publisher):
+        """
+        Sends the message to the recipient. If the recipient is unreachable, it is dropped from list of peers (and
+        associated subscriptions are removed. Any EAGAIN errors are reported back to the publisher.
+        :param frames list of frames
+        :type frames list
+        :param publisher
+        :type bytes
+        :returns: List of dropped recipients, if any
+        :rtype: list
+
+        :Return Values:
+        List of dropped recipients, if any
+        """
         drop = []
         subscriber = frames[0]
         # Expecting outgoing frames:
@@ -350,23 +399,67 @@ class PubSubService(object):
                     pass
         return drop
 
-    def update_caps_users(self, frames):
+    def _update_caps_users(self, frames):
+        """
+        Stores the user capabilities sent by the Auth Service
+        :param frames list of frames
+        :type frames list
+        """
         if len(frames) > 7:
             data = frames[7].bytes
-            #self._logger.debug("PUBSUBSERVICE: user capabilities from auth: {}".format(data))
             try:
-                json0 = data.find('{')
-                msg = jsonapi.loads(data[json0:])
+                msg = jsonapi.loads(data)
                 self._user_capabilities = msg['capabilities']
             except ValueError:
                 pass
-            #self._logger.debug("PUBSUBSERVICE: user capabilities from auth after update: {}".format(self._user_capabilities))
+
+    def _update_protected_topics(self, frames):
+        """
+         Update the protected topics and capabilities as per message received from AuthService.
+        :peer frames list of frames
+        :type frames list
+        """
+
+        if len(frames) > 7:
+            data = frames[7].bytes
+            try:
+                msg = jsonapi.loads(data)
+                self._load_protected_topics(msg)
+            except ValueError:
+                pass
+
+    def _load_protected_topics(self, topics_data):
+        try:
+            write_protect = topics_data['write-protect']
+        except KeyError:
+            write_protect = []
+
+        topics = ProtectedPubSubTopics()
+        try:
+            for entry in write_protect:
+                topics.add(entry['topic'], entry['capabilities'])
+        except KeyError:
+            self._logger.exception('invalid format for protected topics ')
+        else:
+            self._protected_topics = topics
+            self._logger.info('protected-topics loaded')
 
     def handle_subsystem(self, frames, user_id):
-        response = []
+        """
+         Handler for incoming pubsub frames. It checks operation frame and directs it for appropriate action handler.
+        :param frames list of frames
+        :type frames list
+        :param user_id user id of the publishing agent. This is required for protected topics check.
+        :type user_id  UTF-8 encoded User-Id property
+        :returns: response frame to be sent back to the sender
+        :rtype: list
 
+        :Return Values:
+        response frame to be sent back to the sender
+        """
+        response = []
+        result = None
         sender, recipient, proto, usr_id, msg_id, subsystem = frames[:6]
-        #subsystem = bytes(frames[5])
 
         if subsystem.bytes == b'pubsub':
             try:
@@ -375,47 +468,51 @@ class PubSubService(object):
                 return False
 
             if op == b'subscribe':
-                #self._logger.debug("subscribe something")
-                self._peer_subscribe(frames)
-                #self._peer_subscribe(frames)
+                result = self._peer_subscribe(frames)
             elif op == b'publish':
-                #print("publish something")
                 try:
                     result = self._peer_publish(frames, user_id)
-                    #Form a response frame
-                    response = [sender, recipient, proto, user_id, msg_id, subsystem]
-                    response.append(zmq.Frame(b'publish_response'))
-                    response.append(zmq.Frame(bytes(result)))
                 except IndexError:
                     #send response back -- Todo
                     return
             elif op == b'unsubscribe':
-                #print("unsubscribe something")
                 result = self._peer_unsubscribe(frames)
-
             elif op == b'list':
-                #print("listing all subscriptions")
                 result = self._peer_list(frames)
-                # Form a response frame
-                response = [sender, recipient, proto, user_id, msg_id, subsystem]
-                response.append(zmq.Frame(b'list_response'))
-                response.append(zmq.Frame(bytes(result)))
-
             elif op == b'synchronize':
-                #print("synchronize all subscriptions")
                 self._peer_sync(frames)
-
             elif op == b'auth_update':
-                #print("update protected topics")
-                self.update_caps_users(frames)
+                self._update_caps_users(frames)
+            elif op == b'protected_update':
+                self._update_protected_topics(frames)
             else:
+                self._logger.error("Unknown pubsub request {}".format(bytes(op)))
                 pass
+
+        if result is not None:
+            #Form response frame
+            response = [sender, recipient, proto, user_id, msg_id, subsystem]
+            response.append(zmq.Frame(b'request_response'))
+            response.append(zmq.Frame(bytes(result)))
+
         return response
 
     def _check_if_protected_topic(self, peer, topic):
+        """
+         Checks if the peer is authorized to publish the topic.
+        :peer frames list of frames
+        :type frames list
+        :topic str
+        :str user_id  UTF-8 encoded User-Id property
+        :returns: None if authorization check is successful or error message
+        :rtype: None or str
+
+        :Return Values:
+        None or error message
+        """
         msg = None
         required_caps = self._protected_topics.get(topic)
-        #self._logger.debug("PUBSUBSERVCE: REQUIRED CAP {}".format(required_caps))
+
         if required_caps:
             user = peer
             try:
@@ -426,7 +523,6 @@ class PubSubService(object):
                 msg = ('to publish to topic "{}" requires capabilities {},'
                        ' but capability list {} was'
                        ' provided').format(topic, required_caps, caps)
-                #raise jsonrpc.exception_from_json(jsonrpc.UNAUTHORIZED, msg)
         return msg
 
 class ProtectedPubSubTopics(object):
@@ -457,7 +553,7 @@ class ProtectedPubSubTopics(object):
         return None
 
     def _isprefix(self, topic):
-        for prefix in self._dict.keys():
+        for prefix in self._dict:
             if topic[:len(prefix)] == prefix:
                 return prefix
         return None

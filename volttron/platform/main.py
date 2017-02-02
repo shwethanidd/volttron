@@ -262,7 +262,7 @@ class Router(BaseRouter):
                  default_user_id=None, monitor=False, tracker=None,
                  volttron_central_address=None, instance_name=None,
                  bind_web_address=None, volttron_central_serverkey=None,
-                 protected_topics_file=None):
+                 protected_topics={}):
         super(Router, self).__init__(
             context=context, default_user_id=default_user_id)
         self.local_address = Address(local_address)
@@ -286,7 +286,7 @@ class Router(BaseRouter):
         self._volttron_central_serverkey = volttron_central_serverkey
         self._instance_name = instance_name
         self._bind_web_address = bind_web_address
-        self._protected_topics_file = protected_topics_file
+        self._protected_topics = protected_topics
         self._pubsub = None
 
     def setup(self):
@@ -320,7 +320,7 @@ class Router(BaseRouter):
                 address.domain = 'vip'
             address.bind(sock)
             _log.debug('Additional VIP router bound to %s' % address)
-        self._pubsub = PubSubService(self._protected_topics_file, self.socket)
+        self._pubsub = PubSubService(self.socket, self._protected_topics)
 
     def issue(self, topic, frames, extra=None):
         log = self.logger.debug
@@ -346,6 +346,7 @@ class Router(BaseRouter):
             try:
                 drop = frames[6].bytes
                 self._drop_peer(drop)
+                self.drop_pubsub_peers(drop)
                 _log.debug("ROUTER received agent stop message. dropping peer: {}".format(drop))
             except IndexError:
                 pass
@@ -381,54 +382,14 @@ class Router(BaseRouter):
             frames[3] = b''
             return frames
         elif subsystem == b'pubsub':
-            if self._pubsub is not None:
-                result = self._pubsub.handle_subsystem(frames, user_id)
-                return result
-            return False
+            result = self._pubsub.handle_subsystem(frames, user_id)
+            return result
 
     def drop_pubsub_peers(self, peer):
         self._pubsub.peer_drop(peer)
 
     def add_pubsub_peers(self, peer):
         self._pubsub.peer_add(peer)
-
-# class PubSubService(Agent):
-#     def __init__(self, protected_topics_file, *args, **kwargs):
-#         super(PubSubService, self).__init__(*args, **kwargs)
-#         self._protected_topics_file = os.path.abspath(protected_topics_file)
-#
-#     @Core.receiver('onstart')
-#     def setup_agent(self, sender, **kwargs):
-#         self._read_protected_topics_file()
-#         self.core.spawn(utils.watch_file, self._protected_topics_file,
-#                         self._read_protected_topics_file)
-#         self.vip.pubsub.add_bus('')
-#
-#     def _read_protected_topics_file(self):
-#         _log.info('loading protected-topics file %s',
-#                   self._protected_topics_file)
-#         try:
-#             utils.create_file_if_missing(self._protected_topics_file)
-#             with open(self._protected_topics_file) as fil:
-#                 # Use gevent FileObject to avoid blocking the thread
-#                 data = FileObject(fil, close=False).read()
-#                 topics_data = jsonapi.loads(data) if data else {}
-#         except Exception:
-#             _log.exception('error loading %s', self._protected_topics_file)
-#         else:
-#             write_protect = topics_data.get('write-protect', [])
-#             topics = ProtectedPubSubTopics()
-#             try:
-#                 for entry in write_protect:
-#                     topics.add(entry['topic'], entry['capabilities'])
-#             except KeyError:
-#                 _log.exception('invalid format for protected topics '
-#                                'file {}'.format(self._protected_topics_file))
-#             else:
-#                 self.vip.pubsub.protected_topics = topics
-#                 _log.info('protected-topics file %s loaded',
-#                           self._protected_topics_file)
-
 
 def start_volttron_process(opts):
     '''Start the main volttron process.
@@ -554,6 +515,7 @@ def start_volttron_process(opts):
     tracker = Tracker()
     protected_topics_file = os.path.join(opts.volttron_home, 'protected_topics.json')
     _log.debug('protected topics file %s', protected_topics_file)
+    protected_topics = {}
     # Main loops
     def router(stop):
         try:
@@ -565,7 +527,7 @@ def start_volttron_process(opts):
                    volttron_central_serverkey=opts.volttron_central_serverkey,
                    instance_name=opts.instance_name,
                    bind_web_address=opts.bind_web_address,
-                   protected_topics_file=protected_topics_file).run()
+                   protected_topics=protected_topics).run()
 
         except Exception:
             _log.exception('Unhandled exception in router loop')
@@ -587,13 +549,15 @@ def start_volttron_process(opts):
         # Ensure auth service is running before router
         auth_file = os.path.join(opts.volttron_home, 'auth.json')
         auth = AuthService(
-            auth_file, opts.aip, address=address, identity=AUTH,
+            auth_file, protected_topics_file, opts.aip, address=address, identity=AUTH,
             enable_store=False)
 
         event = gevent.event.Event()
         auth_task = gevent.spawn(auth.core.run, event)
         event.wait()
         del event
+        protected_topics = auth.get_protected_topics()
+        _log.debug("MAIN: protected topics content {}".format(protected_topics))
 
         # Start router in separate thread to remain responsive
         thread = threading.Thread(target=router, args=(auth.core.stop,))
@@ -613,9 +577,6 @@ def start_volttron_process(opts):
             ControlService(opts.aip, address=address, identity='control',
                            tracker=tracker, heartbeat_autostart=True,
                            enable_store=False, enable_channel=True),
-            # PubSubService(protected_topics_file, address=address,
-            #               identity='pubsub', heartbeat_autostart=True,
-            #               enable_store=False),
             CompatPubSub(address=address, identity='pubsub.compat',
                          publish_address=opts.publish_address,
                          subscribe_address=opts.subscribe_address),
