@@ -26,7 +26,6 @@ class DataPoints_Accumulator:
         master_config_file = os.path.join(self._master_config_path, "master-driver.config")
         config = utils.load_config(master_config_file)
         self._config_files = config['driver_config_list']
-        #_log.debug("config files: {}".format(self._config_files))
         for f in self._config_files:
             try:
                 #_log.debug("Reading config file {}".format(f))
@@ -45,7 +44,6 @@ class DataPoints_Accumulator:
                 _, device = device.split('/', 1)
                 device = device + '/'
 
-                #_log.debug("Device: {0}, Registry: {1}".format(device, registry_config))
                 rows = self._read_csv(registry_config)
                 if rows:
                     self._write_csv(device, rows)
@@ -55,7 +53,6 @@ class DataPoints_Accumulator:
                 pass
 
     def _read_csv(self, registry_file):
-        #_log.debug("Registry: {}".format(registry_file))
         rows = []
         try:
             with open(registry_file) as f:
@@ -105,7 +102,6 @@ def main(argv=sys.argv):
     parser.add_argument("building", help="Building name")
     parser.add_argument("master_config_path", help="Path for master config file")
     args = parser.parse_args(args)
-    #print("Arguments: {0}, {1}".format(args.building, args.master_config_path))
     points_accumulator = DataPoints_Accumulator(args.building, args.master_config_path)
     points_accumulator.accumulate()
 
