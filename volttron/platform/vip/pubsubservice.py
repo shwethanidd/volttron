@@ -58,7 +58,7 @@
 from __future__ import print_function, absolute_import
 
 import argparse
-import errno
+
 import logging
 from logging import handlers
 import logging.config
@@ -76,6 +76,7 @@ import zmq
 from zmq import SNDMORE, EHOSTUNREACH, ZMQError, EAGAIN, NOBLOCK
 from zmq import green
 from collections import defaultdict
+import errno
 
 # Create a context common to the green and non-green zmq modules.
 green.Context._instance = green.Context.shadow(zmq.Context.instance().underlying)
@@ -93,7 +94,7 @@ _ROUTE_ERRORS = {
 
 
 class PubSubService(object):
-    def __init__(self, socket, protected_topics, *args, **kwargs):
+    def __init__(self, socket, protected_topics, ext_routing, *args, **kwargs):
         self._logger = logging.getLogger(__name__)
         # if self._logger.level == logging.NOTSET:
         #     self._logger.setLevel(logging.WARNING)
@@ -106,7 +107,9 @@ class PubSubService(object):
         self._user_capabilities = {}
         self._protected_topics = ProtectedPubSubTopics()
         self._load_protected_topics(protected_topics)
-
+        self._ext_subscriptions = defaultdict(set)
+        self._ext_router = ext_routing
+        self._external_platforms = self._ext_router.get_connected_platforms()
 
     def _add_peer_subscription(self, peer, bus, prefix):
         """
@@ -191,6 +194,7 @@ class PubSubService(object):
             bus = msg['bus']
             for prefix in prefix if isinstance(prefix, list) else [prefix]:
                 self._add_peer_subscription(peer, bus, prefix)
+            self._send_subscriptions_external()
             return True
 
     def _peer_unsubscribe(self, frames):
@@ -338,7 +342,7 @@ class PubSubService(object):
 
         subscriptions = self._peer_subscriptions[bus]
         subscribers = set()
-
+        #Check for local subscribers
         publisher = frames[0]
         frames[3] = bytes(user_id)
         for prefix, subscription in subscriptions.iteritems():
@@ -354,6 +358,22 @@ class PubSubService(object):
                         self.peer_drop(sub)
                 except ZMQError:
                     raise
+        external_subscribers = set()
+        #Check for external subscriptions
+        for platform_id, subscriptions in self._ext_subscriptions:
+            for prefix in subscriptions:
+                if topic.startswith(prefix):
+                    external_subscribers |= platform_id
+
+        if external_subscribers:
+            for sub_platform in external_subscribers:
+                frames[0] = zmq.Frame(sub_platform)
+                try:
+                    #Send the message to the external platform
+                    self._ext_router.send_external(sub_platform, frames)
+                except ZMQError:
+                    raise
+
         return len(subscribers)
 
     def _send(self, frames, publisher):
@@ -398,6 +418,23 @@ class PubSubService(object):
                     #raise
                     pass
         return drop
+
+    def _get_prefix_list(self):
+        prefixes = []
+        for bus, subscriptions in self._peer_subscriptions:
+            prefixes.extend(self._peer_subscriptions[bus].keys())
+        return prefixes
+
+    def _send_subscriptions_external(self):
+        prefixes = self._get_prefix_list()
+        frames = [b'', b'', 'VIP1', b'', b'', b'pubsub', b'external_list', prefixes]
+
+        for vip_id in self._external_platforms:
+            frames = bytes(vip_id)
+            try:
+                self._ext_router.ysend_external(vip_id, frames)
+            except VIPError:
+                self._logger.error("Error sending to external platform")
 
     def _update_caps_users(self, frames):
         """
@@ -485,6 +522,10 @@ class PubSubService(object):
                 self._update_caps_users(frames)
             elif op == b'protected_update':
                 self._update_protected_topics(frames)
+            elif op == b'external_list':
+                self._update_external_subscriptions(frames)
+            elif op == b'external_publish':
+                self.external_to_local_publish(frames)
             else:
                 self._logger.error("Unknown pubsub request {}".format(bytes(op)))
                 pass
@@ -524,6 +565,28 @@ class PubSubService(object):
                        ' but capability list {} was'
                        ' provided').format(topic, required_caps, caps)
         return msg
+
+    def external_peer_add(self, platform_identity):
+        self._logger.debug("Adding external platform peer: {}".format(platform_identity))
+        self._ext_subscriptions[platform_identity] = set()
+
+    def external_peer_add(self, platform_identity):
+        self._logger.debug("Adding external platform peer: {}".format(platform_identity))
+        del self._ext_subscriptions[platform_identity]
+
+    def _update_external_subscriptions(self, frames):
+        results = []
+        if len(frames) > 7:
+            data = frames[7].bytes
+            msg = jsonapi.loads(data)
+            for platform_id in msg:
+                prefixes = msg[platform_id]
+                self._ext_subscriptions[platform_id].union(prefixes)
+
+    def external_to_local_publish(self, frames):
+        results = []
+        sender, recipient, proto, usr_id, msg_id, subsystem = frames[:6]
+        result = self._peer_publish(frames, usr_id)
 
 class ProtectedPubSubTopics(object):
     '''Simple class to contain protected pubsub topics'''

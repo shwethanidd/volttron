@@ -59,10 +59,10 @@
 from __future__ import absolute_import
 
 import os
-
+import logging
 import zmq
 from zmq import Frame, NOBLOCK, ZMQError, EINVAL, EHOSTUNREACH
-from .pubsubservice import PubSubService
+from zmq.utils import jsonapi
 
 __all__ = ['BaseRouter', 'OUTGOING', 'INCOMING', 'UNROUTABLE', 'ERROR']
 
@@ -71,6 +71,7 @@ INCOMING = 1
 UNROUTABLE = 2
 ERROR = 3
 
+_log = logging.getLogger(__name__)
 
 # Optimizing by pre-creating frames
 _ROUTE_ERRORS = {
@@ -112,15 +113,73 @@ class BaseRouter(object):
         self.default_user_id = default_user_id
         self.socket = None
         self._peers = set()
+        self._poller = zmq.Poller()
+        self._ext_sockets = []
+        self._socket_id_mapping = {}
+
+    # def run(self):
+    #     '''Main router loop.'''
+    #     self.start()
+    #     try:
+    #         while self.poll():
+    #             self.route()
+    #     finally:
+    #         self.stop()
 
     def run(self):
         '''Main router loop.'''
         self.start()
         try:
-            while self.poll():
-                self.route()
+            while True:
+                try:
+                    sockets = dict(self._poller.poll())
+                except ZMQError as ex:
+                    _log.error("ZMQ Error while polling: {}".format(ex))
+
+                for sock in sockets:
+                    if sock == self.socket:
+                        if sockets[sock] == zmq.POLLIN:
+                            self.route()
+                    elif sock in self._ext_sockets:
+                        _log.debug("External socket found")
+                        if sockets[sock] == zmq.POLLIN:
+                            self.ext_route(sock)
+                    else:
+                        _log.debug("External ")
         finally:
             self.stop()
+
+    def ext_route(self, socket):
+        # Expecting incoming frames:
+        #   [SENDER, PROTO, USER_ID, MSG_ID, SUBSYS, ...]
+        frames = socket.recv_multipart(copy=False)
+        for f in frames:
+            _log.debug("EXT ROUTER::Frames from external platform {}".format(bytes(f)))
+        if len(frames) < 6:
+            return
+        #sender, proto, auth_token, msg_id = frames[:5]
+        sender, proto = frames[:2]
+        if proto.bytes != b'VIP1':
+            return
+        self._add_peer(sender.bytes)
+        subsystem = frames[4]
+        # Handle requests directed at the router
+        name = subsystem.bytes
+        if name == 'EXT_RPC':
+            _log.debug("EXT ROUTER::Received EXT_RPC sub system message from external platform")
+            # Reframe the frames
+            sender, proto, usr_id, msg_id, subsystem, msg = frames[:6]
+            msg_data = jsonapi.loads(msg.bytes)
+            peer = msg_data['to_peer']
+            _log.debug("EXT ROUTER::Send to: {}".format(peer))
+            #frames[0] = peer
+            #Form new frame for local
+            frames[:9] = [peer, sender, proto, usr_id, msg_id, 'EXT_RPC', msg]
+            try:
+                self.socket.send_multipart(frames, flags=NOBLOCK, copy=False)
+            except ZMQError as ex:
+                _log.debug("ZMQ error: {}".format(ex))
+                pass
 
     def start(self):
         '''Create the socket and call setup().

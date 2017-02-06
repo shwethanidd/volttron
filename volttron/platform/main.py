@@ -98,6 +98,7 @@ from .agent.known_identities import MASTER_WEB, CONFIGURATION_STORE, AUTH
 from .vip.agent.subsystems.pubsub import ProtectedPubSubTopics
 from .keystore import KeyStore, KnownHostsStore
 from .vip.pubsubservice import PubSubService
+from .vip.routingservice import RoutingService
 
 try:
     import volttron.restricted
@@ -321,6 +322,8 @@ class Router(BaseRouter):
             address.bind(sock)
             _log.debug('Additional VIP router bound to %s' % address)
         self._pubsub = PubSubService(self.socket, self._protected_topics)
+        self._poller.register(sock, zmq.POLLIN)
+        self._ext_routing = RoutingService(self.socket, self._ext_sockets, self._poller)
 
     def issue(self, topic, frames, extra=None):
         log = self.logger.debug
@@ -384,6 +387,8 @@ class Router(BaseRouter):
         elif subsystem == b'pubsub':
             result = self._pubsub.handle_subsystem(frames, user_id)
             return result
+        elif subsystem == b'routing_table':
+            result = self._ext_routing.handle_subsystem(frames)
 
     def drop_pubsub_peers(self, peer):
         self._pubsub.peer_drop(peer)
