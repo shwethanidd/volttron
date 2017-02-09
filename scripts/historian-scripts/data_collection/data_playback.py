@@ -24,16 +24,16 @@ _log = logging.getLogger(__name__)
 def DataCollector(db_config_path, device_config_path, start_time, end_time):
     _log.info("Start time: {0}, End Time: {1}".format(start_time, end_time))
     keystore = KeyStore()
-    datapub = DataPublisher(db_config_path, device_config_path, address=get_address(), identity='DATA_PUBLISHER', publickey=keystore.public, secretkey=keystore.secret,
+    datapub = DataPlayback(db_config_path, device_config_path, address=get_address(), identity='DATA_PLAYBACK', publickey=keystore.public, secretkey=keystore.secret,
                        enable_store=False)
     event = gevent.event.Event()
     glet = gevent.spawn(datapub.core.run, event)
     event.wait(timeout=5)
     datapub.collect_publish_data(start_time, end_time)
 
-class DataPublisher(Agent):
+class DataPlayback(Agent):
     def __init__(self, db_config_path, device_config_path, **kwargs):
-        super(DataPublisher, self).__init__(**kwargs)
+        super(DataPlayback, self).__init__(**kwargs)
         self._topics_collections = 'topics'
         self._meta_collections = 'meta'
         self._data_collections = 'data'
@@ -69,6 +69,10 @@ class DataPublisher(Agent):
         device_config = utils.load_config(device_config_path)
         campus_building = dict((key, device_config['device'][key]) for key in ['campus', 'building'])
         sub_devices = isinstance(device_config['device']['unit'], dict)
+        try:
+            self._break = device_config['break']
+        except KeyError:
+            self._break = False
         points = dict()
         points = device_config['points']
         self._points = points.values()
@@ -108,6 +112,8 @@ class DataPublisher(Agent):
         _log.debug("Device Names {}, Device topics: {}".format(self._device_names, self._device_topics))
         _log.debug("Sub Device Names {}, Sub Device topics: {}".format(self._subdevice_names, self._subdevice_topics))
         _log.debug("DB topics: {}".format(self._db_topics))
+        _log.debug("Break? : {}".format(self._break))
+
 
     def collect_publish_data(self, start, end):
         #Set time period
@@ -120,8 +126,8 @@ class DataPublisher(Agent):
         _log.debug("****************************************************************")
         self._collect_meta_data()
         self._device_topics.extend(self._subdevice_topics)
-        glets = []
-        #Greenlet 1:
+        #self._mongoexport_all_db(start, end)
+        #self._collect_data(start, end)
         glets = [gevent.spawn(self._collect_data, start, end), gevent.spawn(self._publish_data)]
         gevent.joinall(glets)
         _log.debug("****************************************************************")
@@ -136,7 +142,7 @@ class DataPublisher(Agent):
             topic, _ = device_topic_pattern_all.rsplit('/', 1)
             # Getting topic ids matching pattern from db
             self._get_topic_ids(topic)
-            # _log.debug("Topic {0}, Topic IDs: {1}".format(topic, self._topics[topic]))
+            #_log.debug("Topic {0}, Topic IDs: {1}".format(topic, self._topics[topic]))
         #_log.debug("Topic ids from DB {}".format(self._topics))
 
     def _collect_meta_data(self):
@@ -149,20 +155,25 @@ class DataPublisher(Agent):
 
     def _collect_data(self, start, end):
         last = False
-        time_period = '10d'
-        next_compute_time = end
+        time_period = '1d'
+        #next_compute_time = end
+        next_compute_time = start
+        # for topic in self._topics:
+        #     self._mongoexport_db(topic, start, end)
+
         while not last:
             # Compute time slice
-            start_time, end_time, last = self.compute_collection_slot(start, next_compute_time, time_period)
+            #start_time, end_time, last = self.compute_collection_slot(start, next_compute_time, time_period)
+            start_time, end_time, last = self.compute_collection_slot(next_compute_time, end, time_period)
             self._collect_time_slice_data(start_time, end_time)
             gevent.sleep(0.5)
-            next_compute_time = start_time
+            next_compute_time = end_time
         self._event_queue.put('Done')
 
 
     def _collect_time_slice_data(self, start, end):
         _log.debug("****************************************************************")
-        _log.debug("COLLECTING DATA VALUES Time Slice {0} - {1}".format(start, end))
+        _log.debug("COLLECTION: DATA VALUES Time Slice {0} - {1}".format(start, end))
         _log.debug("****************************************************************")
 
         def pt_values():
@@ -174,10 +185,12 @@ class DataPublisher(Agent):
             # PyMongo find
             #_log.debug("COLLECTING DATA VALUES For DEVICE {0}, Time Slice {1} - {2}".format(topic, start, end))
             self._get_device_data(topic, data, start, end)
-            #_log.debug("Data {}".format(self._data[topic]))
         if data:
-            self._event_queue.put(data)
-            gevent.sleep(10)
+            #_log.debug("Data {}".format(data))
+            msg = dict(start = start, end= end, data= data)
+            _log.debug("Sending data to publish")
+            self._event_queue.put(msg)
+            gevent.sleep(15)
         else:
             _log.debug("No data to send")
 
@@ -187,16 +200,23 @@ class DataPublisher(Agent):
         tids = list(topic_ids.keys())
 
         pattern = {"$and": [{'topic_id': {"$in": tids}}, {'ts': {"$gte": start, "$lt": end}}]}
-        pipeline = [{"$match": pattern}, {"$sort": {"ts": 1}}]
+
+        project = {"_id": 0, "timestamp": {
+            '$dateToString': {'format': "%Y-%m-%dT%H:%M:%S",
+                              "date": "$ts"}}, "value": 1, "topic_id": 1}
+        pipeline = [{"$match": pattern}, {"$sort": {"ts": 1}}, {"$project": project}]
+
         #pattern = {'topic_id': {"$in": tids}}
-        cursor = db[self._data_collections].aggregate(pipeline)  # Todo sort according to ts
+        cursor = db[self._data_collections].aggregate(pipeline)
         #_log.debug("Pattern search: {}".format(pipeline))
+
         rows = list(cursor)
+        _log.debug("Rows for topic {0} is: {1}".format(topic, len(rows)))
         for row in rows:
-            _log.debug("Data row: {}".format(row))
+            #_log.debug("Data row: {}".format(row))
             tid = row['topic_id']
             pt = self._topics[topic][tid]
-            data[topic][pt].append(row['value'])
+            data[topic][pt].append((row['timestamp'], row['value']))
 
     def _get_meta_data(self, topic):
         db = self._mongodbclient.get_default_database()
@@ -223,7 +243,7 @@ class DataPublisher(Agent):
         #_log.debug("Topic pattern: {}".format(pattern))
         for document in cursor:
             topic, point = document['topic_name'].rsplit('/', 1)
-            _log.debug("Topic {0}, point {1}".format(topic, point))
+            #_log.debug("Topic {0}, point {1}".format(topic, point))
             pt = point.lower()
             topic = topic.lower()
             if topic in self._db_topics and pt in self._points:
@@ -238,73 +258,215 @@ class DataPublisher(Agent):
                 if msg == 'Done':
                     return
             else:
-                now = datetime.now().isoformat(' ')
-                headers = {HEADER_NAME_DATE: now}
-                all_publish_message = []
-                pt_values = dict()
-                meta = dict()
-                cnt = 0
-                _log.debug("Device topics: {}".format(self._device_topics))
-                _log.debug("Device topics: {}".format(msg))
-                #Publish 'all' message for devices, sub devices to message bus
-                for topic_all in self._device_topics:
-                    _, topic = topic_all.split('/', 1)
-                    topic, all = topic.rsplit('/', 1)
-                    topic = topic.lower()
-                    data = msg[topic]
-                    if data:
-                        try:
-                            cnt = len(data.values()[0])
-                            _log.debug("Data Topc: {0}, Cnt: {1}".format(topic, cnt))
-                            mta = self._meta[topic]
-                            i = 0
-                            for i in xrange(cnt):
-                                for pt, values in data.items():
-                                    pt_values[pt] = values[i]
-                                    meta[pt] = mta[pt]
-                                all_publish_message = [pt_values, meta]
-                                _log.debug("****************************************************************")
-                                _log.debug(
-                                    "ALL message for DEVICE: {0} is {1}, Iteration: {2}, Value Cnt: {3}".
-                                        format(topic,
-                                               all_publish_message,
-                                               i,
-                                               len(values)))
-                                _log.debug("****************************************************************")
-                                self.vip.pubsub.publish(peer='pubsub',
-                                                        topic=topic_all,
-                                                        message=all_publish_message,
-                                                        headers=headers).get(timeout=2)
-                                pt_values.clear()
-                                meta.clear()
-                        except IndexError:
-                            _log.debug("Data for index error {}".format(topic))
-                    else:
-                        _log.debug("Data is empty: {}".format(topic))
+                if isinstance(msg, dict):
+                    self._publish_data_no_break(msg)
 
-    def compute_collection_slot(self, start, end_time, period):
+    def _publish_data_no_break(self, msg):
+        _log.debug("****************************************************************")
+        _log.debug("PUBLISH NO BREAK")
+        _log.debug("****************************************************************")
+        start = msg['start']
+        end = msg['end']
+        topic_data = msg['data']
+        st = start
+        now = datetime.now().isoformat(' ')
+        headers = {HEADER_NAME_DATE: now}
+        all_publish_message = []
+        pt_values = dict()
+        meta = dict()
+        publish_count = dict()
+
+        cnt = 0
+        done = False
+        publish_count.clear()
+
+        while st != end and not done:
+            ed = st + timedelta(minutes=1)
+            _log.debug("****************************************************************")
+            _log.debug("PUBLISH: Time slice: {0} - {1}".format(st, ed))
+            _log.debug("****************************************************************")
+
+            #Publish 'all' message for devices, sub devices to message bus
+            for topic_all in self._device_topics:
+                _, topic = topic_all.split('/', 1)
+                topic, all = topic.rsplit('/', 1)
+                topic = topic.lower()
+                data = topic_data[topic]
+                if data:
+                    try:
+                        _log.debug("Data Topic: {0}".format(topic))
+                        mta = self._meta[topic]
+                        try:
+                            pb = publish_count[topic]
+                        except KeyError:
+                            publish_count[topic] = pb = (0, False, 0)
+                        c = pb[0]
+
+                        is_send = True
+                        for pt, values in data.items():
+                            cnt = len(values)
+                            publish_count[topic] = (pb[0], pb[1], cnt)
+                            pb = publish_count[topic]
+                            ts, val = values[c]
+                            ts = datetime.strptime(
+                                ts,
+                                '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
+                            _log.debug("Time stamp: DB TS: {0}, ST: {1}, ED: {2}, IDX: {3}, CNT: {4}".format(ts, st, ed, c, cnt))
+                            #If ts matches the correct pub period, then add to all message, else discard
+                            if ts >= st and ts <= ed:
+                                pt_values[pt] = val
+                                meta[pt] = mta[pt]
+                            else:
+                                is_send= False
+                                break
+                        if is_send:
+                            try:
+                                is_done = pb[1]
+                                c += 1
+                                max = pb[2]
+                                if c == max:
+                                    _log.debug("PubCount hit true for topic: {0}, Cnt: {1}".format(topic, pb))
+                                    is_done = True
+                                publish_count[topic] = pb = (c, is_done, max)
+                                _log.debug(
+                                    "PubCount Add for topic: {0}, Cnt: {1}".format(topic, pb))
+                            except KeyError:
+                                publish_count[topic] = (1, False, 1)
+                            device_ts = ts.isoformat(' ')
+                            headers = {HEADER_NAME_DATE: device_ts}
+                            all_publish_message = [pt_values, meta]
+                            self._publish_all_message(topic_all, headers, all_publish_message)
+                        pt_values.clear()
+                        meta.clear()
+                    except IndexError:
+                        try:
+                            pb = publish_count[topic]
+                            publish_count[topic] = (pb[0], True, pb[2])
+                        except KeyError:
+                            publish_count[topic] = (1, True, 1)
+                        _log.debug("Index error for topic: {0}, Index: {1}, Cnt: {2}".format(topic, c, cnt))
+                        if self._break:
+                            break
+                        else: pass
+                else:
+                    _log.debug("Data is empty: {}".format(topic))
+            done = self._check_pub_done(publish_count)
+
+            st = ed
+            gevent.sleep(0.4)
+
+    def _fin_min(self, topic_data):
+        min = 100000
+        for topic_all in self._device_topics:
+            _, topic = topic_all.split('/', 1)
+            topic, all = topic.rsplit('/', 1)
+            topic = topic.lower()
+            data = topic_data[topic]
+            if data:
+                cnt = len(data.values()[0])
+                if cnt <= min:
+                    min = cnt
+        return min
+
+    def _publish_all_message(self, topic_all, headers, message):
+        _log.debug("****************************************************************")
+        _log.debug(
+         "ALL message for DEVICE: {0} is Headers: {1}, Message: {2}".
+             format(topic_all,
+                    headers,
+                    message))
+        _log.debug("****************************************************************")
+        self.vip.pubsub.publish(peer='pubsub',
+                         topic=topic_all,
+                         message=message,
+                         headers=headers)
+
+    def _check_pub_done(self, publish_count):
+        ln = len(publish_count.keys())
+        i = 0
+        for c, d in publish_count.items():
+            #_log.debug("Cnt: {0}, d: {1}".format(c, d[1]))
+            if d[1] == True:
+                i += 1
+        _log.debug("ln: {0}, i: {1}".format(ln, i))
+        #if ln != 0 and ln == i:
+        if i > 0:
+            return True
+        else: return False
+
+    def _mongoexport_db(self, topic, start, end):
+        topic_ids = self._topics[topic]
+        tids = list(topic_ids.keys())
+        args = ["mongoexport", "--host", self._hosts, "--db", self._db_name, "--authenticationDatabase",
+                self._authsource, "--username", self._user, "--password", self._passwd, "--collection",
+                self._data_collections, "--query", "", "--type", "csv", "--fields", "ts,value,topic_id",
+                "--out"]
+
+        start_time_string = start.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
+        end_time_string = end.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
+        query_pattern = {"$and": [{"topic_id": {"$in": tids}}, {
+            "ts": {"$gte": {"$date": start_time_string}, "$lt": {"$date": end_time_string}}}]}
+        _log.debug("Query pattern: {}".format(query_pattern))
+        data_query_pattern = str(query_pattern)
+        args[14] = data_query_pattern
+        _, name = topic.rsplit('/', 1)
+        args.append(name+".csv")
+        #args[18] = name + '.csv'
+        print("name: {}".format(name))
+        p = subprocess.Popen(args)
+        p.wait()
+
+    def _mongoexport_all_db(self, start, end):
+        tids = []
+        for topic in self._topics:
+            ids = self._topics[topic]
+            tids.extend(list(ids.keys()))
+        _log.debug("Topic ids: {}".format(tids))
+        #topic_ids = self._topics[topic]
+        #tids = list(topic_ids.keys())
+
+        args = ["mongoexport", "--host", self._hosts, "--db", self._db_name, "--authenticationDatabase",
+                self._authsource, "--username", self._user, "--password", self._passwd, "--collection",
+                self._data_collections, "--query", "", "--type", "csv", "--fields", "ts,value,topic_id",
+                "--out"]
+
+        start_time_string = start.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
+        end_time_string = end.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
+        query_pattern = {"$and": [{"topic_id": {"$in": tids}}, {
+            "ts": {"$gte": {"$date": start_time_string}, "$lt": {"$date": end_time_string}}}]}
+        _log.debug("Query pattern: {}".format(query_pattern))
+        data_query_pattern = str(query_pattern)
+        args[14] = data_query_pattern
+        _, name = topic.rsplit('/', 1)
+        args.append(name+".csv")
+        #args[18] = name + '.csv'
+        print("name: {}".format(name))
+        p = subprocess.Popen(args)
+        p.wait()
+
+    def compute_collection_slot(self, start_time, end, period):
         last = False
         period_int = int(period[:-1])
         unit = period[-1:]
         if unit == 'm':
-            start_time = end_time - timedelta(minutes=period_int)
+            end_time = start_time + timedelta(minutes=period_int)
         elif unit == 'h':
-            start_time = end_time - timedelta(hours=period_int)
+            end_time = start_time + timedelta(hours=period_int)
         elif unit == 'd':
-            start_time = end_time - timedelta(days=period_int)
+            end_time = start_time + timedelta(days=period_int)
         elif unit == 'w':
-            start_time = end_time - timedelta(weeks=period_int)
+            end_time = start_time + timedelta(weeks=period_int)
         elif unit == 'M':
             period_int *= 30
-            start_time = end_time - timedelta(days=period_int)
+            end_time = start_time + timedelta(days=period_int)
         else:
             raise ValueError(
                 "Invalid unit {} for collection period. "
                 "Unit should be m/h/d/w/M".format(unit))
         # To check
-        if start_time <= start:
+        if end_time >= end:
             last = True
-            start_time = start
+            end_time = end
 
         return start_time, end_time, last
 
