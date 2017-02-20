@@ -1,0 +1,20 @@
+{
+    # configuration from mongo historian - START
+    "mongoconnection": {
+        "type": "mongodb",
+        "params": {
+            "host": "130.20.116.175",
+            #"host": "volttrondev.pnl.gov",
+            "port": 27017,
+            "database": "historian",
+            "user": "historian",
+            "passwd": "volttron",
+            "authSource":"historian"
+        }
+    },
+    "device-config":"airside/bsf_csf/airside_diagnostics/config_rtu3",
+    #Should follow time format: yy-mm-ddTHH:MM:SS for example 2016-05-20T00:00:00
+    "playback-start-time":"2016-05-20T21:00:00",
+    #Should follow time format: yy-mm-ddTHH:MM:SS for example 2016-05-29T00:00:00
+    "playback-end-time":"2016-05-29T00:00:00"
+}
