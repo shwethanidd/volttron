@@ -64,9 +64,10 @@ from volttron.platform.agent import utils
 from volttron.platform.messaging import headers as headers_mod
 
 from volttron.platform.messaging import topics, headers as headers_mod
+from volttron.platform.jsonrpc import RemoteError
 
 import settings
-
+import gevent
 
 utils.setup_logging()
 _log = logging.getLogger(__name__)
@@ -164,10 +165,10 @@ def schedule_example(config_path, **kwargs):
         def use_rpc(self):
             try: 
                 start = str(datetime.datetime.now())
-                end = str(datetime.datetime.now() + datetime.timedelta(minutes=1))
+                end = str(datetime.datetime.now() + datetime.timedelta(minutes=5))
     
                 msg = [
-                   ['campus/building/unit3',start,end]
+                   ['fake-campus/fake-building/fake-device',start,end]
                    ]
                 result = self.vip.rpc.call(
                                            'platform.actuator', 
@@ -185,12 +186,30 @@ def schedule_example(config_path, **kwargs):
             try:
                 if result['result'] == 'SUCCESS':
                     result = self.vip.rpc.call(
-                                           'platform.actuator', 
+                                           'platform.actuator',
                                            'set_point',
-                                           agent_id, 
-                                           'campus/building/unit3/some_point',
-                                           '0.0').get(timeout=10)
+                                           agent_id,
+                                           'fake-campus/fake-building/fake-device/temperature',
+                                           '30.0').get(timeout=10)
                     print("Set result", result)
+                    gevent.sleep(20)
+                    i = 0
+                    for i in range(5):
+                        _log.debug("Scheduler Trying {0} for time.".format(i))
+                        value = 92.0 + i
+                        try:
+                            result = self.vip.rpc.call(
+                                               'platform.actuator',
+                                               'set_point',
+                                               agent_id,
+                                               'fake-campus/fake-building/fake-device/temperature',
+                                               value).get(timeout=10)
+                        except RemoteError as e:
+                            _log.debug("Scheduler Remote error on set_point")
+                            #assert e.exc_info['exc_type'] == 'master_driver.agent.OverrideError'
+                            pass
+                        gevent.sleep(60)
+
             except Exception as e:
                 print ("Expected to fail since there is no real device to set")
                 print(e)    
