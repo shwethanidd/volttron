@@ -14,8 +14,12 @@ from volttron.platform.keystore import KeyStore
 from volttron.platform import get_address
 from collections import defaultdict
 import gevent
-from gevent.queue import Queue, Empty
+import Queue
+import time
+# from gevent.queue import Queue, Empty
+
 from zmq.utils import jsonapi
+import threading
 HEADER_NAME_DATE = headers_mod.DATE
 import logging
 utils.setup_logging(logging.DEBUG)
@@ -49,12 +53,12 @@ A default configuration for this agent is as follows.
 
 
 class DataPlayback(Agent):
-    def __init__(self, db_config_path, **kwargs):
+    def __init__(self, config_path, **kwargs):
         super(DataPlayback, self).__init__(**kwargs)
         self._topics_collections = 'topics'
         self._meta_collections = 'meta'
         self._data_collections = 'data'
-        self._event_queue = Queue()
+        self._event_queue = Queue.Queue()
 
         def ids_point():
             return defaultdict(str)
@@ -67,7 +71,7 @@ class DataPlayback(Agent):
 
         self._points = set()
 
-        db_config = utils.load_config(db_config_path)
+        db_config = utils.load_config(config_path)
         # Connect to mongo db
         if not db_config or not isinstance(db_config, dict):
             raise ValueError("Configuration should be a valid json")
@@ -90,36 +94,46 @@ class DataPlayback(Agent):
             sub_devices = isinstance(device_config['device']['unit'], dict)
             self._playback_start = db_config['playback-start-time']
             self._playback_end = db_config['playback-end-time']
+            self._playback_type = db_config['test-type']
 
             #Get playback start and end time
             try:
                 self._playback_start = datetime.strptime(
                     self._playback_start,
-                    '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
+                    '%Y-%m-%dT%H:%M:%S.%f').replace(tzinfo=pytz.utc)
             except ValueError:
                 _log.error("Wrong time format for start time: {0}. Valid Time Format: {1}.".
-                           format(self._playback_start, '%Y-%m-%dT%H:%M:%S'))
+                           format(self._playback_start, '%Y-%m-%dT%H:%M:%S.%f'))
                 raise ValueError("Wrong time format for playback start time: {0}. Valid Time Format: {1}.".
-                           format(self._playback_start, '%Y-%m-%dT%H:%M:%S'))
+                           format(self._playback_start, '%Y-%m-%dT%H:%M:%S.%f'))
             try:
                 self._playback_end = datetime.strptime(
                     self._playback_end,
-                    '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
+                    '%Y-%m-%dT%H:%M:%S.%f').replace(tzinfo=pytz.utc)
             except ValueError:
                 _log.error("Wrong time format for end time: {0}. Valid Time Format is: {1}.".
-                           format(self._playback_end, '%y-%m-%dT%H:%M:%S'))
+                           format(self._playback_end, '%y-%m-%dT%H:%M:%S.%f'))
                 raise ValueError("Wrong time format for playback end time: {0}. Valid Time Format is: {1}.".
-                                 format(self._playback_end, '%y-%m-%dT%H:%M:%S'))
+                                 format(self._playback_end, '%y-%m-%dT%H:%M:%S.%f'))
 
-            self._points.add(device_config['arguments']['fan_status'].lower())
-            self._points.add(device_config['arguments']['zone_reheat'].lower())
-            self._points.add(device_config['arguments']['zone_damper'].lower())
-            self._points.add(device_config['arguments']['duct_stp'].lower())
-            self._points.add(device_config['arguments']['duct_stp_stpt'].lower())
-            self._points.add(device_config['arguments']['sa_temp'].lower())
-            self._points.add(device_config['arguments']['fan_speedcmd'].lower())
-            self._points.add(device_config['arguments']['sat_stpt'].lower())
+            point_config = device_config['arguments']
+            try:
+                self._points.add(point_config.get('fan_status', "supplyfanstatus").lower())
+                self._points.add(point_config.get('zone_reheat', "terminalboxreheatvalveposition").lower())
+                self._points.add(point_config.get('zone_damper', "terminalboxdampercommand").lower())
+                self._points.add(point_config.get('duct_stp', "ductstaticpressure").lower())
+                self._points.add(point_config.get('duct_stp_stpt', "ductstaticpressuresetpoint").lower())
+                self._points.add(point_config.get('sa_temp', "dischargeairtemperature").lower())
+                self._points.add(point_config.get('sat_stpt', "dischargeairtemperaturesetpoint").lower())
+                self._points.add(point_config.get('oa_temp', "outdoorairtemperature").lower())
+                self._points.add(point_config.get('ra_temp', "returnairtemperature").lower())
+                self._points.add(point_config.get('ma_temp', "mixedairtemperature").lower())
+                self._points.add(point_config.get('damper_signal', "outdoordampersignal").lower())
+                self._points.add(point_config.get('cool_call', "chilledwatervalveposition").lower())
+            except KeyError:
+                _log.error("Invalid config parameter for Diagnostic test {}".format(self._playback_type))
 
+            _log.debug("Points: {}".format(self._points))
             device_config = device_config['device']['unit']
             self._device_names = []
             self._device_topics = []
@@ -172,10 +186,28 @@ class DataPlayback(Agent):
         _log.debug("****************************************************************")
         self._collect_meta_data()
         self._device_topics.extend(self._subdevice_topics)
-        #self._mongoexport_all_db(start, end)
-        glets = [gevent.spawn(self._collect_data),
-                 gevent.spawn(self._publish_data)]
-        gevent.joinall(glets)
+        #self._mongoexport_all_db(self._playback_start, self._playback_end)
+        stop_event = threading.Event()
+        try:
+            collection_thread = threading.Thread(target=self._collect_data, args=(stop_event, ))
+            collection_thread.daemon = True
+            collection_thread.start()
+            publish_thread = threading.Thread(target=self._publish_data, args=(stop_event, ))
+            publish_thread.daemon = True
+            publish_thread.start()
+
+            while True:
+                time.sleep(1)
+                publish_thread.join(60000)
+                collection_thread.join(60000)
+        except KeyboardInterrupt:
+            stop_event.set()
+            #collection_thread.join()
+            # publish_thread.join()
+            _log.debug("KEYBOARD INTERRUPT")
+        # glets = [gevent.spawn(self._collect_data),
+        #          gevent.spawn(self._publish_data)]
+        # gevent.joinall(glets)
         _log.debug("****************************************************************")
         _log.debug("DONE")
         _log.debug("****************************************************************")
@@ -206,7 +238,7 @@ class DataPlayback(Agent):
             # _log.debug("Topic: {}, Meta from DB {}".format(topic, self._meta[topic]))
         _log.debug("Topic: {}, Meta from DB {}".format(topic, self._meta))
 
-    def _collect_data(self):
+    def _collect_data(self, stop_event):
         """
         Get device data for all devices (and sub devices) in time chunks. Collected data is put in event queue
         for publishing.
@@ -218,13 +250,14 @@ class DataPlayback(Agent):
         time_period = '1d'
         next_compute_time = start
 
-        while not last:
+        while not last and not stop_event.is_set():
             # Compute time slice. Tentatively 1 day time slice
             start_time, end_time, last = self._compute_collection_slot(next_compute_time, end, time_period)
             self._collect_time_slice_data(start_time, end_time)
-            gevent.sleep(0.5)
+            gevent.sleep(1)
             next_compute_time = end_time
         self._event_queue.put('Done')
+
 
     def _collect_time_slice_data(self, start, end):
         """
@@ -249,7 +282,6 @@ class DataPlayback(Agent):
         if data:
             msg = dict(start = start, end= end, data= data)
             self._event_queue.put(msg)
-            gevent.sleep(15)
         else:
             _log.debug("No data to send")
 
@@ -324,7 +356,7 @@ class DataPlayback(Agent):
             if topic in self._db_topics and pt in self._points:
                 self._topics[topic][document['_id']] = point
 
-    def _publish_data(self):
+    def _publish_data(self, stop_event):
         """
         Publish messages available in event queue
         :return:
@@ -332,13 +364,16 @@ class DataPlayback(Agent):
         _log.debug("****************************************************************")
         _log.debug("PUBLISH")
         _log.debug("****************************************************************")
-        for msg in self._event_queue:
+        keep_going = True
+        while keep_going or not stop_event.is_set():
+            msg = self._event_queue.get()
             if isinstance(msg, str):
                 if msg == 'Done':
-                    return
+                    keep_going = False
             else:
                 if isinstance(msg, dict):
                     self._publish_data_chunk(msg)
+        _log.debug("PUBLISH DONE")
 
     def _publish_data_chunk(self, msg):
         """
@@ -387,12 +422,14 @@ class DataPlayback(Agent):
                     for point, values in playback_data.iteritems():
                         if values:
                             ts, val = values[0]
+                            ts = ts[:-6]
+                            _log.debug("Time stamp: {0}, start: {1}, end: {2}".format(ts, start, end))
                             #Format the timestamp into UTC
                             ts = datetime.strptime(
                                 ts,
-                                '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
-                            _log.debug("Time stamp: DB TS: {0}, ST: {1}, ED: {2}, LEN: {3}, Topic: {4}".
-                                       format(ts, start, end, len(values), topic))
+                                '%Y-%m-%dT%H:%M:%S.%f').replace(tzinfo=pytz.utc)
+                            # _log.debug("Time stamp: DB TS: {0}, LEN: {1}, Topic: {2}".
+                            #            format(ts, len(values), topic))
                             #If ts matches the correct publish period, then add to 'all' message else discard
                             if ts >= start and ts <= end:
                                 pt_values[point] = val
@@ -415,6 +452,20 @@ class DataPlayback(Agent):
                         headers = {HEADER_NAME_DATE: device_ts}
                         all_publish_message = [pt_values, meta]
                         self._publish_all_message(topic_all, headers, all_publish_message)
+                    else:
+                        # Pop value out
+                        for point, values in playback_data.iteritems():
+                            if values:
+                                ts, val = values[0]
+                                ts = ts[:-6]
+                                ts = datetime.strptime(
+                                    ts,
+                                    '%Y-%m-%dT%H:%M:%S.%f').replace(tzinfo=pytz.utc)
+
+                                if start >= ts and ts <= end:
+                                    _log.debug("Not sending So remove: DB TS: {0}, Topic: {2}, Point: {3}".
+                                           format(ts, len(values), topic, point))
+                                    values.pop(0)
 
                     pt_values.clear()
                     meta.clear()
@@ -422,7 +473,7 @@ class DataPlayback(Agent):
                     _log.debug("Data is empty: {}".format(topic))
             done = self._check_pubxxx_done(device_publish_status)
             start = end
-            gevent.sleep(0.4)
+            gevent.sleep(1)
 
     def _publish_all_message(self, topic_all, headers, message):
         """
@@ -432,17 +483,17 @@ class DataPlayback(Agent):
         :param message: actual message
         :return:
         """
-        _log.debug("****************************************************************")
-        _log.debug(
-         "ALL message for DEVICE: {0} is Headers: {1}, Message: {2}".
-             format(topic_all,
-                    headers,
-                    message))
-        _log.debug("****************************************************************")
+        # _log.debug("****************************************************************")
+        # _log.debug(
+        #  "ALL message for DEVICE: {0} is Headers: {1}, Message: {2}".
+        #      format(topic_all,
+        #             headers,
+        #             message))
+        # _log.debug("****************************************************************")
         self.vip.pubsub.publish(peer='pubsub',
                          topic=topic_all,
                          message=message,
-                         headers=headers).get()
+                         headers=headers)
         _log.debug("pub done")
 
     def _check_pubxxx_done(self, device_publish_status):
@@ -488,8 +539,8 @@ class DataPlayback(Agent):
                 self._data_collections, "--query", "", "--type", "csv", "--fields", "ts,value,topic_id",
                 "--out"]
 
-        start_time_string = start.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
-        end_time_string = end.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
+        start_time_string = start.strftime('%Y-%m-%dT%H:%M:%S.%f') + 'Z'
+        end_time_string = end.strftime('%Y-%m-%dT%H:%M:%S.%f') + 'Z'
         query_pattern = {"$and": [{"topic_id": {"$in": tids}}, {
             "ts": {"$gte": {"$date": start_time_string}, "$lt": {"$date": end_time_string}}}]}
         _log.debug("Query pattern: {}".format(query_pattern))
@@ -542,11 +593,13 @@ def main(argv=sys.argv):
 
         parser.add_argument("config_file", help="Config file containing the connection info of Mongo db, "
                                                 "device config path and start and end time for playback")
+        parser.add_argument("vip_identity", help="Playback agent vip identity")
         args = parser.parse_args(args)
         print("Arguments: {0}".format(args.config_file))
         keystore = KeyStore()
-        datapub = DataPlayback(args.config_file, address=get_address(), identity='DATA_PLAYBACK',
+        datapub = DataPlayback(args.config_file, address=get_address(), identity=args.vip_identity,
                                enable_store=False, publickey=keystore.public, secretkey=keystore.secret)
+
         event = gevent.event.Event()
         glet = gevent.spawn(datapub.core.run, event)
         event.wait(timeout=5)
