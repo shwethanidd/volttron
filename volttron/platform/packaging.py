@@ -66,6 +66,7 @@ import sys
 import uuid
 import wheel
 import tempfile
+import traceback
 
 from wheel.install import WheelFile
 from .packages import *
@@ -217,12 +218,11 @@ def _create_initial_package(agent_dir_to_package, wheelhouse, identity=None):
         distdir = os.path.join(builddir, 'dist')
         shutil.copytree(agent_dir_to_package, builddir)
         subprocess.check_call([sys.executable, 'setup.py', '--no-user-cfg',
-                               '--quiet', 'bdist_wheel'], cwd=builddir)
+                               'bdist_wheel'], cwd=builddir,
+                              stderr=subprocess.STDOUT)
 
         wheel_name = os.listdir(distdir)[0]
         wheel_path = os.path.join(distdir, wheel_name)
-
-        print "_create_initial_package"
 
         if identity is not None:
             tmp_identity_file_fd, identity_template_filename = tempfile.mkstemp(dir=builddir)
@@ -240,6 +240,8 @@ def _create_initial_package(agent_dir_to_package, wheelhouse, identity=None):
         wheel_dest = os.path.join(wheelhouse, wheel_name)
         shutil.move(wheel_path, wheel_dest)
         return wheel_dest
+    except subprocess.CalledProcessError as ex:
+        traceback.print_last()
     finally:
         shutil.rmtree(tmpdir, True)
 
