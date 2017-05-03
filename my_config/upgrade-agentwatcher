@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+# Build a temp file string for use with the configuration
+export CONFIG=$(mktemp /tmp/abc-script.XXXXXX)
+
+# Put contents of the config file in between the EOL markers.
+# NOTE: Be mindful of the commas this is JSON (except for the comments)
+#       not python.  Trailing ',' are an error.
+cat > $CONFIG <<EOL
+{
+    # AgentWatcher will send an alert if any of the following
+    # VIP identities are not running on the platform
+    "watchlist": [
+#        "platform.driver",
+#        "platform.historian",
+        "platform.agent"
+    ]
+
+    # Time to wait between agent running checks
+    # defaults to 10 seconds.
+    # "check-period": 10
+}
+EOL
+
+export SOURCE=services/core/AgentWatcher/
+export TAG=agentwatcher
+
+# Upgrade requires that the identity be set to upgrade the agent.
+# NOTE: if the agent doesn't exist it will be installed.
+export AGENT_VIP_IDENTITY="AgentWatcher"
+
+# Add NO_START parameter if the agent shouldn't start
+# export NO_START=1
+
+./scripts/core/upgrade-agent.sh
+
+# To set the agent to autostart with the platform, pass "enable" 
+# to make-agent.sh: ./scripts/core/make-agent.sh enable
+

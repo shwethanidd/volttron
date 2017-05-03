@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+# Build a temp file string for use with the configuration
+export CONFIG=$(mktemp /tmp/abc-script.XXXXXX)
+
+# Put contents of the config file in between the EOL markers.
+# NOTE: Be mindful of the commas this is JSON (except for the comments)
+#       not python.  Trailing ',' are an error.
+cat > $CONFIG <<EOL
+{
+    #emailgw.pnl.gov or emailgw01.pnnl.gov or emailgw02.pnnl.gov
+    "smtp-address": "emailgw01.pnnl.gov",
+    "from-address": "shwetha.niddodi@pnnl.gov",
+    "to-addresses": [
+        "shwetha.niddodi@pnnl.gov"
+
+    ],
+
+    # Only send a certain alert-key message every 120 minutes.
+    "allow-frequency-minutes": 20
+}
+
+export SOURCE=services/core/EmailerAgent/
+export TAG=emailer
+
+# Upgrade requires that the identity be set to upgrade the agent.
+# NOTE: if the agent doesn't exist it will be installed.
+export AGENT_VIP_IDENTITY="EmailerAgent"
+
+# Add NO_START parameter if the agent shouldn't start
+# export NO_START=1
+
+./scripts/core/upgrade-agent.sh
+
+# To set the agent to autostart with the platform, pass "enable" 
+# to make-agent.sh: ./scripts/core/make-agent.sh enable
+
+# Finally remove the temporary config file
+rm $CONFIG

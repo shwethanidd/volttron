@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+# Build a temp file string for use with the configuration
+export CONFIG=$(mktemp /tmp/abc-script.XXXXXX)
+
+# Put contents of the config file in between the EOL markers.
+# NOTE: Be mindful of the commas this is JSON (except for the comments)
+#       not python.  Trailing ',' are an error.
+cat > $CONFIG <<EOL
+{
+    "destination-vip": "tcp://127.0.0.1:22916",
+    "destination-serverkey": "1_d62WmpzlCab-yznT0ugCIW-LdckctctyRsexlQWAA",
+    "required_target_agents": [],
+    "custom_topic_list": [],
+    "services_topic_list": [
+        "devices", "analysis", "record", "datalogger", "actuators"
+    ],
+    "topic_replace_list": [
+	    #{"from": "FromString", "to": "ToString"}
+    ]
+}
+EOL
+
+export SOURCE=services/core/ForwardHistorian
+
+export TAG=forwardhistorian
+
+# Uncomment this to set the identity of the agent. Overrides the platform default identity and the agent's
+# preferred identity.
+export AGENT_VIP_IDENTITY=forward_historian
+
+# Add NO_START parameter if the agent shouldn't start
+# export NO_START=1
+
+./scripts/core/upgrade-agent.sh
+
+# Finally remove the temporary config file
+rm $CONFIG
