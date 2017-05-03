@@ -306,7 +306,6 @@ class AIPplatform(object):
 
             final_identity = self._setup_agent_vip_id(agent_uuid,
                                                       vip_identity=vip_identity)
-
             if publickey is not None and secretkey is not None:
                 keystore = self.get_agent_keystore(agent_uuid)
                 keystore.public = publickey
@@ -510,6 +509,30 @@ class AIPplatform(object):
         with ignore_enoent, open(tag_file, 'r') as file:
             return file.readline(64)
 
+    def agent_version(self, agent_uuid):
+        if '/' in agent_uuid or agent_uuid in ['.', '..']:
+            raise ValueError('invalid agent')
+        agent_path = os.path.join(self.install_dir, agent_uuid)
+        name = self.agent_name(agent_uuid)
+        pkg = UnpackedPackage(os.path.join(agent_path, name))
+        return pkg.version
+
+    def agent_dir(self, agent_uuid):
+        if '/' in agent_uuid or agent_uuid in ['.', '..']:
+            raise ValueError('invalid agent')
+        return os.path.join(self.install_dir, agent_uuid,
+                            self.agent_name(agent_uuid))
+
+    def agent_versions(self):
+        agents = {}
+        for agent_uuid in os.listdir(self.install_dir):
+            try:
+                agents[agent_uuid] = (self.agent_name(agent_uuid),
+                                      self.agent_version(agent_uuid))
+            except KeyError:
+                pass
+        return agents
+
     def _agent_priority(self, agent_uuid):
         autostart = os.path.join(self.install_dir, agent_uuid, 'AUTOSTART')
         with ignore_enoent, open(autostart) as file:
@@ -671,6 +694,8 @@ class AIPplatform(object):
         gevent.spawn(log_stream, 'agents.stdout', name, proc.pid, argv[0],
                      ((logging.INFO, line.rstrip('\r\n'))
                       for line in proc.stdout))
+
+        return self.agent_status(agent_uuid)
 
     def agent_status(self, agent_uuid):
         execenv = self.agents.get(agent_uuid)

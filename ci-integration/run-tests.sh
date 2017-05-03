@@ -3,11 +3,11 @@
 export CI=travis
 export FAST_FAIL=1
 
-# The context should already have been activated at this point.
 
+# The context should already have been activated at this point.
 #pip install pymongo pytest pytest-bdd pytest-cov
-pip install mock --upgrade
-pip install pytest pytest-timeout --upgrade
+#pip install mock --upgrade
+#pip install pytest pytest-timeout --upgrade
 
 pip list
 
@@ -15,7 +15,17 @@ exit_code=0
 
 # Break up the tests to work around the issue in #754. Breaking them up allows 
 # the files to be closed with the individual pytest processes
-
+echo "Current Environment of Execution"
+ls -la
+echo "PATH"
+echo "$PATH"
+echo "PYTHONPATH"
+echo "$PYTHONPATH"
+echo "VOLTTRON is at"
+which volttron
+which volttron-ctl
+echo "python is at"
+which python
 
 #directories that need split into individual files
 filedirs="volttrontesting/platform"

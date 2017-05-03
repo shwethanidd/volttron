@@ -72,7 +72,7 @@ from driver_locks import configure_socket_lock, configure_publish_lock
 
 utils.setup_logging()
 _log = logging.getLogger(__name__)
-__version__ = '3.0'
+__version__ = '3.1.1'
 
 class OverrideError(DriverInterfaceError):
     """Error raised when the user tries to set/revert point when global override is set."""
@@ -450,6 +450,10 @@ class MasterDriverAgent(Agent):
             return self.instances[path].set_point(point_name, value, **kwargs)
 
     @RPC.export
+    def scrape_all(self, path):
+        return self.instances[path].scrape_all()
+
+    @RPC.export
     def get_multiple_points(self, path, point_names, **kwargs):
         return self.instances[path].get_multiple_points(point_names, **kwargs)
 
@@ -753,8 +757,9 @@ class MasterDriverAgent(Agent):
 
 
 def main(argv=sys.argv):
-    '''Main method called to start the agent.'''
-    utils.vip_main(master_driver_agent, identity=PLATFORM_DRIVER)
+    """Main method called to start the agent."""
+    utils.vip_main(master_driver_agent, identity=PLATFORM_DRIVER,
+                   version=__version__)
 
 
 if __name__ == '__main__':

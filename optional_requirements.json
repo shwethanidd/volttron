@@ -5,7 +5,12 @@
     },
     "--testing": {
         "help": "Installs testing infrastructure dependencies",
-        "packages": ["pytest", "pytest-timeout", "mock", "websocket-client"]
+        "packages": ["pytest>3", "pytest-timeout", "mock", "websocket-client",
+			"pytest-catchlog"]
+    },
+    "--crate": {
+        "help": "Installs requirements for crate databases",
+        "packages": ["crate"]
     },
     "--mysql": {
         "help": "Installs requirements for mysql databases",
@@ -18,5 +23,9 @@
     "--databases": {
         "help": "Installs support for all known databases",
         "packages": ["pymongo", "mysql-connector-python-rf"]
+    },
+    "--documentation": {
+        "help": "Installs requirements for building the documentation",
+        "packages": ["sphinx", "mock", "psutil","pymongo","mysql-connector-python-rf"]
     }
 }

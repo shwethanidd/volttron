@@ -79,7 +79,6 @@ For method details please refer to base class
 class MySqlFuncts(DbDriver):
     def __init__(self, connect_params, table_names):
         # kwargs['dbapimodule'] = 'mysql.connector'
-        super(MySqlFuncts, self).__init__('mysql.connector', **connect_params)
         self.MICROSECOND_SUPPORT = None
 
         self.data_table = None
@@ -94,6 +93,7 @@ class MySqlFuncts(DbDriver):
             self.meta_table = table_names['meta_table']
             self.agg_topics_table = table_names.get('agg_topics_table', None)
             self.agg_meta_table = table_names.get('agg_meta_table', None)
+        super(MySqlFuncts, self).__init__('mysql.connector', **connect_params)
 
     def init_microsecond_support(self):
         rows = self.select("SELECT version()", None)
@@ -237,11 +237,15 @@ class MySqlFuncts(DbDriver):
         args = [topic_ids[0]]
 
         if start is not None:
+            if start.tzinfo != pytz.UTC:
+                start = start.astimezone(pytz.UTC)
             if not self.MICROSECOND_SUPPORT:
                 start_str = start.isoformat()
                 start = start_str[:start_str.rfind('.')]
 
         if end is not None:
+            if end.tzinfo !=pytz.UTC:
+                end = end.astimezone(pytz.UTC)
             if not self.MICROSECOND_SUPPORT:
                 end_str = end.isoformat()
                 end = end_str[:end_str.rfind('.')]
@@ -249,12 +253,13 @@ class MySqlFuncts(DbDriver):
         if start and end and start == end:
             where_clauses.append("ts = %s")
             args.append(start)
-        elif start:
-            where_clauses.append("ts >= %s")
-            args.append(start)
-        elif end:
-            where_clauses.append("ts < %s")
-            args.append(end)
+        else:
+            if start:
+                where_clauses.append("ts >= %s")
+                args.append(start)
+            if end:
+                where_clauses.append("ts < %s")
+                args.append(end)
 
         where_statement = ' AND '.join(where_clauses)
 

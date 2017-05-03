@@ -218,7 +218,7 @@ class DriverAgent(BasicAgent):
             
             self.meta_data[point] = {'units': register.get_units(),
                                      'type': ts_type,
-                                     'tz': config['timezone']}
+                                     'tz': config.get('timezone', '')}
             
         self.base_topic = DEVICES_VALUE(campus='',
                                         building='',
@@ -357,6 +357,9 @@ class DriverAgent(BasicAgent):
     
     def set_point(self, point_name, value, **kwargs):
         return self.interface.set_point(point_name, value, **kwargs)
+
+    def scrape_all(self):
+        return self.interface.scrape_all()
 
     def get_multiple_points(self, point_names, **kwargs):
         return self.interface.get_multiple_points(self.device_name,
