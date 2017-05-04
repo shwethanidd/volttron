@@ -186,7 +186,7 @@ class DataPlayback(Agent):
         _log.debug("****************************************************************")
         self._collect_meta_data()
         self._device_topics.extend(self._subdevice_topics)
-        #self._mongoexport_all_db(self._playback_start, self._playback_end)
+#        self._mongo_export_points(self._playback_start, self._playback_end)
         stop_event = threading.Event()
         try:
             collection_thread = threading.Thread(target=self._collect_data, args=(stop_event, ))
@@ -202,12 +202,8 @@ class DataPlayback(Agent):
                 collection_thread.join(60000)
         except KeyboardInterrupt:
             stop_event.set()
-            #collection_thread.join()
-            # publish_thread.join()
             _log.debug("KEYBOARD INTERRUPT")
-        # glets = [gevent.spawn(self._collect_data),
-        #          gevent.spawn(self._publish_data)]
-        # gevent.joinall(glets)
+
         _log.debug("****************************************************************")
         _log.debug("DONE")
         _log.debug("****************************************************************")
@@ -301,7 +297,7 @@ class DataPlayback(Agent):
         pattern = {"$and": [{'topic_id': {"$in": tids}}, {'ts': {"$gte": start, "$lt": end}}]}
 
         project = {"_id": 0, "timestamp": {
-            '$dateToString': {'format': "%Y-%m-%dT%H:%M:%S",
+            '$dateToString': {'format': "%Y-%m-%dT%H:%M:%S.%L000+00:00",
                               "date": "$ts"}}, "value": 1, "topic_id": 1}
         pipeline = [{"$match": pattern}, {"$sort": {"ts": 1}}, {"$project": project}]
 
@@ -520,6 +516,39 @@ class DataPlayback(Agent):
         if i > 0:
             return True
         else: return False
+
+    def _mongo_export_points(self, start, end):
+        """
+        Export all the device data for each device (and sub device) in individual csv files
+        :param start: start time
+        :param end: end time
+        :return:
+        """
+        ps = []
+        args = ["mongoexport", "--host", self._hosts, "--db", self._db_name, "--authenticationDatabase",
+                self._authsource, "--username", self._user, "--password", self._passwd, "--collection",
+                self._data_collections, "--query", "", "--type", "csv", "--fields", "ts,value,topic_id",
+                "--out", ""]
+        start_time_string = start.strftime('%Y-%m-%dT%H:%M:%S.%f') + 'Z'
+        end_time_string = end.strftime('%Y-%m-%dT%H:%M:%S.%f') + 'Z'
+        for topic in self._topics:
+            ids = self._topics[topic]
+            tids = list(ids.keys())
+            temp=dict()
+            for tid in tids:
+                temp['$oid'] = str(tid)
+                query_pattern = {"$and": [{"topic_id": temp}, {
+                    "ts": {"$gte": {"$date": start_time_string}, "$lt": {"$date": end_time_string}}}]}
+                _log.debug("Query pattern: {}".format(query_pattern))
+                data_query_pattern = str(query_pattern)
+                args[14] = data_query_pattern
+
+                args[20] = topic + '-' + str(ids[tid]) + ".csv"
+                ps.append(subprocess.Popen(args))
+                gevent.sleep(0.5)
+
+        for p in ps:
+            p.wait()
 
     def _mongoexport_all_db(self, start, end):
         """
