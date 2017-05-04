@@ -11,18 +11,19 @@ heartbeat_period = 10
 # remote vip address.
 _params = {
 	# The root of the address.
-	'vip_address': 'tcp://127.0.0.1',
+#	'vip_address': 'tcp://172.26.65.218',
+        'vip_address': 'tcp://192.101.105.94',
 	'port': 22916,
-	
+
 	# public and secret key for the standalonelistener agent.
 	# These can be created from the volttron-ctl keypair command.
-	'agent_public': 'PCkAasrFk9ce5d8NWbgaWR5qc1HWncExaQHG0apkKTI',
-	'agent_secret': 'D5wv-LjXFBLlQt7PmXMUQsSSW1919zzDh4-fJu_0MTM',
+	'agent_public': 'w9VrC6Q1yqdIfj8ZQi_zmBMk4jaI86mTIw36-s9sDGc',
+	'agent_secret': 'CtRNT4owNHW_8CYGViEvP_Sa5nA0OOIzMg3U-7NA8nA',
 	
 	# Public server key from the remote platform.  This can be
 	# obtained from the starting of the platform volttron -v.
 	# The output will include public key: ....
-	'server_key': 'kHTZvPwnAZ8weZXOZVR8p2Ef82WHh-EN6OxwKg9GST8'  
+	'server_key': 'S-fmqYAx-WpJyUugOMTMOwv70P6jeo-Wr5ev0FTCTzc'
 }
 
 def remote_url():

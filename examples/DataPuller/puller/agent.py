@@ -254,12 +254,16 @@ def historian(config_path, **kwargs):
         def puller_setup(self):
             _log.debug("Setting up to forward to {}".format(source_vip))
             keystore = KeyStore()
-            #_log.debug("Public key: {0}, Secret key: {1}".format(self.core.pubickey, self.core.secretkey))
+            _log.debug("Public key: {0}, Secret key: {1}".format(self.core.publickey, self.core.secretkey))
             try:
                 agent = build_agent(address=source_vip,
                                     serverkey=source_serverkey,
-                                    publickey=keystore.public,
-                                    secretkey=keystore.secret,
+#                                    publickey='w9VrC6Q1yqdIfj8ZQi_zmBMk4jaI86mTIw36-s9sDGc',
+#                                    secretkey='CtRNT4owNHW_8CYGViEvP_Sa5nA0OOIzMg3U-7NA8nA',
+#                                    publickey='ww4acW74XufNkbV7YakH7wlYAokkBkPhYzxv_ZNvvGc',
+#                                    secretkey='i7GusscdJ0CZ6oXjJ0JPIAUQns_9WdnghYylpOJC3Hc',
+                                     publickey=self.core.publickey,
+                                     secretkey=self.core.secretkey,
                                     enable_store=False)
             except gevent.Timeout:
                 self.vip.health.set_status(

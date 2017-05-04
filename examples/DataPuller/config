@@ -2,8 +2,8 @@
 
     "agentid": "puller",
 #    "source-vip": "ipc://@/home/volttron/.volttron/run/vip.socket",
-    "source-vip": "tcp://127.0.0.1:22916",
-    "source-serverkey": "HuM-Q5a8-gxqcxjObw7-jj4yejjwozJ3mJ0mvnVzUjg",
+    "source-vip": "tcp://192.101.105.94:22916",
+    "source-serverkey": "S-fmqYAx-WpJyUugOMTMOwv70P6jeo-Wr5ev0FTCTzc",
     "custom_topic_list": [],   
     "services_topic_list": [
         "devices", "analysis", "record", "datalogger", "actuators"
