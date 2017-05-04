@@ -1,0 +1,20 @@
+{
+    # configuration from mongo historian - START
+    "mongoconnection": {
+        "type": "mongodb",
+        "params": {
+            "host": "vc-db.pnl.gov",
+            "port": 27017,
+            "database": "prod_historian",
+            "user": "reader",
+            "passwd": "volttronReader",
+            "authSource":"prod_historian"
+        }
+    },
+    "device-config":"",
+    "device-topic":"",
+    #Should follow time format: yy-mm-ddTHH:MM:SS for example 2016-05-20T00:00:00
+    "playback-start-time":"2016-03-08T01:00:00",
+    #Should follow time format: yy-mm-ddTHH:MM:SS for example 2016-05-20T00:00:00
+    "playback-end-time":""
+}

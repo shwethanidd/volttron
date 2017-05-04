@@ -1,0 +1,18 @@
+{
+    # configuration from mongo historian - START
+    "mongoconnection": {
+        "type": "mongodb",
+        "params": {
+            "host": "vc-db.pnl.gov",
+            "port": 27017,
+            "database": "prod_historian",
+            "user": "reader",
+            "passwd": "volttronReader",
+            "authSource":"prod_historian"
+        }
+    },
+    # configuration from mongo historian - END
+    "points": {
+        "pt": ["DuctStaticPressureSetPoint", "DuctStaticPressure"]
+    }
+}

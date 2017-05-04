@@ -1,0 +1,22 @@
+{
+    # configuration from mongo historian - START
+    "mongoconnection": {
+        "type": "mongodb",
+        "params": {
+            "host": "vc-db.pnl.gov",
+            "port": 27017,
+            "database": "prod_historian",
+            "user": "reader",
+            "passwd": "volttronReader",
+            "authSource":"prod_historian"
+        }
+    },
+    # configuration from mongo historian - END
+    "topic" : "PNNL/SEB/AHU1/VAV123A/StandbyModeStatus",
+    #Should follow time format: yy-mm-ddTHH:MM:SS for example 2016-05-20T00:00:00
+    "start-time":"2016-01-05T00:00:00",
+    #Should follow time format: yy-mm-ddTHH:MM:SS for example 2016-05-20T00:00:00
+    "end-time":"2016-10-30T00:00:00",
+    #Month='M', week='w', day='d', minute='m', seconds='s'
+    "scrape-interval":"11M"
+}
