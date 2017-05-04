@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+# Build a temp file string for use with the configuration
+export CONFIG=$(mktemp /tmp/abc-script.XXXXXX)
+
+# Put contents of the config file in between the EOL markers.
+# NOTE: Be mindful of the commas this is JSON (except for the comments)
+#       not python.  Trailing ',' are an error.
+cat > $CONFIG <<EOL
+{
+    "schedule_publish_interval": 30,
+    "heartbeat_interval": 20,
+    "preempt_grace_time": 30
+}
+EOL
+
+export CONFIG=my_config/actuator_config
+export TAG=ACTUATOR
+export SOURCE=services/core/ActuatorAgent/
+export AGENT_VIP_IDENTITY=platform.actuator
+
+#./scripts/core/upgrade-agent.sh
+python ./scripts/install-agent.py -s $SOURCE -c $CONFIG -i $AGENT_VIP_IDENTITY --force --start
+
+# To set the agent to autostart with the platform, pass "enable"
+# to upgrade-agent.sh: ./scripts/core/upgrade-agent.sh enable

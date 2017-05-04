@@ -1,0 +1,12 @@
+{
+    #emailgw.pnl.gov or emailgw01.pnnl.gov or emailgw02.pnnl.gov
+    "smtp-address": "emailgw01.pnnl.gov",
+    "from-address": "shwetha.niddodi@pnnl.gov",
+    "to-addresses": [
+        "shwetha.niddodi@pnnl.gov"
+
+    ],
+
+    # Only send a certain alert-key message every 120 minutes.
+    "allow-frequency-minutes": 20
+}
