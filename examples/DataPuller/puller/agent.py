@@ -233,37 +233,13 @@ def historian(config_path, **kwargs):
                                 headers=headers,
                                 message=payload['message']).get(30)
 
-
-        # def puller_setup(self):
-        #     try:
-        #         _log.debug("Setting up to pull from {}".format(source_vip))
-        #         event = gevent.event.Event()
-        #         keystore = KeyStore()
-        #         agent = Agent(address=source_vip)
-        #         agent.core.onstart.connect(lambda *a, **kw: event.set(), event)
-        #         gevent.spawn(agent.core.run)
-        #         event.wait(timeout=10)
-        #         self._target_platform = agent
-        #     except gevent.Timeout:
-        #         self.vip.health.set_status(
-        #                     STATUS_BAD, "Timeout in setup of agent")
-        #         status = Status.from_json(self.vip.health.get_status())
-        #         self.vip.health.send_alert(FORWARD_TIMEOUT_KEY,
-        #                                        status)
-
         def puller_setup(self):
             _log.debug("Setting up to forward to {}".format(source_vip))
-            keystore = KeyStore()
-            _log.debug("Public key: {0}, Secret key: {1}".format(self.core.publickey, self.core.secretkey))
             try:
                 agent = build_agent(address=source_vip,
                                     serverkey=source_serverkey,
-#                                    publickey='w9VrC6Q1yqdIfj8ZQi_zmBMk4jaI86mTIw36-s9sDGc',
-#                                    secretkey='CtRNT4owNHW_8CYGViEvP_Sa5nA0OOIzMg3U-7NA8nA',
-#                                    publickey='ww4acW74XufNkbV7YakH7wlYAokkBkPhYzxv_ZNvvGc',
-#                                    secretkey='i7GusscdJ0CZ6oXjJ0JPIAUQns_9WdnghYylpOJC3Hc',
-                                     publickey=self.core.publickey,
-                                     secretkey=self.core.secretkey,
+                                    publickey=self.core.publickey,
+                                    secretkey=self.core.secretkey,
                                     enable_store=False)
             except gevent.Timeout:
                 self.vip.health.set_status(
