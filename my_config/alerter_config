@@ -1,0 +1,8 @@
+{
+    "device_group": {
+        "devices/fake-campus/fake-building/fake-device/all": {
+            "seconds": 10,
+            "points": ["temperature", "PowerState"]
+        }
+    }
+}
