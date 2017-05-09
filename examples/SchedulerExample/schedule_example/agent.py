@@ -51,7 +51,7 @@
 # operated by BATTELLE for the UNITED STATES DEPARTMENT OF ENERGY
 # under Contract DE-AC05-76RL01830
 
-#}}}
+# }}}
 
 
 import datetime
@@ -64,13 +64,15 @@ from volttron.platform.agent import utils
 from volttron.platform.messaging import headers as headers_mod
 
 from volttron.platform.messaging import topics, headers as headers_mod
+from volttron.platform.jsonrpc import RemoteError
 
 import settings
-
+import gevent
 
 utils.setup_logging()
 _log = logging.getLogger(__name__)
 __version__ = '0.1'
+
 
 def DatetimeFromValue(ts):
     ''' Utility for dealing with time
@@ -83,8 +85,8 @@ def DatetimeFromValue(ts):
         raise ValueError('Unknown timestamp value')
     return ts
 
-def schedule_example(config_path, **kwargs):
 
+def schedule_example(config_path, **kwargs):
     config = utils.load_config(config_path)
     agent_id = config['agentid']
 
@@ -94,115 +96,124 @@ def schedule_example(config_path, **kwargs):
         acts when its time comes up. Since there is no device, this 
         will cause an error.
         '''
-    
-    
+
         def __init__(self, **kwargs):
             super(SchedulerExample, self).__init__(**kwargs)
-    
+
         @Core.receiver('onsetup')
         def setup(self, sender, **kwargs):
             self._agent_id = config['agentid']
 
-        @Core.receiver('onstart')            
+        @Core.receiver('onstart')
         def startup(self, sender, **kwargs):
-#             self.publish_schedule()
+            #             self.publish_schedule()
             self.use_rpc()
-    
-    
-    
+
         @PubSub.subscribe('pubsub', topics.ACTUATOR_SCHEDULE_ANNOUNCE(campus='campus',
-                                             building='building',unit='unit'))
-        def actuate(self, peer, sender, bus,  topic, headers, message):
-            print ("response:",topic,headers,message)
+                                                                      building='building', unit='unit'))
+        def actuate(self, peer, sender, bus, topic, headers, message):
+            print ("response:", topic, headers, message)
             if headers[headers_mod.REQUESTER_ID] != agent_id:
                 return
             '''Match the announce for our fake device with our ID
             Then take an action. Note, this command will fail since there is no 
             actual device'''
             headers = {
-                        'requesterID': agent_id,
-                       }
+                'requesterID': agent_id,
+            }
             self.vip.pubsub.publish(
-            'pubsub', topics.ACTUATOR_SET(campus='campus',
-                                             building='building',unit='unit',
-                                             point='point'),
-                                     headers, str(0.0))
-    
-        
+                'pubsub', topics.ACTUATOR_SET(campus='campus',
+                                              building='building', unit='unit',
+                                              point='point'),
+                headers, str(0.0))
+
         def publish_schedule(self):
             '''Periodically publish a schedule request'''
             headers = {
-                        'AgentID': agent_id,
-                        'type': 'NEW_SCHEDULE',
-                        'requesterID': agent_id, #The name of the requesting agent.
-                        'taskID': agent_id + "-ExampleTask", #The desired task ID for this task. It must be unique among all other scheduled tasks.
-                        'priority': 'LOW', #The desired task priority, must be 'HIGH', 'LOW', or 'LOW_PREEMPT'
-                    } 
-            
+                'AgentID': agent_id,
+                'type': 'NEW_SCHEDULE',
+                'requesterID': agent_id,  # The name of the requesting agent.
+                'taskID': agent_id + "-ExampleTask",
+            # The desired task ID for this task. It must be unique among all other scheduled tasks.
+                'priority': 'LOW',  # The desired task priority, must be 'HIGH', 'LOW', or 'LOW_PREEMPT'
+            }
+
             start = str(datetime.datetime.now())
             end = str(datetime.datetime.now() + datetime.timedelta(minutes=1))
-    
-    
+
             msg = [
-                   ['campus/building/unit',start,end]
-                   #Could add more devices
-    #                 ["campus/building/device1", #First time slot.
-    #                  "2014-1-31 12:27:00",     #Start of time slot.
-    #                  "2016-1-31 12:29:00"],     #End of time slot.
-    #                 ["campus/building/device2", #Second time slot.
-    #                  "2014-1-31 12:26:00",     #Start of time slot.
-    #                  "2016-1-31 12:30:00"],     #End of time slot.
-    #                 ["campus/building/device3", #Third time slot.
-    #                  "2014-1-31 12:30:00",     #Start of time slot.
-    #                  "2016-1-31 12:32:00"],     #End of time slot.
-                    #etc...
-                ]
+                ['campus/building/unit', start, end]
+                # Could add more devices
+                #                 ["campus/building/device1", #First time slot.
+                #                  "2014-1-31 12:27:00",     #Start of time slot.
+                #                  "2016-1-31 12:29:00"],     #End of time slot.
+                #                 ["campus/building/device2", #Second time slot.
+                #                  "2014-1-31 12:26:00",     #Start of time slot.
+                #                  "2016-1-31 12:30:00"],     #End of time slot.
+                #                 ["campus/building/device3", #Third time slot.
+                #                  "2014-1-31 12:30:00",     #Start of time slot.
+                #                  "2016-1-31 12:32:00"],     #End of time slot.
+                # etc...
+            ]
             self.vip.pubsub.publish(
-            'pubsub', topics.ACTUATOR_SCHEDULE_REQUEST, headers, msg)
-            
-            
+                'pubsub', topics.ACTUATOR_SCHEDULE_REQUEST, headers, msg)
+
         def use_rpc(self):
-            try: 
+            try:
                 start = str(datetime.datetime.now())
-                end = str(datetime.datetime.now() + datetime.timedelta(minutes=1))
-    
+                end = str(datetime.datetime.now() + datetime.timedelta(minutes=5))
+
                 msg = [
-                   ['campus/building/unit3',start,end]
-                   ]
+                    ['fake-campus/fake-building/fake-device', start, end]
+                ]
                 result = self.vip.rpc.call(
-                                           'platform.actuator', 
-                                           'request_new_schedule',
-                                           agent_id, 
-                                           "some task",
-                                           'LOW',
-                                           msg).get(timeout=10)
+                    'platform.actuator',
+                    'request_new_schedule',
+                    agent_id,
+                    "some task",
+                    'LOW',
+                    msg).get(timeout=10)
                 print("schedule result", result)
             except Exception as e:
                 print ("Could not contact actuator. Is it running?")
                 print(e)
                 return
-            
+
             try:
                 if result['result'] == 'SUCCESS':
                     result = self.vip.rpc.call(
-                                           'platform.actuator', 
-                                           'set_point',
-                                           agent_id, 
-                                           'campus/building/unit3/some_point',
-                                           '0.0').get(timeout=10)
+                        'platform.actuator',
+                        'set_point',
+                        agent_id,
+                        'fake-campus/fake-building/fake-device/temperature',
+                        '30.0').get(timeout=10)
                     print("Set result", result)
+                    gevent.sleep(20)
+                    i = 0
+                    for i in range(5):
+                        _log.debug("Scheduler Trying {0} for time.".format(i))
+                        value = 92.0 + i
+                        try:
+                            result = self.vip.rpc.call(
+                                'platform.actuator',
+                                'set_point',
+                                agent_id,
+                                'fake-campus/fake-building/fake-device/temperature',
+                                value).get(timeout=10)
+                        except RemoteError as e:
+                            _log.debug("Scheduler Remote error on set_point")
+                            # assert e.exc_info['exc_type'] == 'master_driver.agent.OverrideError'
+                            pass
+                        gevent.sleep(60)
+
             except Exception as e:
                 print ("Expected to fail since there is no real device to set")
-                print(e)    
-                
-                
-            
-            
+                print(e)
+
     Agent.__name__ = 'ScheduleExampleAgent'
     return SchedulerExample(**kwargs)
-            
-    
-    
+
+
 def main(argv=sys.argv):
     '''Main method called by the eggsecutable.'''
     try:
