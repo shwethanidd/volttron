@@ -8,34 +8,30 @@ export CONFIG=$(mktemp /tmp/abc-script.XXXXXX)
 #       not python.  Trailing ',' are an error.
 cat > $CONFIG <<EOL
 {
-    "devices/fake-campus/fake-building/fake-device/all": {
-        "temperature": {
-            "threshold_max": 100,
-            "threshold_min": 50
-        },
-        "PowerState": {
-            "threshold_max": 42
+    "device_group": {
+        "devices/fake-campus/fake-building/fake-device/all": {
+            "seconds": 10,
+            "points": ["temperature", "PowerState"]
         }
     }
 }
 EOL
 
-export SOURCE=services/core/ThresholdDetectionAgent
-export TAG=thresholdagent
+export SOURCE=services/core/MasterDriverAgent/
+export TAG=master-driver
 
 # Upgrade requires that the identity be set to upgrade the agent.
 # NOTE: if the agent doesn't exist it will be installed.
-export AGENT_VIP_IDENTITY="thresholdagent"
 
 # Add NO_START parameter if the agent shouldn't start
 # export NO_START=1
 
 ./scripts/core/upgrade-agent.sh
-#python ./scripts/install-agent.py -s $SOURCE -c $CONFIG -i $AGENT_VIP_IDENTITY --force --start
+#python ./scripts/install-agent.py -s $SOURCE --start
 
 # To set the agent to autostart with the platform, pass "enable" 
 # to make-agent.sh: ./scripts/core/make-agent.sh enable
 
-
 # Finally remove the temporary config file
 rm $CONFIG
+

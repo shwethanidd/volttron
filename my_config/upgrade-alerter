@@ -27,8 +27,8 @@ export AGENT_VIP_IDENTITY="AlerterAgent"
 # Add NO_START parameter if the agent shouldn't start
 # export NO_START=1
 
-#./scripts/core/upgrade-agent.sh
-python ./scripts/install-agent.py -s $SOURCE -c $CONFIG -i $AGENT_VIP_IDENTITY --force --start
+./scripts/core/upgrade-agent.sh
+#python ./scripts/install-agent.py -s $SOURCE -c $CONFIG -i $AGENT_VIP_IDENTITY --force --start
 
 # To set the agent to autostart with the platform, pass "enable" 
 # to make-agent.sh: ./scripts/core/make-agent.sh enable

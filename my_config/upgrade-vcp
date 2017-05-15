@@ -14,13 +14,12 @@ cat > $CONFIG <<EOL
 }
 EOL
 
-export CONFIG=my_config/actuator_config
-export TAG=ACTUATOR
-export SOURCE=services/core/ActuatorAgent/
-export AGENT_VIP_IDENTITY=platform.actuator
+export TAG=vcp
+export SOURCE=services/core/VolttronCentralPlatform/
+export AGENT_VIP_IDENTITY=platform.agent
 
 ./scripts/core/upgrade-agent.sh
-#python ./scripts/install-agent.py -s $SOURCE -c $CONFIG -i $AGENT_VIP_IDENTITY --force --start
+#python ./scripts/install-agent.py -s $SOURCE -i $AGENT_VIP_IDENTITY --force --start
 
 # To set the agent to autostart with the platform, pass "enable"
 # to upgrade-agent.sh: ./scripts/core/upgrade-agent.sh enable

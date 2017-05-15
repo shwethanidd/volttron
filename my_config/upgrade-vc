@@ -14,10 +14,10 @@ cat > $CONFIG <<EOL
 }
 EOL
 
-export CONFIG=my_config/actuator_config
-export TAG=ACTUATOR
-export SOURCE=services/core/ActuatorAgent/
-export AGENT_VIP_IDENTITY=platform.actuator
+export CONFIG=services/core/VolttronCentral/config
+export TAG=vc
+export SOURCE=services/core/VolttronCentral
+export AGENT_VIP_IDENTITY=volttron.central
 
 ./scripts/core/upgrade-agent.sh
 #python ./scripts/install-agent.py -s $SOURCE -c $CONFIG -i $AGENT_VIP_IDENTITY --force --start
