@@ -63,7 +63,7 @@ import weakref
 from .base import SubsystemBase
 from ..errors import VIPError
 from ..results import ResultsDictionary
-
+from zmq.green import ZMQError, ENOTSOCK
 
 __all__ = ['Hello']
 
@@ -103,7 +103,11 @@ class Hello(SubsystemBase):
         _log.info('Requesting hello from peer ({})'.format(peer))
         socket = self.core().socket
         result = next(self._results)
-        socket.send_vip(peer, b'hello', [b'hello'], msg_id=result.ident)
+        try:
+            socket.send_vip(peer, b'hello', [b'hello'], msg_id=result.ident)
+        except ZMQError as exc:
+            if exc.errno == ENOTSOCK:
+                _log.debug("Socket send on non socket {}".format(self.core().identity))
         return result
 
     __call__ = hello
