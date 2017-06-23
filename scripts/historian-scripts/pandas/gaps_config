@@ -1,0 +1,8 @@
+{
+    "gaps_path":"gaps_final",
+    "import_path":"import",
+    "prod_topics_file":"seb_prod_topics.json",
+    "anon_topics_file": "seb_anon_topics.json",
+    "replace_from":"BUILDING8",
+    "replace_to":"350_BUILDING"
+}
