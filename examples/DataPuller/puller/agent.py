@@ -63,7 +63,6 @@ import time
 from urlparse import urlparse
 
 import gevent
-from zmq.utils import jsonapi
 
 from volttron.platform.vip.agent import Agent, Core, compat
 from volttron.platform.vip.agent.utils import build_agent
@@ -74,6 +73,7 @@ from volttron.platform.messaging import topics, headers as headers_mod
 from volttron.platform.messaging.health import (STATUS_BAD,
                                                 STATUS_GOOD, Status)
 from volttron.platform.keystore import KeyStore
+from volttron.platform.agent import json as jsonapi
 
 FORWARD_TIMEOUT_KEY = 'FORWARD_TIMEOUT_KEY'
 utils.setup_logging()

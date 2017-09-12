@@ -65,15 +65,12 @@ import time as time_mod
 
 import zmq
 from zmq import POLLIN, POLLOUT
-from zmq.utils import jsonapi
-
+from volttron.platform.agent import json as jsonapi
 import monotonic as clock
 
 from . import sched
 from .matching import iter_match_tests
-from .. import messaging
 from ..messaging import topics
-
 
 __all__ = ['periodic', 'BaseAgent', 'PublishMixin']
 

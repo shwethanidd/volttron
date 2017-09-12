@@ -74,7 +74,6 @@ import weakref
 import gevent.event
 from zmq import green as zmq
 from zmq.green import ZMQError, EAGAIN, ENOTSOCK, EADDRINUSE
-from zmq.utils import jsonapi as json
 from zmq.utils.monitor import recv_monitor_message
 
 from .decorators import annotate, annotations, dualmethod
@@ -85,6 +84,7 @@ from .. import router
 from .... import platform
 from volttron.platform.keystore import KeyStore, KnownHostsStore
 from volttron.platform.agent import utils
+from volttron.platform.agent import json
 
 __all__ = ['BasicCore', 'Core', 'killing']
 
@@ -572,8 +572,6 @@ class Core(BasicCore):
         # pre-setup
         #self.context.set(zmq.MAX_SOCKETS, 30690)
         self.socket = vip.Socket(self.context)
-        _log.debug("CORE::MAx allowable sockets: {}".format(self.context.get(zmq.MAX_SOCKETS)))
-        _log.debug("AGENT SENDBUF: {0}, {1}".format(self.socket.getsockopt(zmq.SNDBUF), self.socket.getsockopt(zmq.RCVBUF)))
         # self.socket.setsockopt(zmq.SNDBUF, 302400)
         # self.socket.setsockopt(zmq.RCVBUF, 302400)
         # self.socket.set_hwm(500000)

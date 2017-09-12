@@ -65,18 +65,13 @@ import logging.config
 from urlparse import urlparse
 
 import os
-import sys
-import threading
-import uuid
 import re
 
-import gevent
-from gevent.fileobject import FileObject
 import zmq
 from zmq import SNDMORE, EHOSTUNREACH, ZMQError, EAGAIN, NOBLOCK
 from zmq import green
 from collections import defaultdict
-from zmq.utils import jsonapi
+from volttron.platform.agent import json as jsonapi
 
 # Create a context common to the green and non-green zmq modules.
 green.Context._instance = green.Context.shadow(zmq.Context.instance().underlying)

@@ -62,7 +62,7 @@ from __future__ import absolute_import
 import collections
 
 import zmq
-from zmq.utils import jsonapi
+from volttron.platform.agent import json as jsonapi
 
 from .headers import Headers
 

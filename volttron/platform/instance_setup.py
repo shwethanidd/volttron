@@ -65,12 +65,11 @@ import tempfile
 
 from gevent import subprocess
 from gevent.subprocess import Popen
-from zmq.utils import jsonapi
 from zmq import green as zmq
 
 from volttron.platform.agent.known_identities import PLATFORM_DRIVER
 from volttron.utils.prompt import prompt_response, y, n, y_or_n
-
+from volttron.platform.agent import json as jsonapi
 from . import get_home
 
 # Global configuration options.  Must be key=value strings.  No cascading

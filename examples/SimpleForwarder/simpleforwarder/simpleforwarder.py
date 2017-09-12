@@ -65,13 +65,13 @@ import sys
 import uuid
 
 import gevent
-from zmq.utils import jsonapi
 
 from volttron.platform.vip.agent import Core, Agent
 from volttron.platform.agent.base_historian import BaseHistorian
 from volttron.platform.agent import utils
 from volttron.platform.messaging import topics, headers as headers_mod
 from gevent.core import callback
+from volttron.platform.agent import json as jsonapi
 from __builtin__ import list
 
 #import sqlhistorian
