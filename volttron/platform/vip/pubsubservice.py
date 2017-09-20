@@ -266,7 +266,7 @@ class PubSubService(object):
                     self._send_external_subscriptions(external_platforms)
                 return True
 
-    def _peer_publish(self, frames):
+    def _peer_publish(self, frames, user_id):
         """Publish the incoming message to all the subscribers subscribed to the specified topic.
         :param frames list of frames
         :type frames list
@@ -293,7 +293,7 @@ class PubSubService(object):
             except ValueError:
                 self._logger.error("JSON decode error. Invalid character")
                 return 0
-            return self._distribute(frames)
+            return self._distribute(frames, user_id)
 
     def _peer_list(self, frames):
         """Returns a list of subscriptions for a specific bus. If bus is None, then it returns list of subscriptions
@@ -336,7 +336,7 @@ class PubSubService(object):
                             results.append((bus, topic, member))
         return results
 
-    def _distribute(self, frames):
+    def _distribute(self, frames, user_id):
         """
         Distributes the message to all the subscribers subscribed to the same bus and topic. Check if the topic
         is protected before distributing the message. For protected topics, only authorized publishers can publish
@@ -359,12 +359,13 @@ class PubSubService(object):
         :Return Values:
         Number of subscribers to whom the mess
         """
-        publisher, receiver, proto, user_id, msg_id, subsystem, op, topic, data = frames[0:9]
+        publisher, receiver, proto, _, msg_id, subsystem, op, topic, data = frames[0:9]
         #Check if peer is authorized to publish the topic
         errmsg = self._check_if_protected_topic(bytes(user_id), bytes(topic))
 
         #Send error message as peer is not authorized to publish to the topic
         if errmsg is not None:
+            self._logger.debug("PUBSUBSERVICE raises UNAUTHORIZED error")
             try:
                 frames = [publisher, b'', proto, user_id, msg_id,
                       b'error', zmq.Frame(bytes(UNAUTHORIZED)), zmq.Frame(str(errmsg)), b'', subsystem]
@@ -594,7 +595,7 @@ class PubSubService(object):
                 result = self._peer_subscribe(frames)
             elif op == b'publish':
                 try:
-                    result = self._peer_publish(frames)
+                    result = self._peer_publish(frames, user_id)
                 except IndexError:
                     #send response back -- Todo
                     return
@@ -605,8 +606,10 @@ class PubSubService(object):
             elif op == b'synchronize':
                 self._peer_sync(frames)
             elif op == b'auth_update':
+                self._logger.debug("PUBSUBSERVICE auth_update")
                 self._update_caps_users(frames)
             elif op == b'protected_update':
+                self._logger.debug("PUBSUBSERVICE protected_update")
                 self._update_protected_topics(frames)
             elif op == b'external_list':
                 #self._logger.debug("PUBSUBSERVICE external_list")
@@ -645,6 +648,8 @@ class PubSubService(object):
         """
         msg = None
         required_caps = self._protected_topics.get(topic)
+        self._logger.debug("PUBSUBSERVICE required_caps: {0}, {1}, peer: {2}"
+                           .format(required_caps, self._user_capabilities, peer))
 
         if required_caps:
             user = peer

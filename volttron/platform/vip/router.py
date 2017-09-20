@@ -149,12 +149,12 @@ class BaseRouter(object):
         sock.tcp_keepalive_idle = 180
         sock.tcp_keepalive_intvl = 20
         sock.tcp_keepalive_cnt = 6
-        self.context.set(zmq.MAX_SOCKETS, 30690)
+        #self.context.set(zmq.MAX_SOCKETS, 30690)
         # sock.setsockopt(zmq.SNDBUF, 40000)
         # sock.setsockopt(zmq.RCVBUF, 40000)
         # sock.set_hwm(60000)
         sock.set_hwm(6000)
-        _log.debug("ROUTER SENDBUF: {0}, {1}".format(sock.getsockopt(zmq.SNDBUF), sock.getsockopt(zmq.RCVBUF)))
+        #_log.debug("ROUTER SENDBUF: {0}, {1}".format(sock.getsockopt(zmq.SNDBUF), sock.getsockopt(zmq.RCVBUF)))
         self.setup()
 
     def stop(self, linger=1):
@@ -330,7 +330,6 @@ class BaseRouter(object):
                 if response is None:
                     # Handler does not know of the subsystem
                     errnum, errmsg = error = _INVALID_SUBSYSTEM
-                    _log.debug("ROUTER proto unsupported")
                     issue(ERROR, frames, error)
                     frames = [sender, recipient, proto, b'', msg_id,
                               b'error', errnum, errmsg, b'', subsystem]

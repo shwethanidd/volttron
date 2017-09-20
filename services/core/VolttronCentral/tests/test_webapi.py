@@ -74,8 +74,6 @@ def web_api_tester(request, vc_instance, pa_instance):
 
 
 @pytest.mark.vc
-@pytest.mark.skipif(os.environ.get("CI") is not None,
-                    reason="Flaky on travis-ci for some reason")
 def test_vc_settings_store(vc_instance):
     """ Test the reading and writing of data through the get_setting,
         set_setting and get_all_key json-rpc calls.
@@ -138,8 +136,6 @@ def test_unregister_platform(web_api_tester):
 
 
 @pytest.mark.vc
-@pytest.mark.skipif(os.environ.get("CI") is not None,
-                    reason="Flaky on travis-ci for some reason")
 def test_login_rejected_for_foo(vc_instance):
     vc_jsonrpc = vc_instance[2]
     with pytest.raises(AssertionError):
@@ -147,8 +143,6 @@ def test_login_rejected_for_foo(vc_instance):
 
 
 @pytest.mark.vc
-@pytest.mark.skipif(os.environ.get("CI") is not None,
-                    reason="Flaky on travis-ci for some reason")
 def test_store_list_get_configuration(vc_vcp_platforms):
     vc, vcp = vc_vcp_platforms
 
@@ -177,8 +171,6 @@ def test_store_list_get_configuration(vc_vcp_platforms):
 
 
 @pytest.mark.vc
-@pytest.mark.skipif(os.environ.get("CI") is not None,
-                    reason="Flaky on travis-ci for some reason")
 def test_correct_reader_permissions_on_vcp_vc_and_listener_agent(vc_vcp_platforms):
     vc, vcp = vc_vcp_platforms
 
@@ -206,8 +198,6 @@ def test_correct_reader_permissions_on_vcp_vc_and_listener_agent(vc_vcp_platform
 
 
 @pytest.mark.vc
-@pytest.mark.skipif(os.environ.get("CI") is not None,
-                    reason="Flaky on travis-ci for some reason")
 def test_correct_admin_permissions_on_vcp_vc_and_listener_agent(vc_vcp_platforms):
     vc, vcp = vc_vcp_platforms
 
@@ -232,8 +222,6 @@ def test_correct_admin_permissions_on_vcp_vc_and_listener_agent(vc_vcp_platforms
 
 
 @pytest.mark.vc
-@pytest.mark.skipif(os.environ.get("CI") is not None,
-                    reason="Flaky on travis-ci for some reason")
 def test_correct_admin_permissions_on_vcp_vc_and_listener_agent(vc_vcp_platforms):
     vc, vcp = vc_vcp_platforms
 
@@ -265,8 +253,6 @@ def test_correct_admin_permissions_on_vcp_vc_and_listener_agent(vc_vcp_platforms
 
 
 @pytest.mark.vc
-@pytest.mark.skipif(os.environ.get("CI") is not None,
-                    reason="Flaky on travis-ci for some reason")
 def test_listagent(vc_vcp_platforms):
     vc, vcp = vc_vcp_platforms
 
@@ -282,8 +268,6 @@ def test_listagent(vc_vcp_platforms):
 
 
 @pytest.mark.vc
-@pytest.mark.skipif(os.environ.get("CI") is not None,
-                    reason="Flaky on travis-ci for some reason")
 def test_installagent(vc_vcp_platforms):
     vc, vcp = vc_vcp_platforms
 
