@@ -3,7 +3,7 @@ from mock import MagicMock
 from volttroncentral.platforms import PlatformHandler, Platforms
 from volttroncentral.agent import VolttronCentralAgent
 
-
+@pytest.mark.skip(reason="Must reimplement unregister.")
 def test_when_platform_added_disconnected():
     vc = MagicMock()
     platforms = Platforms(vc=vc)
@@ -24,7 +24,7 @@ def test_when_platform_added_disconnected():
     assert len(platforms.get_platform_list(None, None)) == 0
     assert len(platforms.get_platform_keys()) == 0
 
-
+@pytest.mark.skip(reason="Must reimplement unregister.")
 def test_platform_added_during_handle_platform_connection():
 
     scaneventmock = MagicMock()
@@ -39,7 +39,7 @@ def test_platform_added_during_handle_platform_connection():
 
     assert platformsmock.add_platform.called
 
-
+@pytest.mark.skip(reason="Must reimplement unregister.")
 def test_platform_scan():
 
     vipmock = MagicMock()
