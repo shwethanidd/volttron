@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*- {{{
 # vim: set fenc=utf-8 ft=python sw=4 ts=4 sts=4 et:
 
-# Copyright (c) 2016, Battelle Memorial Institute
+# Copyright (c) 2017, Battelle Memorial Institute
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -469,6 +469,8 @@ import datetime
 import logging
 import sys
 
+import gevent
+
 from actuator.scheduler import ScheduleManager
 
 from tzlocal import get_localzone
@@ -677,10 +679,10 @@ class ActuatorAgent(Agent):
         _log.debug("sending heartbeat")
         try:
             self.vip.rpc.call(self.driver_vip_identity, 'heart_beat').get(
-                timeout=5.0)
+                timeout=20.0)
         except Unreachable:
             _log.warning("Master driver is not running")
-        except Exception as e:
+        except (Exception, gevent.Timeout) as e:
             _log.warning(''.join([e.__class__.__name__, '(', e.message, ')']))
 
 
@@ -959,6 +961,21 @@ class ActuatorAgent(Agent):
                 "caller ({}) does not have this lock".format(sender))
 
         return result
+
+    @RPC.export
+    def scrape_all(self, topic):
+        """RPC method
+
+        Get all points from a device.
+
+        :param topic: Device topic
+
+        :returns: Dictionary of points to values
+        """
+        topic = topic.strip('/')
+        return self.vip.rpc.call(self.driver_vip_identity,
+                                 'scrape_all',
+                                 topic).get()
 
     @RPC.export
     def get_multiple_points(self, topics, **kwargs):
@@ -1457,7 +1474,8 @@ class ActuatorAgent(Agent):
 
 def main():
     """Main method called to start the agent."""
-    utils.vip_main(actuator_agent, identity='platform.actuator')
+    utils.vip_main(actuator_agent, identity='platform.actuator',
+                   version=__version__)
 
 
 if __name__ == '__main__':

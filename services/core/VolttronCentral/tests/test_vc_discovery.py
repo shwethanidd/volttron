@@ -2,13 +2,10 @@ import os
 
 import gevent
 import pytest
-import requests
 
 from vctestutils import APITester
-from volttron.platform.agent.known_identities import VOLTTRON_CENTRAL
-from volttron.platform.keystore import KeyStore
 from volttron.platform.messaging.health import STATUS_GOOD
-from volttrontesting.utils.core_service_installs import add_volttron_central, \
+from volttrontesting.utils.agent_additions import add_volttron_central, \
     add_volttron_central_platform
 from volttrontesting.utils.platformwrapper import PlatformWrapper, \
     start_wrapper_platform
@@ -32,6 +29,10 @@ def vc_vcp_platforms(request):
 
     vcp_uuid = add_volttron_central_platform(vcp)
     vc_uuid = add_volttron_central(vc)
+
+    # Give the agents a chance to do stuff. Can take up to 10 seconds to
+    # reconnect with vc.
+    gevent.sleep(10)
 
     yield vc, vcp
 
@@ -65,21 +66,22 @@ def both_with_vc_vcp(request):
         vc_uuid = add_volttron_central(p)
         vcp_uuid = add_volttron_central_platform(p)
 
+    # Give the agents a chance to do stuff. note might take up to 10 sec
+    # if the vcp is started first.
+    gevent.sleep(10)
     yield p
 
     p.shutdown_platform()
 
 
 @pytest.mark.vc
-@pytest.mark.skipif(os.environ.get("CI") is not None,
-                    reason="On travis this is flaky, run from command line.")
 def test_autoregister_external(vc_vcp_platforms):
-    gevent.sleep(15)
+
     vc, vcp = vc_vcp_platforms
 
     api = APITester(vc.jsonrpc_endpoint)
 
-    platforms = api.get_result(api.list_platforms)
+    platforms = api.list_platforms()
     assert len(platforms) == 1
     p = platforms[0]
     assert p['uuid']
@@ -90,18 +92,17 @@ def test_autoregister_external(vc_vcp_platforms):
 
 
 @pytest.mark.vc
-@pytest.mark.timeout(300)
+@pytest.mark.skipif(os.environ.get("CI") is not None,
+                    reason="Flaky on travis-ci for some reason")
 def test_autoregister_local(both_with_vc_vcp):
-    gevent.sleep(15)
 
     api = APITester(both_with_vc_vcp.jsonrpc_endpoint)
 
-    platforms = api.get_result(api.list_platforms)
+    platforms = api.list_platforms()
     assert len(platforms) == 1
     p = platforms[0]
     assert p['uuid']
     assert p['name'] == both_with_vc_vcp.vip_address
     assert isinstance(p['health'], dict)
     assert STATUS_GOOD == p['health']['status']
-
 

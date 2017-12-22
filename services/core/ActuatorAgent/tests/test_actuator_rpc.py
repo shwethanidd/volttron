@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*- {{{
 # vim: set fenc=utf-8 ft=python sw=4 ts=4 sts=4 et:
 
-# Copyright (c) 2016, Battelle Memorial Institute
+# Copyright (c) 2017, Battelle Memorial Institute
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -65,6 +65,8 @@ import gevent.subprocess as subprocess
 import pytest
 from gevent.subprocess import Popen
 from mock import MagicMock
+
+from volttron.platform import get_services_core
 from volttron.platform.jsonrpc import RemoteError
 from volttron.platform.messaging import topics
 from volttron.platform.agent.known_identities import PLATFORM_DRIVER
@@ -126,7 +128,7 @@ def publish_agent(request, volttron_instance1):
     # Start the master driver agent which would intern start the fake driver
     #  using the configs created above
     master_uuid = volttron_instance1.install_agent(
-        agent_dir="services/core/MasterDriverAgent",
+        agent_dir=get_services_core("MasterDriverAgent"),
         config_file={},
         start=True)
     print("agent id: ", master_uuid)
@@ -136,8 +138,8 @@ def publish_agent(request, volttron_instance1):
     # to fake device. Start the master driver agent which would intern start
     # the fake driver using the configs created above
     actuator_uuid = volttron_instance1.install_agent(
-        agent_dir="services/core/ActuatorAgent",
-        config_file="services/core/ActuatorAgent/tests/actuator.config",
+        agent_dir=get_services_core("ActuatorAgent"),
+        config_file=get_services_core("ActuatorAgent/tests/actuator.config"),
         start=True)
     print("agent id: ", actuator_uuid)
 
@@ -1537,6 +1539,7 @@ def test_set_error_read_only_point(publish_agent, cancel_schedules):
         assert e.message == "IOError('Trying to write to a point configured " \
                             "read only: OutsideAirTemperature1')"
 
+
 @pytest.mark.actuator
 def test_get_multiple_points(publish_agent, cancel_schedules):
     results, errors = publish_agent.vip.rpc.call(
@@ -1549,6 +1552,7 @@ def test_get_multiple_points(publish_agent, cancel_schedules):
                        'fakedriver1/SampleWritableFloat1': 1.0}
     assert errors == {}
 
+
 @pytest.mark.actuator
 def test_get_multiple_captures_errors(publish_agent, cancel_schedules):
     results, errors = publish_agent.vip.rpc.call(
@@ -1558,6 +1562,7 @@ def test_get_multiple_captures_errors(publish_agent, cancel_schedules):
 
     assert results == {}
     assert errors['fakedriver0/nonexistentpoint'] == "DriverInterfaceError('Point not configured on device: nonexistentpoint',)"
+
 
 @pytest.mark.actuator
 def test_set_multiple_points(publish_agent, cancel_schedules):
@@ -1657,6 +1662,16 @@ def test_set_multiple_captures_errors(publish_agent, cancel_schedules):
 
     assert True
 
+
+@pytest.mark.actuator
+def test_scrape_all(publish_agent, cancel_schedules):
+    result = publish_agent.vip.rpc.call('platform.actuator',
+                                        'scrape_all',
+                                        'fakedriver0').get(timeout=10)
+    assert type(result) is dict
+    assert len(result) == 13
+
+
 @pytest.mark.actuator
 def test_set_value_no_lock(publish_agent, volttron_instance1):
     """ Tests the (now default) setting to allow writing without a
@@ -1670,8 +1685,8 @@ def test_set_value_no_lock(publish_agent, volttron_instance1):
     alternate_actuator_vip_id = "my_actuator"
     #Use actuator that allows write with no lock.
     my_actuator_uuid = volttron_instance1.install_agent(
-        agent_dir="services/core/ActuatorAgent",
-        config_file="services/core/ActuatorAgent/tests/actuator-no-lock.config",
+        agent_dir=get_services_core("ActuatorAgent"),
+        config_file=get_services_core("ActuatorAgent/tests/actuator-no-lock.config"),
         start=True, vip_identity=alternate_actuator_vip_id)
     try:
         agentid = TEST_AGENT
@@ -1696,6 +1711,7 @@ def test_set_value_no_lock(publish_agent, volttron_instance1):
         volttron_instance1.stop_agent(my_actuator_uuid)
         volttron_instance1.remove_agent(my_actuator_uuid)
 
+
 @pytest.mark.actuator
 def test_set_value_no_lock_failure(publish_agent, volttron_instance1):
     """ Tests the (now default) setting to allow writing without a
@@ -1709,8 +1725,8 @@ def test_set_value_no_lock_failure(publish_agent, volttron_instance1):
     alternate_actuator_vip_id = "my_actuator"
     #Use actuator that allows write with no lock.
     my_actuator_uuid = volttron_instance1.install_agent(
-        agent_dir="services/core/ActuatorAgent",
-        config_file="services/core/ActuatorAgent/tests/actuator-no-lock.config",
+        agent_dir=get_services_core("ActuatorAgent"),
+        config_file=get_services_core("ActuatorAgent/tests/actuator-no-lock.config"),
         start=True, vip_identity=alternate_actuator_vip_id)
     try:
         agentid2 = "test-agent2"
@@ -1755,6 +1771,7 @@ def test_set_value_no_lock_failure(publish_agent, volttron_instance1):
         publish_agent2.core.stop()
         volttron_instance1.stop_agent(my_actuator_uuid)
         volttron_instance1.remove_agent(my_actuator_uuid)
+
 
 @pytest.mark.actuator
 def test_set_value_float_failure(publish_agent):

@@ -1,4 +1,4 @@
-# Copyright (c) 2016, Battelle Memorial Institute
+# Copyright (c) 2017, Battelle Memorial Institute
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -168,7 +168,7 @@ class Health(SubsystemBase):
         """
         return self._statusobj.as_dict() #.as_json()
 
-    def get_status_json(self):
+    def  get_status_json(self):
         """"RPC method
 
         Returns the last updated status from the object with the context.

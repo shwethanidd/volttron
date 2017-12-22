@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*- {{{
 # vim: set fenc=utf-8 ft=python sw=4 ts=4 sts=4 et:
 
-# Copyright (c) 2016, Battelle Memorial Institute
+# Copyright (c) 2017, Battelle Memorial Institute
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -63,7 +63,8 @@ import weakref
 from .base import SubsystemBase
 from ..errors import VIPError
 from ..results import ResultsDictionary
-
+from zmq import ZMQError
+from zmq.green import ENOTSOCK
 
 __all__ = ['Hello']
 
@@ -103,7 +104,12 @@ class Hello(SubsystemBase):
         _log.info('Requesting hello from peer ({})'.format(peer))
         socket = self.core().socket
         result = next(self._results)
-        socket.send_vip(peer, b'hello', [b'hello'], msg_id=result.ident)
+        try:
+            socket.send_vip(peer, b'hello', [b'hello'], msg_id=result.ident)
+        except ZMQError as exc:
+            if exc.errno == ENOTSOCK:
+                _log.debug("Socket send on non socket {}".format(self.core().identity))
+
         return result
 
     __call__ = hello

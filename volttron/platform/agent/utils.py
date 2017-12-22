@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*- {{{
 # vim: set fenc=utf-8 ft=python sw=4 ts=4 sts=4 et:
 
-# Copyright (c) 2016, Battelle Memorial Institute
+# Copyright (c) 2017, Battelle Memorial Institute
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -76,7 +76,7 @@ from volttron.platform import get_home, get_address
 from dateutil.parser import parse
 from dateutil.tz import tzutc, tzoffset
 from tzlocal import get_localzone
-from zmq.utils import jsonapi
+from volttron.platform.agent import json as jsonapi
 
 try:
     from ..lib.inotify.green import inotify, IN_MODIFY
@@ -116,7 +116,24 @@ def is_valid_identity(identity_to_check):
         return False
 
     return _VALID_IDENTITY_RE.match(identity_to_check)
-    
+
+
+def normalize_identity(pre_identity):
+    if is_valid_identity(pre_identity):
+        return pre_identity
+
+    if pre_identity is None:
+        raise ValueError("Identity cannot be none.")
+
+    norm = ""
+    for s in pre_identity:
+        if _VALID_IDENTITY_RE.match(s):
+            norm += s
+        else:
+            norm += '_'
+
+    return norm
+
 
 def _repl(match):
     """Replace the matched group with an appropriate string."""
@@ -151,6 +168,43 @@ def load_config(config_path):
     except StandardError as e:
         _log.error("Problem parsing agent configuration")
         raise
+
+def update_kwargs_with_config(kwargs, config):
+    """
+    Loads the user defined configurations into kwargs.
+     
+      1. Converts any dash/hyphen in config variables into underscores
+      2. Checks for configured "identity" value. Prints a deprecation 
+      warning and uses it. 
+      3. Checks for configured "agentid" value. Prints a deprecation warning 
+      and ignores it
+      
+    :param kwargs: kwargs to be updated
+    :param config: dictionary of user/agent configuration
+    """
+
+    if config.get('identity') is not None:
+        _log.warning("DEPRECATION WARNING: Setting a historian's VIP IDENTITY"
+                     " from its configuration file will no longer be supported"
+                     " after VOLTTRON 4.0")
+        _log.warning(
+            "DEPRECATION WARNING: Using the identity configuration setting "
+            "will override the value provided by the platform. This new value "
+            "will not be reported correctly by 'volttron-ctl status'")
+        _log.warning("DEPRECATION WARNING: Please remove 'identity' from your "
+                     "configuration file and use the new method provided by "
+                     "the platform to set an agent's identity. See "
+                     "scripts/core/make-mongo-historian.sh for an example of "
+                     "how this is done.")
+
+    if config.get('agentid') is not None:
+        _log.warning("WARNING: Agent id cannot be configured. It is a unique "
+                     "id assigned by VOLTTRON platform. Ignoring configured "
+                     "agentid")
+        config.pop('agentid')
+
+    for k, v in config.items():
+        kwargs[k.replace("-","_")] = v
 
 def parse_json_config(config_str):
     """Parse a JSON-encoded configuration file."""
@@ -236,7 +290,7 @@ def default_main(agent_class, description=None, argv=sys.argv,
         pass
 
 
-def vip_main(agent_class, identity=None, **kwargs):
+def vip_main(agent_class, identity=None, version='0.1', **kwargs):
     """Default main entry point implementation for VIP agents."""
     try:
         # If stdout is a pipe, re-open it line buffered
@@ -266,7 +320,8 @@ def vip_main(agent_class, identity=None, **kwargs):
         agent = agent_class(config_path=config, identity=identity,
                             address=address, agent_uuid=agent_uuid,
                             volttron_home=volttron_home,
-                            **kwargs)
+                            version=version, **kwargs)
+        
         try:
             run = agent.run
         except AttributeError:
@@ -430,7 +485,7 @@ def get_aware_utc_now():
     return utcnow
 
 
-def get_utc_seconds_from_epoch(timestamp=datetime.now(tz=tzutc())):
+def get_utc_seconds_from_epoch(timestamp=None):
     """
     convert a given time stamp to seconds from epoch based on utc time. If
     given time is naive datetime it is considered be local to where this
@@ -438,6 +493,10 @@ def get_utc_seconds_from_epoch(timestamp=datetime.now(tz=tzutc())):
     @param timestamp: datetime object
     @return: seconds from epoch
     """
+
+    if timestamp is None:
+        timestamp = datetime.now(tz=tzutc())
+
     if timestamp.tzinfo is None:
         local_tz = get_localzone()
         # Do not use datetime.replace(tzinfo=local_tz) instead use localize()

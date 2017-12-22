@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*- {{{
 # vim: set fenc=utf-8 ft=python sw=4 ts=4 sts=4 et:
 
-# Copyright (c) 2016, Battelle Memorial Institute
+# Copyright (c) 2017, Battelle Memorial Institute
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -57,7 +57,7 @@
 
 from volttron.platform.agent.utils import parse_json_config
 from argparse import ArgumentParser
-from zmq.utils import jsonapi
+from volttron.platform.agent import json as jsonapi
 import os
 import shutil
 

@@ -1,11 +1,16 @@
 {
     "--pandas": {
         "help": "Installs numpy and pandas for applications",
-        "packages": ["numpy>1.8,<2", "pandas"]
+        "packages": ["numpy>1.13,<2", "pandas"]
     },
     "--testing": {
         "help": "Installs testing infrastructure dependencies",
-        "packages": ["pytest", "pytest-timeout", "mock", "websocket-client"]
+        "packages": ["pytest==3.1.1", "pytest-timeout", "mock", "websocket-client",
+			"pytest-catchlog"]
+    },
+    "--crate": {
+        "help": "Installs requirements for crate databases",
+        "packages": ["crate"]
     },
     "--mysql": {
         "help": "Installs requirements for mysql databases",
@@ -18,5 +23,13 @@
     "--databases": {
         "help": "Installs support for all known databases",
         "packages": ["pymongo", "mysql-connector-python-rf"]
+    },
+    "--documentation": {
+        "help": "Installs requirements for building the documentation",
+        "packages": ["sphinx", "mock", "psutil","pymongo","mysql-connector-python-rf"]
+    },
+    "--market": {
+        "help": "Installs requirements for the market service",
+        "packages": ["numpy>1.13,<2", "transitions"]
     }
 }

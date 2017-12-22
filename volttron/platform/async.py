@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*- {{{
 # vim: set fenc=utf-8 ft=python sw=4 ts=4 sts=4 et:
 
-# Copyright (c) 2016, Battelle Memorial Institute
+# Copyright (c) 2017, Battelle Memorial Institute
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -108,7 +108,9 @@ class Threadlet(threading.Thread):
         self.send_errors = fatal
         self.__async = None
         self.__callbacks = []
-    __init__.__doc__ = threading.Thread.__init__.__doc__ + __init__.__doc__
+
+    if threading.Thread.__init__.__doc__:
+        __init__.__doc__ = threading.Thread.__init__.__doc__ + __init__.__doc__
 
     def kill(self, exception=GreenletExit):
         '''Raise GreenletExit or other exception in the main greenlet.'''

@@ -55,11 +55,14 @@ import os
 import pytest
 import gevent
 
+from volttron.platform import get_services_core
+
 DRIVER1_CONFIG_STRING = """{
     "driver_config": {
         "stationID" : "1:34003",
         "username" : "9d44ba0be5fe6b6628e50af1335d4fcf5743a6f3c63ee1464051443",
-        "password" : "%s"
+        "password" : "%s",
+        "cacheExpiration" : 40
     },
     "campus": "campus",
     "building": "building",
@@ -75,7 +78,8 @@ DRIVER2_CONFIG_STRING = """{
     "driver_config": {
         "stationID" : "1:34033",
         "username" : "9d44ba0be5fe6b6628e50af1335d4fcf5743a6f3c63ee1464051443",
-        "password" : "%s"
+        "password" : "%s",
+        "cacheExpiration" : 40
     },
     "campus": "campus",
     "building": "building",
@@ -195,7 +199,7 @@ def agent(request, volttron_instance1):
                           REGISTRY_CONFIG_STRING,
                           'csv').get(timeout=10)
 
-    master_uuid = volttron_instance1.install_agent(agent_dir='services/core/MasterDriverAgent',
+    master_uuid = volttron_instance1.install_agent(agent_dir=get_services_core("MasterDriverAgent"),
                                                    config_file={},
                                                    start=True)
     print('agent id: ', master_uuid)

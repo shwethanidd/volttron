@@ -1,5 +1,5 @@
 
-# Copyright (c) 2016, Battelle Memorial Institute
+# Copyright (c) 2017, Battelle Memorial Institute
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -60,6 +60,7 @@ from datetime import datetime, timedelta
 
 from master_driver.driver_exceptions import DriverConfigError
 from volttron.platform.vip.agent import errors
+from volttron.platform.jsonrpc import RemoteError
 
 #Logging is completely configured by now.
 _log = logging.getLogger(__name__)
@@ -79,10 +80,12 @@ class Register(BaseRegister):
         self.index = list_index
 
 
-
 class Interface(BaseInterface):
     def __init__(self, **kwargs):
         super(Interface, self).__init__(**kwargs)
+        self.register_count = 10000
+        self.register_count_divisor = 1
+
 
     def configure(self, config_dict, registry_config_str):
         self.min_priority = config_dict.get("min_priority", 8)
@@ -91,7 +94,8 @@ class Interface(BaseInterface):
         self.device_id = int(config_dict["device_id"])
         self.proxy_address = config_dict.get("proxy_address", "platform.bacnet_proxy")
         self.max_per_request = config_dict.get("max_per_request")
-        self.timeout = float(config_dict.get("timeout", 10.0))
+        self.use_read_multiple = config_dict.get("use_read_multiple", True)
+        self.timeout = float(config_dict.get("timeout", 30.0))
 
         self.ping_retry_interval = timedelta(seconds=config_dict.get("ping_retry_interval", 5.0))
         self.scheduled_ping = None
@@ -128,13 +132,12 @@ class Interface(BaseInterface):
 
     def get_point(self, point_name, get_priority_array=False):
         register = self.get_register_by_name(point_name)
-        my_property = "priorityArray" if get_priority_array else register.property
-        point_map = {point_name:[register.object_type,
-                                 register.instance_number,
-                                 my_property]}
-        result = self.vip.rpc.call(self.proxy_address, 'read_properties',
-                                       self.target_address, point_map).get(timeout=self.timeout)
-        return result[point_name]
+        property_name = "priorityArray" if get_priority_array else register.property
+        register_index = None if get_priority_array else register.index
+        result = self.vip.rpc.call(self.proxy_address, 'read_property',
+                                   self.target_address, register.object_type,
+                                   register.instance_number, property_name, register_index).get(timeout=self.timeout)
+        return result
 
     def set_point(self, point_name, value, priority=None):
         #TODO: support writing from an array.
@@ -150,7 +153,8 @@ class Interface(BaseInterface):
                 register.object_type,
                 register.instance_number,
                 register.property,
-                priority if priority is not None else register.priority]
+                priority if priority is not None else register.priority,
+                register.index]
         result = self.vip.rpc.call(self.proxy_address, 'write_property', *args).get(timeout=self.timeout)
         return result
 
@@ -162,16 +166,32 @@ class Interface(BaseInterface):
         for register in read_registers + write_registers:
             point_map[register.point_name] = [register.object_type,
                                               register.instance_number,
-                                              register.property]
+                                              register.property,
+                                              register.index]
 
-        try:
-            result = self.vip.rpc.call(self.proxy_address, 'read_properties',
-                                           self.target_address, point_map,
-                                           self.max_per_request).get(timeout=self.timeout)
-        except errors.Unreachable:
-            _log.warning("Unable to reach BACnet proxy.")
-            self.schedule_ping()
-            raise
+        while True:
+            try:
+                result = self.vip.rpc.call(self.proxy_address, 'read_properties',
+                                               self.target_address, point_map,
+                                               self.max_per_request, self.use_read_multiple).get(timeout=self.timeout)
+            except RemoteError as e:
+                if "segmentationNotSupported" in e.message:
+                    if self.max_per_request <= 1:
+                        _log.error("Receiving a segmentationNotSupported error with 'max_per_request' setting of 1.")
+                        raise
+                    self.register_count_divisor += 1
+                    self.max_per_request = max(int(self.register_count/self.register_count_divisor), 1)
+                    _log.info("Device requires a lower max_per_request setting. Trying: "+str(self.max_per_request))
+                    continue
+                else:
+                    raise
+            except errors.Unreachable:
+                #If the Proxy is not running bail.
+                _log.warning("Unable to reach BACnet proxy.")
+                self.schedule_ping()
+                raise
+            else:
+                break
 
         return result
 
@@ -190,6 +210,8 @@ class Interface(BaseInterface):
     def parse_config(self, configDict):
         if configDict is None:
             return
+
+        self.register_count = len(configDict)
 
         for regDef in configDict:
             #Skip lines that have no address yet.

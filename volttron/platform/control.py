@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*- {{{
 # vim: set fenc=utf-8 ft=python sw=4 ts=4 sts=4 et:
 
-# Copyright (c) 2016, Battelle Memorial Institute
+# Copyright (c) 2017, Battelle Memorial Institute
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -69,10 +69,10 @@ import shutil
 import sys
 import tempfile
 import traceback
-import StringIO
 import uuid
-import base64
 import hashlib
+import tarfile
+import subprocess
 
 import gevent
 import gevent.event
@@ -153,6 +153,19 @@ class ControlService(BaseAgent):
         return self._aip.agent_name(uuid)
 
     @RPC.export
+    def agent_version(self, uuid):
+        if not isinstance(uuid, basestring):
+            identity = bytes(self.vip.rpc.context.vip_message.peer)
+            raise TypeError("expected a string for 'uuid';"
+                            "got {!r} from identity: {}".format(
+                type(uuid).__name__, identity))
+        return self._aip.agent_version(uuid)
+
+    @RPC.export
+    def agent_versions(self):
+        return self._aip.agent_versions()
+
+    @RPC.export
     def status_agents(self):
         return self._aip.status_agents()
 
@@ -172,7 +185,13 @@ class ControlService(BaseAgent):
             raise TypeError("expected a string for 'uuid';"
                             "got {!r} from identity: {}".format(
                 type(uuid).__name__, identity))
+
+        identity = self.agent_vip_identity(uuid)
         self._aip.stop_agent(uuid)
+        #Send message to router that agent is shutting down
+        frames = [bytes(identity)]
+
+        self.core.socket.send_vip(b'', 'agentstop', frames, copy=False)
 
     @RPC.export
     def restart_agent(self, uuid):
@@ -441,6 +460,26 @@ def filter_agent(agents, pattern, opts):
     return next(filter_agents(agents, [pattern], opts))[1]
 
 
+def backup_agent_data(output_filename, source_dir):
+    with tarfile.open(output_filename, "w:gz") as tar:
+        tar.add(source_dir, arcname=os.path.sep) #os.path.basename(source_dir))
+
+
+def restore_agent_data(source_file, output_dir):
+    # Open tarfile
+    with tarfile.open(mode="r:gz", fileobj=file(source_file)) as tar:
+        tar.extractall(output_dir)
+
+
+def find_agent_data_dir(opts, agent_uuid):
+    agent_data_dir = None
+    for x in os.listdir(opts.aip.agent_dir(agent_uuid)):
+        if x.endswith("agent-data"):
+            agent_data_dir = os.path.join(opts.aip.agent_dir(agent_uuid), x)
+            break
+    return agent_data_dir
+
+
 def upgrade_agent(opts):
     publickey = None
     secretkey = None
@@ -451,7 +490,13 @@ def upgrade_agent(opts):
 
     identity_to_uuid = opts.aip.get_agent_identity_to_uuid_mapping()
     agent_uuid = identity_to_uuid.get(identity, None)
+    backup_agent_file = "/tmp/{}.tar.gz".format(agent_uuid)
     if agent_uuid:
+        agent_data_dir = find_agent_data_dir(opts, agent_uuid)
+
+        if agent_data_dir:
+            backup_agent_data(backup_agent_file, agent_data_dir)
+
         keystore = opts.aip.get_agent_keystore(agent_uuid)
         publickey = keystore.public
         secretkey = keystore.secret
@@ -466,10 +511,18 @@ def upgrade_agent(opts):
         publickey = None
         secretkey = None
 
-    install_agent(opts, publickey=publickey, secretkey=secretkey)
+    def restore_agent_data(agent_uuid):
+        # if we are  upgrading transfer the old data on.
+        if os.path.exists(backup_agent_file):
+            new_agent_data_dir = find_agent_data_dir(opts, new_agent_uuid)
+            restore_agent_data(backup_agent_file, new_agent_data_dir)
+            os.remove(backup_agent_file)
+
+    install_agent(opts, publickey=publickey, secretkey=secretkey,
+                  callback=restore_agent_data)
 
 
-def install_agent(opts, publickey=None, secretkey=None):
+def install_agent(opts, publickey=None, secretkey=None, callback=None):
     aip = opts.aip
     filename = opts.wheel
     tag = opts.tag
@@ -506,7 +559,7 @@ def install_agent(opts, publickey=None, secretkey=None):
             with open(filename, 'rb') as wheel_file_data:
                 while True:
                     # get a request
-                    with gevent.Timeout(30):
+                    with gevent.Timeout(60):
                         request, file_offset, chunk_size = channel.recv_multipart()
                     if request == b'checksum':
                         channel.send(sha512.digest())
@@ -543,6 +596,10 @@ def install_agent(opts, publickey=None, secretkey=None):
     name = opts.connection.call('agent_name', agent_uuid)
     _stdout.write('Installed {} as {} {}\n'.format(filename, agent_uuid, name))
 
+    # Need to use a callback here rather than a return value.  I am not 100%
+    # sure why this is the reason for allowing our tests to pass.
+    if callback:
+        callback(agent_uuid)
 
 def tag_agent(opts):
     agents = filter_agent(_list_agents(opts.aip), opts.agent, opts)
@@ -1279,6 +1336,52 @@ def get_config(opts):
             _stdout.write("\n")
 
 
+def edit_config(opts):
+    opts.connection.peer = CONFIGURATION_STORE
+    call = opts.connection.call
+
+    if opts.new_config:
+        config_type = opts.config_type
+        raw_data = ''
+    else:
+        try:
+            results = call("manage_get_metadata", opts.identity, opts.name)
+            config_type = results["type"]
+            raw_data = results["data"]
+        except RemoteError as e:
+            if "No configuration file" not in e.message:
+                raise
+            config_type = opts.config_type
+            raw_data = ''
+
+    #Write raw data to temp file
+    #This will not work on Windows, FYI
+    with tempfile.NamedTemporaryFile(suffix=".txt") as f:
+        f.write(raw_data)
+        f.flush()
+
+        success = True
+        try:
+            subprocess.check_call([opts.editor, f.name])
+        except subprocess.CalledProcessError as e:
+            _stderr.write("Editor returned with code {}. Changes not committed.\n".format(e.returncode))
+            success = False
+
+        if not success:
+            return
+
+        f.seek(0)
+        new_raw_data = f.read()
+
+        if new_raw_data == raw_data:
+            _stderr.write("No changes detected.\n")
+            return
+
+        call("manage_store", opts.identity, opts.name, new_raw_data, config_type=config_type)
+
+
+
+
 class ControlConnection(object):
     def __init__(self, address, peer='control',
                  publickey=None, secretkey=None, serverkey=None):
@@ -1354,6 +1457,8 @@ def main(argv=sys.argv):
                              help='show tracbacks for errors rather than a brief message')
     global_args.add_argument('-t', '--timeout', type=float, metavar='SECS',
                              help='timeout in seconds for remote calls (default: %(default)g)')
+    global_args.add_argument('--msgdebug',
+                             help='route all messages to an agent while debugging')
     global_args.add_argument(
         '--vip-address', metavar='ZMQADDR',
         help='ZeroMQ URL to bind for VIP connections')
@@ -1690,6 +1795,30 @@ def main(argv=sys.argv):
                                     help='interpret the input file as csv')
 
     config_store_store.set_defaults(func=add_config_to_store,
+                                    config_type="json")
+
+    config_store_edit = add_parser("edit",
+                                    help="edit a configuration. (nano by default, respects EDITOR env variable)",
+                                    subparser=config_store_subparsers)
+
+    config_store_edit.add_argument('identity',
+                                    help='VIP IDENTITY of the store')
+    config_store_edit.add_argument('name',
+                                    help='name used to reference the configuration by in the store')
+    config_store_edit.add_argument('--editor', dest="editor",
+                                    help='Set the editor to use to change the file. Defaults to nano if EDITOR is not set',
+                                   default=os.getenv("EDITOR", "nano"))
+    config_store_edit.add_argument('--raw', const="raw", dest="config_type", action="store_const",
+                                    help='Interpret the configuration as raw data. If the file already exists this is ignored.')
+    config_store_edit.add_argument('--json', const="json", dest="config_type", action="store_const",
+                                    help='Interpret the configuration as json. If the file already exists this is ignored.')
+    config_store_edit.add_argument('--csv', const="csv", dest="config_type", action="store_const",
+                                    help='Interpret the configuration as csv. If the file already exists this is ignored.')
+    config_store_edit.add_argument('--new', dest="new_config", action="store_true",
+                                     help='Ignore any existing configuration and creates new empty file.'
+                                          ' Configuration is not written if left empty. Type defaults to JSON.')
+
+    config_store_edit.set_defaults(func=edit_config,
                                     config_type="json")
 
     config_store_delete = add_parser("delete",

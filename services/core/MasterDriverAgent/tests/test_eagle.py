@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*- {{{
 # vim: set fenc=utf-8 ft=python sw=4 ts=4 sts=4 et:
 
-# Copyright (c) 2016, Battelle Memorial Institute
+# Copyright (c) 2017, Battelle Memorial Institute
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -60,6 +60,7 @@ import pytest
 import gevent
 from gevent import pywsgi
 
+from volttron.platform import get_services_core
 from volttrontesting.utils.utils import get_rand_http_address
 from volttron.platform.agent.known_identities import CONFIGURATION_STORE, PLATFORM_DRIVER
 
@@ -235,7 +236,7 @@ def agent(volttron_instance1):
                        "json").get(timeout=10)
 
     master_uuid = volttron_instance1.install_agent(
-        agent_dir="services/core/MasterDriverAgent",
+        agent_dir=get_services_core("MasterDriverAgent"),
         config_file={},
         start=True)
     print("agent id: ", master_uuid)

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*- {{{
 # vim: set fenc=utf-8 ft=python sw=4 ts=4 sts=4 et:
 
-# Copyright (c) 2016, Battelle Memorial Institute
+# Copyright (c) 2017, Battelle Memorial Institute
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -59,8 +59,11 @@ import sys
 import argparse
 import traceback
 from csv import DictWriter
+import json
+from os.path import basename
 from bacpypes.debugging import bacpypes_debugging, ModuleLogger
-from bacpypes.app import LocalDeviceObject, BIPSimpleApplication
+from bacpypes.app import BIPSimpleApplication
+from bacpypes.service.device import LocalDeviceObject
 from bacpypes.consolelogging import ConfigArgumentParser
 from bacpypes.pdu import Address, GlobalBroadcast
 from bacpypes.core import run, stop
@@ -340,9 +343,9 @@ def process_object(app, address, obj_type, index, max_range_report, config_write
                 try:
                     min_value = read_prop(app, address, obj_type, index, "minPresValue")
                     max_value = read_prop(app, address, obj_type, index, "maxPresValue")
-                    
-                    has_min = min_value > -max_range_report
-                    has_max = max_value <  max_range_report
+
+                    has_min = (min_value is not None) and (min_value > -max_range_report)
+                    has_max = (max_value is not None) and (max_value < max_range_report)
                     
                     if has_min and has_max:
                         object_units_details = '{min:.2f} to {max:.2f}'.format(min=min_value, max=max_value)
@@ -397,11 +400,15 @@ def main():
     arg_parser.add_argument("--address",
                             help="Address of target device, may be needed to help route initial request to device." )
     
-    arg_parser.add_argument("--out-file", type=argparse.FileType('wb'),
-                            help="Optional output file for configuration",
+    arg_parser.add_argument("--registry-out-file", type=argparse.FileType('wb'),
+                            help="Output registry to CSV file",
                             default=sys.stdout )
+
+    arg_parser.add_argument("--driver-out-file", type=argparse.FileType('wb'),
+                            help="Output driver configuration to JSON file.",
+                            default=sys.stdout)
     
-    arg_parser.add_argument("--max_range_report", nargs='?', type=float,
+    arg_parser.add_argument("--max-range-report", nargs='?', type=float,
                             help='Affects how very large numbers are reported in the "Unit Details" column of the output. ' 
                             'Does not affect driver behavior.',
                             default=1.0e+20 )
@@ -441,14 +448,24 @@ def main():
 #         raise DecodingError("invalid object type")
 
     target_address = result.pduSource
+    device_id = result.iAmDeviceIdentifier[1]
     
     _log.debug('pduSource = ' + repr(result.pduSource))
     _log.debug('iAmDeviceIdentifier = ' + str(result.iAmDeviceIdentifier))
     _log.debug('maxAPDULengthAccepted = ' + str(result.maxAPDULengthAccepted))
     _log.debug('segmentationSupported = ' + str(result.segmentationSupported))
     _log.debug('vendorID = ' + str(result.vendorID))
-    
-    device_id = result.iAmDeviceIdentifier[1]
+
+    config_file_name = basename(args.registry_out_file.name)
+
+    config = {
+        "driver_config":{"device_address":str(target_address),
+                         "device_id": device_id},
+        "driver_type":"bacnet",
+        "registry_config":"config://registry_configs/{}".format(config_file_name)
+    }
+
+    json.dump(config, args.driver_out_file,indent=4)
     
     try:
         device_name = read_prop(this_application, target_address, "device", device_id, "objectName")
@@ -464,7 +481,7 @@ def main():
     
     
     
-    config_writer = DictWriter(args.out_file, 
+    config_writer = DictWriter(args.registry_out_file,
                                ('Reference Point Name',
                                 'Volttron Point Name',
                                 'Units',

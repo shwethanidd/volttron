@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*- {{{
 # vim: set fenc=utf-8 ft=python sw=4 ts=4 sts=4 et:
 
-# Copyright (c) 2016, Battelle Memorial Institute
+# Copyright (c) 2017, Battelle Memorial Institute
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -65,19 +65,20 @@ import errno
 from csv import DictReader
 from StringIO import StringIO
 
-from zmq.utils import jsonapi
+from volttron.platform.agent import json as jsonapi
 from gevent.lock import Semaphore
 
 from volttron.utils.persistance import PersistentDict
 from volttron.platform.agent.utils import parse_json_config
 from volttron.platform.vip.agent import errors
 from volttron.platform.jsonrpc import RemoteError, MethodNotFound
-
-from volttron.platform.storeutils import list_unique_links, check_for_recursion, strip_config_name, store_ext
+from volttron.platform.agent.utils import parse_timestamp_string, format_timestamp, get_aware_utc_now
+from volttron.platform.storeutils import check_for_recursion, strip_config_name, store_ext
 from .vip.agent import Agent, Core, RPC
 
 
 _log = logging.getLogger(__name__)
+
 
 def process_store(identity, store):
     """Parses raw store data and returns contents.
@@ -112,6 +113,7 @@ def process_store(identity, store):
 
     return results, name_map
 
+
 def process_raw_config(config_string, config_type="raw"):
     """Parses raw config string into python objects"""
     if config_type == "raw":
@@ -141,7 +143,8 @@ class ConfigStoreService(Agent):
 
     @Core.receiver('onsetup')
     def _setup(self, sender, **kwargs):
-        _log.info("Initializing configuration store")
+        _log.info("Initializing configuration store service.")
+
         try:
             os.makedirs(self.store_path)
         except OSError as e:
@@ -156,16 +159,13 @@ class ConfigStoreService(Agent):
         for store_path in config_store_iter:
             root, ext = os.path.splitext(store_path)
             agent_identity = os.path.basename(root)
-            _log.info("Processing store for agent {}".format(agent_identity))
+            _log.debug("Processing store for agent {}".format(agent_identity))
             store = PersistentDict(filename=store_path, flag='c', format='json')
             parsed_configs, name_map = process_store(agent_identity, store)
             self.store[agent_identity] = {"configs": parsed_configs,
                                           "store": store,
                                           "name_map": name_map,
                                           "lock": Semaphore()}
-
-
-
 
     @RPC.export
     def manage_store(self, identity, config_name, raw_contents, config_type="raw"):
@@ -197,8 +197,9 @@ class ConfigStoreService(Agent):
 
         with agent_store_lock:
             try:
-                self.vip.rpc.call(identity, "config.update", "DELETE_ALL", None, trigger_callback=True).get(
-                    timeout=10.0)
+                self.vip.rpc.call(identity, "config.update",
+                                  "DELETE_ALL", None,
+                                  trigger_callback=True).get(timeout=10.0)
             except errors.Unreachable:
                 _log.debug("Agent {} not currently running. Configuration update not sent.".format(identity))
             except RemoteError as e:
@@ -207,8 +208,8 @@ class ConfigStoreService(Agent):
                 _log.error(
                     "Agent {} failure when adding/updating configuration {}: {}".format(identity, config_name, e))
 
-        # If the store is still empty (nothing jumped in and added to it while we were informing the agent)
-        # then remove it from the global store.
+        # If the store is still empty (nothing jumped in and added to it while
+        # we were informing the agent) then remove it from the global store.
         if not agent_disk_store:
             self.store.pop(identity, None)
 
@@ -221,7 +222,6 @@ class ConfigStoreService(Agent):
     @RPC.export
     def manage_list_stores(self):
         identity = bytes(self.vip.rpc.context.vip_message.peer)
-        _log.info("manage_list_stores called by {}".format(identity))
         result =  self.store.keys()
         result.sort()
         return result
@@ -250,6 +250,31 @@ class ConfigStoreService(Agent):
         return agent_configs[real_config_name]
 
     @RPC.export
+    def manage_get_metadata(self, identity, config_name):
+        agent_store = self.store.get(identity)
+        if agent_store is None:
+            raise KeyError('No configuration file "{}" for VIP IDENTIY {}'.format(config_name, identity))
+
+        agent_disk_store = agent_store["store"]
+        agent_name_map = agent_store["name_map"]
+
+        config_name = strip_config_name(config_name)
+        config_name_lower = config_name.lower()
+
+        if config_name_lower not in agent_name_map:
+            raise KeyError('No configuration file "{}" for VIP IDENTIY {}'.format(config_name, identity))
+
+        real_config_name = agent_name_map[config_name_lower]
+
+        real_config =  agent_disk_store[real_config_name]
+
+        #Set modified to none if we predate the modified flag.
+        if real_config.get("modified") is None:
+            real_config["modified"] = None
+
+        return real_config
+
+    @RPC.export
     def set_config(self, config_name, contents, trigger_callback=False, send_update=True):
         identity = bytes(self.vip.rpc.context.vip_message.peer)
         self.store_config(identity, config_name, contents, trigger_callback=trigger_callback, send_update=send_update)
@@ -257,19 +282,24 @@ class ConfigStoreService(Agent):
 
     @RPC.export
     def get_configs(self):
-        """Called by an Agent at startup to trigger initial configuration state push."""
+        """
+        Called by an Agent at startup to trigger initial configuration state
+        push.
+        """
         identity = bytes(self.vip.rpc.context.vip_message.peer)
 
-        #We need to create store and lock if it doesn't exist in case someone tries to add
-        # a configuration while we are sending the initial state.
+        #We need to create store and lock if it doesn't exist in case someone
+        # tries to add a configuration while we are sending the initial state.
         agent_store = self.store.get(identity)
-
 
         if agent_store is None:
             # Initialize a new store.
             store_path = os.path.join(self.store_path, identity + store_ext)
             store = PersistentDict(filename=store_path, flag='c', format='json')
-            agent_store = {"configs": {}, "store": store, "name_map": {}, "lock": Semaphore()}
+            agent_store = {
+                "configs": {}, "store": store, "name_map": {},
+                "lock": Semaphore()
+            }
             self.store[identity] = agent_store
 
         agent_configs = agent_store["configs"]
@@ -278,7 +308,8 @@ class ConfigStoreService(Agent):
 
         with agent_store_lock:
             try:
-                self.vip.rpc.call(identity, "config.initial_update", agent_configs).get(timeout=10.0)
+                self.vip.rpc.call(identity, "config.initial_update",
+                                  agent_configs).get(timeout=10.0)
             except errors.Unreachable:
                 _log.debug("Agent {} not currently running. Configuration update not sent.".format(identity))
             except RemoteError as e:
@@ -286,9 +317,11 @@ class ConfigStoreService(Agent):
             except MethodNotFound as e:
                 _log.error(
                     "Agent {} failure when performing initial update: {}".format(identity, e))
+            except errors.VIPError as e:
+                _log.error("VIP Error sending initial agent configuration: {}".format(e))
 
-        # If the store is empty (and nothing jumped in and added to it while we were informing the agent)
-        # then remove it from the global store.
+        # If the store is empty (and nothing jumped in and added to it while we
+        # were informing the agent) then remove it from the global store.
         if not agent_disk_store:
             self.store.pop(identity, None)
 
@@ -296,9 +329,11 @@ class ConfigStoreService(Agent):
     def delete_config(self, config_name, trigger_callback=False, send_update=True):
         """Called by an Agent to delete a configuration."""
         identity = bytes(self.vip.rpc.context.vip_message.peer)
-        self.delete(identity, config_name, trigger_callback=trigger_callback, send_update=send_update)
+        self.delete(identity, config_name, trigger_callback=trigger_callback,
+                    send_update=send_update)
 
-    #Helper method to allow the local services to delete configs before message bus in online.
+    # Helper method to allow the local services to delete configs before message
+    # bus in online.
     def delete(self, identity, config_name, trigger_callback=False, send_update=True):
         agent_store = self.store.get(identity)
         if agent_store is None:
@@ -321,7 +356,7 @@ class ConfigStoreService(Agent):
         agent_disk_store.pop(real_config_name)
         agent_name_map.pop(config_name_lower)
 
-        #Sync will delete the file if the store is empty.
+        # Sync will delete the file if the store is empty.
         agent_disk_store.async_sync()
 
         if send_update:
@@ -336,13 +371,15 @@ class ConfigStoreService(Agent):
                     _log.error(
                         "Agent {} failure when adding/updating configuration {}: {}".format(identity, config_name, e))
 
-        #If the store is empty (and nothing jumped in and added to it while we were informing the agent)
-        # then remove it from the global store.
+        # If the store is empty (and nothing jumped in and added to it while we
+        # were informing the agent) then remove it from the global store.
         if not agent_disk_store:
             self.store.pop(identity, None)
 
-    # Helper method to allow the local services to store configs before message bus is online.
-    def store_config(self, identity, config_name, contents, trigger_callback=False, send_update=True):
+    # Helper method to allow the local services to store configs before message
+    # bus is online.
+    def store_config(self, identity, config_name, contents,
+                     trigger_callback=False, send_update=True):
         config_type = None
         raw_data = None
         if isinstance(contents, (dict, list)):
@@ -355,9 +392,13 @@ class ConfigStoreService(Agent):
             raise ValueError("Unsupported configuration content type: {}".format(str(type(contents))))
 
         self._add_config_to_store(identity, config_name, raw_data,contents,
-                                  config_type, trigger_callback=trigger_callback, send_update=send_update)
+                                  config_type,
+                                  trigger_callback=trigger_callback,
+                                  send_update=send_update)
 
-    def _add_config_to_store(self, identity, config_name, raw, parsed, config_type, trigger_callback=False, send_update=True):
+    def _add_config_to_store(self, identity, config_name, raw, parsed,
+                             config_type, trigger_callback=False,
+                             send_update=True):
         """Adds a processed configuration to the store."""
         agent_store = self.store.get(identity)
 
@@ -390,11 +431,14 @@ class ConfigStoreService(Agent):
 
         agent_configs[config_name] = parsed
         agent_name_map[config_name_lower] = config_name
-        agent_disk_store[config_name] = {"type": config_type, "data": raw}
+
+        agent_disk_store[config_name] = {"type": config_type,
+                                         "modified": format_timestamp(get_aware_utc_now()),
+                                         "data": raw}
 
         agent_disk_store.async_sync()
 
-        _log.info("Agent {} config {} stored.".format(identity, config_name))
+        _log.debug("Agent {} config {} stored.".format(identity, config_name))
 
         if send_update:
             with agent_store_lock:

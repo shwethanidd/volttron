@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*- {{{
 # vim: set fenc=utf-8 ft=python sw=4 ts=4 sts=4 et:
 
-# Copyright (c) 2016, Battelle Memorial Institute
+# Copyright (c) 2017, Battelle Memorial Institute
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -62,13 +62,12 @@ from datetime import datetime
 import logging
 import sys
 
+from pprint import pformat
+
 from volttron.platform.messaging.health import STATUS_GOOD
 from volttron.platform.vip.agent import Agent, Core, PubSub, compat
 from volttron.platform.agent import utils
 from volttron.platform.messaging import headers as headers_mod
-
-from . import settings
-
 
 utils.setup_logging()
 _log = logging.getLogger(__name__)
@@ -113,6 +112,7 @@ class ListenerAgent(Agent):
 
     @Core.receiver('onstart')
     def onstart(self, sender, **kwargs):
+        _log.debug("VERSION IS: {}".format(self.core.version()))
         if self._heartbeat_period != 0:
             self.vip.heartbeat.start_with_period(self._heartbeat_period)
             self.vip.health.set_status(STATUS_GOOD, self._message)
@@ -124,13 +124,13 @@ class ListenerAgent(Agent):
             message = compat.unpack_legacy_message(headers, message)
         self._logfn(
             "Peer: %r, Sender: %r:, Bus: %r, Topic: %r, Headers: %r, "
-            "Message: %r", peer, sender, bus, topic, headers, message)
+            "Message: \n%s", peer, sender, bus, topic, headers,  pformat(message))
 
 
 def main(argv=sys.argv):
     '''Main method called by the eggsecutable.'''
     try:
-        utils.vip_main(ListenerAgent)
+        utils.vip_main(ListenerAgent, version=__version__)
     except Exception as e:
         _log.exception('unhandled exception')
 

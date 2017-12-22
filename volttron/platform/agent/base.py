@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*- {{{
 # vim: set fenc=utf-8 ft=python sw=4 ts=4 sts=4 et:
 
-# Copyright (c) 2016, Battelle Memorial Institute
+# Copyright (c) 2017, Battelle Memorial Institute
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -65,7 +65,6 @@ import time as time_mod
 
 import zmq
 from zmq import POLLIN, POLLOUT
-from zmq.utils import jsonapi
 
 import monotonic as clock
 
@@ -73,6 +72,7 @@ from . import sched
 from .matching import iter_match_tests
 from .. import messaging
 from ..messaging import topics
+from volttron.platform.agent import json as jsonapi
 
 
 __all__ = ['periodic', 'BaseAgent', 'PublishMixin']
