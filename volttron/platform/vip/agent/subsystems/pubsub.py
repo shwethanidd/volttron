@@ -44,12 +44,12 @@ import logging
 import random
 import re
 import weakref
-
+import pika
+import sys
 import gevent
 from zmq import green as zmq
 from zmq import SNDMORE
 from volttron.platform.agent import json as jsonapi
-
 from .base import SubsystemBase
 from ..decorators import annotate, annotations, dualmethod, spawn
 from ..errors import Unreachable, VIPError, UnknownSubsystem
@@ -59,7 +59,6 @@ from ..results import ResultsDictionary
 from gevent.queue import Queue, Empty
 from collections import defaultdict
 from datetime import timedelta
-
 
 __all__ = ['PubSub']
 min_compatible_version = '3.0'
@@ -104,12 +103,20 @@ class PubSub(SubsystemBase):
         self._event_queue = Queue()
         self._retry_period = 300.0
         self._processgreenlet = None
+        self._channel = None
 
         def setup(sender, **kwargs):
             # pylint: disable=unused-argument
             self._processgreenlet = gevent.spawn(self._process_loop)
             core.onconnected.connect(self._connected)
-            self.vip_socket = self.core().socket
+            self.vip_socket = self.core().connection.socket
+            # try:
+            #     self.connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
+            #     self._channel = self.connection.channel()
+            #     self._channel.exchange_declare(exchange='federation.exchange',
+            #                                    exchange_type='topic')
+            # except Exception as e:
+            #     print e
             def subscribe(member):   # pylint: disable=redefined-outer-name
                 for peer, bus, prefix, all_platforms in annotations(
                         member, set, 'pubsub.subscriptions'):
@@ -478,6 +485,8 @@ class PubSub(SubsystemBase):
                         del bus_subscriptions[bus]
                     if not bus_subscriptions:
                         del self._my_subscriptions[platform]
+            if not topics:
+                raise KeyError('no such subscription')
         else:
             _log.debug("PUSUB unsubscribe my subscriptions: {0} {1}".format(prefix, self._my_subscriptions))
             if platform in self._my_subscriptions:

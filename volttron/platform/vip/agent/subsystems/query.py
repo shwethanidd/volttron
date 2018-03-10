@@ -60,7 +60,10 @@ class Query(SubsystemBase):
     def query(self, prop, peer=b''):
         socket = self.core().socket
         result = next(self._results)
-        socket.send_vip(peer, b'query', [prop], msg_id=result.ident)
+        self.core().connection.send_vip_object(peer=peer,
+                                               subsystem=b'query',
+                                               args=[prop],
+                                               id=result.ident)
         return result
 
     __call__ = query
