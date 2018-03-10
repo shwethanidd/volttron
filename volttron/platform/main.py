@@ -86,6 +86,7 @@ from .vip.externalrpcservice import ExternalRPCService
 from .vip.keydiscovery import KeyDiscoveryAgent
 from .vip.pubsubwrapper import PubSubWrapper
 from ..utils.persistance import load_create_store
+from .vip.rmq_router import RMQRouter
 
 try:
     import volttron.restricted
@@ -657,29 +658,26 @@ def start_volttron_process(opts):
         except Exception:
             _log.exception('Unhandled exception in router loop')
             raise
+        finally:
+            _log.debug("In finally")
+            stop()
+
+    #RMQ router
+    def rmq_router(stop):
+        try:
+            RMQRouter(opts.vip_address, opts.instance_name).run()
+        except Exception:
+            _log.exception('Unhandled exception in rmq router loop')
         except KeyboardInterrupt:
             pass
         finally:
+            _log.debug("In RMQ router finally")
             stop()
 
     address = 'inproc://vip'
     try:
-        def on_sigint_handler(signo, *_):
-            '''
-            Event handler to set onstop event when the platform wants to shutdown
-            :param signo: signal interrupt number
-            :param _:
-            :return:
-            '''
-            if signo == signal.SIGINT:
-                _log.info('SIGINT received; shutting down platform')
-                auth.core.socket.send_vip(b'', b'quit')
-
-        oninterrupt = None
-        prev_int_signal = gevent.signal.getsignal(signal.SIGINT)
-        # To override default handler
-        if prev_int_signal in [None, signal.SIG_IGN, signal.SIG_DFL, signal.default_int_handler]:
-            oninterrupt = gevent.signal.signal(signal.SIGINT, on_sigint_handler)
+        messagebus = 'rmq'
+        stop_event = None
 
         # Start the config store before auth so we may one day have auth use it.
         config_store = ConfigStoreService(address=address, identity=CONFIGURATION_STORE)
@@ -689,28 +687,41 @@ def start_volttron_process(opts):
         event.wait()
         del event
 
-        # Ensure auth service is running before router
-        auth_file = os.path.join(opts.volttron_home, 'auth.json')
-        auth = AuthService(
-            auth_file, protected_topics_file, opts.setup_mode, opts.aip, address=address, identity=AUTH,
-            enable_store=False)
+        auth_task = None
+        protected_topics = {}
 
-        event = gevent.event.Event()
-        auth_task = gevent.spawn(auth.core.run, event)
-        event.wait()
-        del event
-        protected_topics = auth.get_protected_topics()
-        _log.debug("MAIN: protected topics content {}".format(protected_topics))
+        if messagebus == 'zmq':
+            # Start router in separate thread to remain responsive
+            thread = threading.Thread(target=router, args=(config_store.core.stop,))
+            thread.daemon = True
+            thread.start()
 
-        # Start router in separate thread to remain responsive
-        thread = threading.Thread(target=router, args=(auth.core.stop,))
-        thread.daemon = True
-        thread.start()
+            gevent.sleep(0.1)
+            if not thread.isAlive():
+                sys.exit()
 
+            # Ensure auth service is running before router
+            auth_file = os.path.join(opts.volttron_home, 'auth.json')
+            auth = AuthService(
+                auth_file, protected_topics_file, opts.setup_mode, opts.aip, address=address, identity=AUTH,
+                enable_store=False)
 
-        gevent.sleep(0.1)
-        if not thread.isAlive():
-            sys.exit()
+            event = gevent.event.Event()
+            auth_task = gevent.spawn(auth.core.run, event)
+            event.wait()
+            del event
+            protected_topics = auth.get_protected_topics()
+            _log.debug("MAIN: protected topics content {}".format(protected_topics))
+        else:
+            #Start router in separate thread to remain responsive
+
+            thread = threading.Thread(target=rmq_router, args=(config_store.core.stop,))
+            thread.daemon = True
+            thread.start()
+
+            gevent.sleep(0.1)
+            if not thread.isAlive():
+                sys.exit()
 
         # The instance file is where we are going to record the instance and
         # its details according to
@@ -741,12 +752,12 @@ def start_volttron_process(opts):
         services = [
             ControlService(opts.aip, address=address, identity='control',
                            tracker=tracker, heartbeat_autostart=True,
-                           enable_store=False, enable_channel=True),
+                           enable_store=False, enable_channel=False),
 
-            CompatPubSub(address=address, identity='pubsub.compat',
-                         publish_address=opts.publish_address,
-                         subscribe_address=opts.subscribe_address),
-
+            # CompatPubSub(address=address, identity='pubsub.compat',
+            #               publish_address=opts.publish_address,
+            #               subscribe_address=opts.subscribe_address),
+            #
             MasterWebService(
                 serverkey=publickey, identity=MASTER_WEB,
                 address=address,
@@ -754,21 +765,24 @@ def start_volttron_process(opts):
                 volttron_central_address=opts.volttron_central_address,
                 aip=opts.aip, enable_store=False),
 
-            KeyDiscoveryAgent(address=address, serverkey=publickey,
-                              identity='keydiscovery',
-                              external_address_config=external_address_file,
-                              setup_mode=opts.setup_mode,
-                              bind_web_address=opts.bind_web_address),
+            # KeyDiscoveryAgent(address=address, serverkey=publickey,
+            #                    identity='keydiscovery',
+            #                    external_address_config=external_address_file,
+            #                    setup_mode=opts.setup_mode,
+            #                    bind_web_address=opts.bind_web_address),
 
-            PubSubWrapper(address=address,
-                          identity='pubsub', heartbeat_autostart=True,
-                          enable_store=False)
+            # PubSubWrapper(address=address,
+            #               identity='pubsub', heartbeat_autostart=True,
+            #               enable_store=False)
         ]
         events = [gevent.event.Event() for service in services]
         tasks = [gevent.spawn(service.core.run, event)
                  for service, event in zip(services, events)]
         tasks.append(config_store_task)
-        tasks.append(auth_task)
+        if auth_task:
+            tasks.append(auth_task)
+        if stop_event:
+            tasks.append(stop_event)
         gevent.wait(events)
         del events
 
@@ -780,14 +794,15 @@ def start_volttron_process(opts):
         try:
             gevent.wait(tasks, count=1)
         except KeyboardInterrupt:
-            _log.debug('SIGINT received; shutting down')
+            _log.info('SIGINT received; shutting down')
         finally:
             sys.stderr.write('Shutting down.\n')
+            _log.debug("Kill all tasks")
             for task in tasks:
                 task.kill(block=False)
             gevent.wait(tasks)
-            del tasks
     finally:
+        _log.debug("AIP finally")
         opts.aip.finish()
 
 def main(argv=sys.argv):
