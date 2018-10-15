@@ -1,0 +1,8 @@
+{
+    "scalability_test_iterations": 5,
+    "publish_breadth_first_all": false,
+    "publish_depth_first": false,
+    "driver_scrape_interval": 0.0,
+    "publish_breadth_first": false,
+    "scalability_test": true
+}

@@ -1,0 +1,4 @@
+#!/bin/bash
+
+#python scripts/install-agent.py -s examples/NodesProsumer --start --force -i prosumer2
+python scripts/install-agent.py -s services/core/ActuatorAgent -c services/core/ActuatorAgent/actuator-deploy.service --start --force -i platform.actuator

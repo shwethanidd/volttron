@@ -1,0 +1,3 @@
+python scripts/install-agent.py -i "platform.agent" \
+    -s services/core/VolttronCentralPlatform \
+    --force

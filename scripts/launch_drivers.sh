@@ -5,6 +5,7 @@ if [ -z "$VOLTTRON_HOME" ]; then
     export VOLTTRON_HOME=~/.volttron
 fi
 export AGENT_CONFIG=fake-master-driver.agent
+export MESSAGEBUS=rmq
 python -m master_driver.agent
 popd
 

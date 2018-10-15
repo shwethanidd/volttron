@@ -271,6 +271,7 @@ class BaseRouter(object):
 
         self._add_peer(sender.bytes)
         subsystem = frames[5]
+
         if not recipient.bytes:
             # Handle requests directed at the router
             name = subsystem.bytes
