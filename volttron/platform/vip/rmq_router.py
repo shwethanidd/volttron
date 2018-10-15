@@ -193,6 +193,7 @@ class RMQRouter(BaseRouter):
         subsystem = message.subsystem
         self._add_peer(sender)
         if subsystem == b'hello':
+            _log.debug("sender: {}".format(sender))
             message.args = [b'welcome', b'1.0', self._identity, sender]
         elif subsystem == b'ping':
             message.args = [b'pong']
@@ -256,6 +257,8 @@ class RMQRouter(BaseRouter):
                     value = self._bind_web_address
                 elif name == b'platform-version':
                     value = __version__
+                elif name == b'message-bus':
+                    value = os.environ.get('MESSAGEBUS', 'zmq')
                 else:
                     value = None
             message.args = [b'', jsonapi.dumps(value)]

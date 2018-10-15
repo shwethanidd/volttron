@@ -24,7 +24,7 @@ def setup_control_connection(request, get_volttron_instances):
     # Connect using keys
     ks = KeyStore()
     ks.generate()
-    message_bus = os.environ.get('MESSAGE_BUS', 'zmq')
+    message_bus = os.environ.get('MESSAGEBUS', 'zmq')
 
     control_connection = build_connection(identity="foo",
                                           address=wrapper.vip_address,

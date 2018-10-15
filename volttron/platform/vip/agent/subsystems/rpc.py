@@ -239,6 +239,7 @@ class RPC(SubsystemBase):
         def checked_method(*args, **kwargs):
             user = str(self.context.vip_message.user)
             caps = self._owner.vip.auth.get_capabilities(user)
+            _log.debug("AUTH check user: {0}, {1}".format(self.context.vip_message.user, caps))
             if not required_caps <= set(caps):
                 msg = ('method "{}" requires capabilities {},'
                       ' but capability list {} was'
@@ -371,7 +372,7 @@ class RPC(SubsystemBase):
             return
 
         if self._message_bus == 'zmq':
-            if platform == '':#local platform
+            if platform == '':# local platform
                 subsystem = b'RPC'
                 frames.append(request)
                 #self.core().socket.send_vip(peer, 'RPC', [request], msg_id=ident)

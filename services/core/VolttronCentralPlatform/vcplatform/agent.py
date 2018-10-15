@@ -144,7 +144,7 @@ class VolttronCentralPlatform(Agent):
         d['topic-replace-map'] = topic_replace_map
         d['device-status-interval'] = device_status_interval
         d['platform-driver-ids'] = platform_driver_ids
-
+        d['message-bus'] = 'zmq'
         # default_configuration is what is specified if there isn't a "config"
         # sent in through the volttron-ctl config store command.
         self.default_config = d
@@ -174,7 +174,7 @@ class VolttronCentralPlatform(Agent):
         self._establish_connection_event = None
         self._device_status_event = None
         self._stat_publish_event = None
-
+        self._message_bus = d['message-bus']
         # This becomes a connection to the vc instance either specified from the
         # instance level or from the config file.
         self._vc_connection = None
@@ -220,7 +220,11 @@ class VolttronCentralPlatform(Agent):
         self._bacnet_proxy_readers = None
 
     def _retrieve_address_and_serverkey(self, discovery_address):
+        _log.debug("VCP: Before Discovery Info: {}")
         info = DiscoveryInfo.request_discovery_info(discovery_address)
+        _log.debug("VCP: Discovery Info: {}".format(info))
+        if self._message_bus == 'rmq' and info.vc_rmq_address:
+            info.vip_address = info.vc_rmq_address
         return info.vip_address, info.serverkey
 
     def _configure(self, config_name, action, contents):
@@ -250,17 +254,18 @@ class VolttronCentralPlatform(Agent):
         qry_vc_serverkey = q.query('volttron-central-serverkey').get(timeout=5)
         qry_instance_name = q.query('instance-name').get(timeout=5)
         qry_bind_web_address = q.query('bind-web-address').get(timeout=5)
+        self._message_bus = q.query('message-bus').get(timeout=5)
+
 
         cfg_vc_address = config.get("volttron-central-address")
         cfg_vc_serverkey = config.get("volttron-central-serverkey")
-        message_bus = os.environ.get('MESSAGEBUS', 'zmq')
 
         try:
             a, s = self._determine_vc_address_and_serverkey(cfg_vc_address,
                                                             cfg_vc_serverkey,
                                                             qry_bind_web_address)
-        except AttributeError:
-
+        except AttributeError as e:
+            _log.debug("Attribute Error {}".format(e))
             try:
                 a, s = self._determine_vc_address_and_serverkey(qry_vc_address,
                                                                 qry_vc_serverkey,
@@ -294,7 +299,7 @@ volttron-central-serverkey."""
         self._vc_address = a
         self._registration_state = RegistrationStates.NotRegistered
 
-        if message_bus == 'zmq':
+        if self._message_bus == 'zmq':
             self._vc_serverkey = s
             if not self._vc_address or not self._vc_serverkey:
                 _log.error("vc address and serverkey could not be determined. "
@@ -377,10 +382,10 @@ volttron-central-serverkey."""
         if parsed_address.scheme in ('https', 'http'):
             try:
                 a, s = self._retrieve_address_and_serverkey(address)
-            except DiscoveryError:
+            except DiscoveryError as e:
                 raise AttributeError(
                     "Cannot retrieve data from address: {}".format(address))
-        elif parsed_address.scheme in ('amqp',):
+        elif parsed_address.scheme in ('amqp', 'amqps'):
             a = address
             s = None
         else:
@@ -498,7 +503,11 @@ volttron-central-serverkey."""
         if not self._vc_address:
             raise ValueError("vc_address was not resolved properly.")
 
-        if not self._vc_address.startswith('amqp') and not self._vc_serverkey:
+        parsed = urlparse.urlparse(self._vc_address)
+        _log.debug("MSG BUS: {}, VC address {}".format(self._message_bus, parsed.scheme))
+        if self._message_bus == 'rmq' and parsed.scheme not in ('amqp', 'tcp'):
+            raise ValueError("volttron central address was not resolved properly.")
+        elif self._message_bus == 'zmq' and not self._vc_serverkey:
             raise ValueError("vc_serverkey was not resolved properly.")
 
         if self._establish_connection_event is not None:

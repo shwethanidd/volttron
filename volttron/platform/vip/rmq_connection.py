@@ -9,6 +9,7 @@ from volttron.utils.rmq_mgmt import build_rmq_address, create_user
 #monkey.patch_socket()
 import uuid
 import time
+from urlparse import urlparse
 
 _log = logging.getLogger(__name__)
 # reduce pika log level
@@ -39,18 +40,22 @@ class RMQConnection(BaseConnection):
         self._closing = False
         self._consumer_tag = None
         self._error_tag = None
-        #self._userid = agent_uuid if agent_uuid is not None else identity
-        # Create new agent user
-        #create_user(self._userid, str(uuid.uuid4()))
         self._logger = logging.getLogger(__name__)
         self._logger.debug("AGENT address: {}".format(url))
         if vc_url:
-            self._url = url
+             self._url = url
         else:
+            # Check if address is in amqp format, else build a new one
+            # if isinstance(url, list) and n:
+            #     url = url[0]
+            # parsed = urlparse(url)
+            # if parsed.scheme in ('amqp', 'amqps'):
+            #     self._url = url
+            # else:
             self._url = build_rmq_address()
         _log.debug("AMQP address: {}".format(self._url))#'amqp://guest:guest@localhost:5672/%2F'
+        instance_name = instance_name.strip('"')
         self.routing_key = "{0}.{1}".format(instance_name, identity)
-        #self.routing_key = identity
         self._vip_queue = "__{0}__.{1}".format(instance_name, identity)#identity
 
         self.exchange = 'volttron'
@@ -73,14 +78,15 @@ class RMQConnection(BaseConnection):
         if self._type == 'agent':
             self._connection = pika.GeventConnection(pika.URLParameters(self._url),
                                                      on_open_callback=self.on_connection_open,
-                                                     on_open_error_callback=self.on_open_error
-                                                     #on_close_callback=self.on_connection_closed,
+#                                                     on_open_error_callback=self.on_open_error
+                                                     on_close_callback=self.on_connection_closed,
                                                      )
+        # router
         else:
             self._connection = pika.SelectConnection(
                                     pika.URLParameters(self._url),
                                     on_open_callback=self.on_connection_open,
-                                    on_close_callback=self.on_connection_closed,
+                                    # on_close_callback=self.on_connection_closed,
                                     on_open_error_callback=self.on_open_error,
                                     stop_ioloop_on_close=False
                                     )

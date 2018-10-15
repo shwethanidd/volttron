@@ -30,7 +30,7 @@ from volttron.platform.vip.agent.connection import Connection
 from volttrontesting.utils.utils import get_rand_http_address
 from volttrontesting.utils.utils import get_rand_tcp_address
 from volttron.platform.agent import json as jsonapi
-from volttron.utils.rmq_mgmt import create_rmq_volttrontest_setup
+from volttron.utils.rmq_mgmt import create_rmq_volttron_test_setup
 
 utils.setup_logging()
 _log = logging.getLogger(__name__)
@@ -179,7 +179,8 @@ class PlatformWrapper:
             'PACKAGED_DIR': self.packaged_dir,
             'DEBUG_MODE': os.environ.get('DEBUG_MODE', ''),
             'DEBUG': os.environ.get('DEBUG', ''),
-            'PATH': VOLTTRON_ROOT + ':' + os.environ['PATH']
+            'PATH': VOLTTRON_ROOT + ':' + os.environ['PATH'],
+            'MESSAGEBUS': os.environ.get('MESSAGEBUS', 'rmq')
         }
         self.volttron_root = VOLTTRON_ROOT
 
@@ -204,7 +205,7 @@ class PlatformWrapper:
         self.started_agent_pids = []
         self.local_vip_address = None
         self.vip_address = None
-        self.message_bus = os.environ.get('MESSAGE_BUS', 'zmq')
+        self.message_bus = os.environ.get('MESSAGEBUS', 'zmq')
         self.logit('Creating platform wrapper')
 
         # This was used when we are testing the SMAP historian.
@@ -312,9 +313,9 @@ class PlatformWrapper:
             address = self.vip_address
 
         if publickey and not serverkey:
-            self.logit('using instance serverkey: {}'.format(self.publickey))
-            serverkey = self.publickey
-        message_bus = os.environ.get('MESSAGE_BUS', 'zmq')
+            self.logit('using instance serverkey: {}'.format(publickey))
+            serverkey = publickey
+        message_bus = os.environ.get('MESSAGEBUS', 'zmq')
         self.logit("BUILD agent VOLTTRON HOME: {}".format(self.volttron_home))
         agent = agent_class(address=address, identity=identity,
                             publickey=publickey, secretkey=secretkey,
@@ -422,10 +423,10 @@ class PlatformWrapper:
         if not debug_mode:
             debug_mode = self.env.get('DEBUG', False)
         self.skip_cleanup = self.env.get('SKIP_CLEANUP', False)
-        message_bus = self.env.get('MESSAGE_BUS', 'zmq')
+        message_bus = self.env.get('MESSAGEBUS', 'zmq')
         if message_bus == 'rmq':
             self.logit("Setting up volttron test environemnt {}".format(self.volttron_home))
-            create_rmq_volttrontest_setup(self.volttron_home)
+            create_rmq_volttron_test_setup(self.volttron_home)
             if not instance_name:
                 self.instance_name = instance_name = 'volttron_test'
         if debug_mode:

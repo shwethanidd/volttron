@@ -207,11 +207,11 @@ class RMQPubSub(BasePubSub):
             durable = True
             auto_delete = False
         else:
-            queue = "pubsub.{0}.{1}".format(self.core().identity, str(uuid.uuid4()))
+            queue = "pubsub.{identity}.{uid}".format(identity=self.core().identity, uid=str(uuid.uuid4()))
         # Store subscriptions for later use
         self._add_subscription(routing_key, callback, queue)
 
-        self._logger.debug("PUBUB subscribing to {}".format(routing_key))
+        self._logger.debug("PUBSUB subscribing to {}".format(routing_key))
 
         try:
             connection.channel.queue_declare(callback=None,
