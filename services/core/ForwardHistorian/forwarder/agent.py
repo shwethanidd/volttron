@@ -100,17 +100,6 @@ def historian(config_path, **kwargs):
     message_bus = os.environ.get('MESSAGEBUS', 'zmq')
     kwargs['message_bus'] = message_bus
 
-    # need to re-examine if these are necessary
-    # parsed = urlparse(destination_vip)
-    # if message_bus == 'rmq':
-    #     if parsed.scheme not in ('amqp', 'amqps'):
-    #         raise StandardError(
-    #             'RabbitMQ address must begin with amqp')
-    # else:
-    #     if parsed.scheme not in 'tcp':
-    #         raise StandardError(
-    #             'ZeroMQ address must begin with tcp')
-
     required_target_agents = config.pop('required_target_agents', [])
     cache_only = config.pop('cache_only', False)
 
@@ -318,11 +307,6 @@ class ForwardHistorian(BaseHistorian):
             if self.timestamp() < self._last_timeout + 60:
                 _log.debug('Not allowing send < 60 seconds from failure')
                 return
-        if self.destination_address:
-            if not self._target_platform:
-                value = self.vip.auth.connect_remote_platform(self.destination_address)
-                if isinstance(value, Agent):
-                    self._target_platform = value
 
         if not self._target_platform:
             self.historian_setup()
@@ -442,13 +426,11 @@ class ForwardHistorian(BaseHistorian):
     def historian_setup(self):
         _log.debug("Setting up to forward to {}".format(self.destination_vip))
         try:
-            agent = build_agent(address=self.destination_vip,
-                                serverkey=self.destination_serverkey,
-                                publickey=self.core.publickey,
-                                secretkey=self.core.secretkey,
-                                instance_name=self.destination_instance_name,
-                                enable_store=False)
-
+            if not self._target_platform:
+                value = self.vip.auth.connect_remote_platform(self.destination_address)
+                if isinstance(value, Agent):
+                    self._target_platform = value
+                # Else wait and retry
         except gevent.Timeout:
             _log.error("Couldn't connect to destination-vip ({})".format(
                 self.destination_vip
@@ -459,7 +441,6 @@ class ForwardHistorian(BaseHistorian):
             _log.error(ex.args)
 
         else:
-            self._target_platform = agent
             self.vip.health.set_status(
                 STATUS_GOOD, "Connected to destination-vip ({})".format(
                     self.destination_vip))
