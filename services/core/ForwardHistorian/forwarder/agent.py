@@ -442,12 +442,23 @@ class ForwardHistorian(BaseHistorian):
     def historian_setup(self):
         _log.debug("Setting up to forward to {}".format(self.destination_vip))
         try:
-            agent = build_agent(address=self.destination_vip,
-                                serverkey=self.destination_serverkey,
-                                publickey=self.core.publickey,
-                                secretkey=self.core.secretkey,
-                                instance_name=self.destination_instance_name,
-                                enable_store=False)
+            results = self.vip.auth.connect_remote_platform(self.destination_address)
+            agent = None
+            while True:
+                if isinstance(results, Agent):
+                    agent = results
+                    break
+                else:
+                    _log.debug("Results from server response was: {}".format(results))
+                    gevent.sleep(60)
+                    results = self.vip.auth.connect_remote_platform(self.destination_address)
+
+            # agent = build_agent(address=self.destination_vip,
+            #                     serverkey=self.destination_serverkey,
+            #                     publickey=self.core.publickey,
+            #                     secretkey=self.core.secretkey,
+            #                     instance_name=self.destination_instance_name,
+            #                     enable_store=False)
 
         except gevent.Timeout:
             _log.error("Couldn't connect to destination-vip ({})".format(
