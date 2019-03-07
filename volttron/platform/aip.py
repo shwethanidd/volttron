@@ -669,6 +669,7 @@ class AIPplatform(object):
 
         environ['AGENT_VIP_IDENTITY'] = agent_vip_identity
 
+        _log.info("Created agent cert")
         module, _, func = module.partition(':')
         if func:
             code = '__import__({0!r}, fromlist=[{1!r}]).{1}()'.format(module, func)

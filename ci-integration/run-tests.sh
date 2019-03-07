@@ -1,9 +1,8 @@
 #!/bin/sh
 
 export CI=travis
-export FAST_FAIL=1
-
-
+#export FAST_FAIL=1
+export MESSAGEBUS='rmq'
 # The context should already have been activated at this point.
 #pip install pymongo pytest pytest-bdd pytest-cov
 #pip install mock --upgrade

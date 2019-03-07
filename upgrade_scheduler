@@ -1,0 +1,4 @@
+#!/bin/bash
+
+#python scripts/install-agent.py -s examples/NodesProsumer --start --force -i prosumer2
+python scripts/install-agent.py -s examples/SchedulerExample -c examples/SchedulerExample/schedule-example.agent --start --force -i scheduleer

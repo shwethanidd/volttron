@@ -1,0 +1,2 @@
+#!/bin/bash
+MESSAGEBUS=rmq python scripts/install-agent.py -s examples/NodesProsumer --start --force -i prosumer

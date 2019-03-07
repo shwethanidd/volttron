@@ -3,6 +3,7 @@ import logging
 import pytest
 
 import gevent
+import os
 
 from volttron.platform import get_volttron_root
 from volttron.platform.agent.known_identities import VOLTTRON_CENTRAL_PLATFORM, \
@@ -101,6 +102,8 @@ def vc_agent(setup_platform):
 
 
 @pytest.mark.vcp
+@pytest.mark.skipif(os.environ.get("MESSAGEBUS") is 'rmq',
+                    reason="Not integrated with RabbitMQ message bus")
 def test_list_agents(setup_platform, vc_agent, caplog):
 
     # split vc_agent into it's respective parts.
@@ -123,6 +126,8 @@ def test_list_agents(setup_platform, vc_agent, caplog):
 
 
 @pytest.mark.vcp
+@pytest.mark.skipif(os.environ.get("MESSAGEBUS") is 'rmq',
+                    reason="Not integrated with RabbitMQ message bus")
 def test_can_inspect_agent(setup_platform, vc_agent, caplog):
 
     # split vc_agent into it's respective parts.
@@ -148,6 +153,8 @@ def test_can_inspect_agent(setup_platform, vc_agent, caplog):
 
 
 @pytest.mark.vcp
+@pytest.mark.skipif(os.environ.get("MESSAGEBUS") is 'rmq',
+                    reason="Not integrated with RabbitMQ message bus")
 def test_can_call_rpc_method(setup_platform, vc_agent):
     # split vc_agent into it's respective parts.
     vc, vcp_identity = vc_agent
@@ -158,6 +165,8 @@ def test_can_call_rpc_method(setup_platform, vc_agent):
 
 
 @pytest.mark.vcp
+@pytest.mark.skipif(os.environ.get("MESSAGEBUS") is 'rmq',
+                    reason="Not integrated with RabbitMQ message bus")
 def test_can_get_version(setup_platform, vc_agent):
     # split vc_agent into it's respective parts.
     vc, vcp_identity = vc_agent
@@ -186,6 +195,8 @@ def test_can_get_version(setup_platform, vc_agent):
 
 
 @pytest.mark.vcp
+@pytest.mark.skipif(os.environ.get("MESSAGEBUS") is 'rmq',
+                    reason="Not integrated with RabbitMQ message bus")
 def test_can_change_topic_map(setup_platform, vc_agent):
     vc, vcp_identity = vc_agent
 

@@ -1,0 +1,7 @@
+{
+    "timezone": "US/Pacific",
+    "driver_type": "fakedriver",
+    "interval": 60.0,
+    "registry_config": "config://registry_configs/fake18.csv",
+    "driver_config": {}
+}

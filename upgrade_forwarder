@@ -1,0 +1,10 @@
+#!/bin/bash
+export CONFIG=$(mktemp /tmp/abc-script.XXXXXX)
+cat > $CONFIG <<EOL
+{
+    "destination-vip": "amqp://test2:test2@localhost:5672/test2",
+    "destination-serverkey": "1yEUcpIcQTJzpvEwl-7KNCxe_f5rhhoShv9f3A8wdUg",
+    "destination-instance-name": "volttron2"
+}
+EOL
+MESSAGEBUS=rmq python scripts/install-agent.py -s services/core/ForwardHistorian -c $CONFIG --start --force -i forwarder

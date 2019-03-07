@@ -73,6 +73,7 @@ logging.getLogger("pika").setLevel(logging.WARNING)
 RMQ_RESOURCE_LOCKED = 405
 CONNECTION_FORCED = 320
 
+
 class RMQConnection(BaseConnection):
     """
     Connection class for RabbitMQ message bus.
@@ -80,6 +81,7 @@ class RMQConnection(BaseConnection):
     2. Translates from VIP message format to RabbitMQ message format and visa-versa
     3. Sends and receives messages using Pika library APIs
     """
+
     def __init__(self, url, identity, instance_name, reconnect_delay=30, vc_url=None):
         super(RMQConnection, self).__init__(url, identity, instance_name)
         self._connection = None
@@ -102,7 +104,7 @@ class RMQConnection(BaseConnection):
         self._queue_properties = dict()
         self._explicitly_closed = False
         self._reconnect_delay = reconnect_delay
-        #_log.debug("ROUTING KEY: {}".format(self.routing_key))
+        # _log.debug("ROUTING KEY: {}".format(self.routing_key))
 
     def open_connection(self):
         """
@@ -174,7 +176,7 @@ class RMQConnection(BaseConnection):
         :param str reply_text: The text reason the channel was closed
 
         """
-        #_log.error("Channel Closed Unexpectedly. {0}, {1}".format(reply_code, reply_text))
+        # _log.error("Channel Closed Unexpectedly. {0}, {1}".format(reply_code, reply_text))
         if reply_code == RMQ_RESOURCE_LOCKED:
             _log.error("Channel Closed Unexpectedly. Attempting to run Agent/platform again".format(self._identity))
             self._connection.close()
@@ -204,10 +206,10 @@ class RMQConnection(BaseConnection):
 
         # Check if VIP queue exists, if so delete the stale queue first
         self.channel.queue_declare(queue=self._vip_queue_name,
-                                    durable=self._queue_properties['durable'],
-                                    exclusive=self._queue_properties['exclusive'],
-                                    auto_delete=self._queue_properties['auto_delete'],
-                                    callback=self.on_queue_declare_ok
+                                   durable=self._queue_properties['durable'],
+                                   exclusive=self._queue_properties['exclusive'],
+                                   auto_delete=self._queue_properties['auto_delete'],
+                                   callback=self.on_queue_declare_ok
                                    )
 
     def set_properties(self, flags):
@@ -228,8 +230,8 @@ class RMQConnection(BaseConnection):
         :return:
         """
         _log.debug('Binding {0} to {1} with {2}'.format(self.exchange,
-                                                                self._vip_queue_name,
-                                                                self.routing_key))
+                                                        self._vip_queue_name,
+                                                        self.routing_key))
         self.channel.queue_bind(self.on_bind_ok,
                                 exchange=self.exchange,
                                 queue=self._vip_queue_name,
@@ -316,10 +318,10 @@ class RMQConnection(BaseConnection):
             'user_id': self._rmq_userid,
             'app_id': self.routing_key,  # Routing key of SENDER
             'headers': dict(
-                            recipient=destination_routing_key,  # RECEIVER
-                            proto=b'VIP',  # PROTO
-                            user=getattr(message, 'user', self._rmq_userid),  # USER_ID
-                            ),
+                recipient=destination_routing_key,  # RECEIVER
+                proto=b'VIP',  # PROTO
+                user=getattr(message, 'user', self._rmq_userid),  # USER_ID
+            ),
             'message_id': getattr(message, 'id', b''),  # MSG_ID
             'type': message.subsystem,  # SUBSYS
             'content_type': 'application/json'
@@ -332,9 +334,9 @@ class RMQConnection(BaseConnection):
         #                                                              self.routing_key))
         try:
             self.channel.basic_publish(self.exchange,
-                                   destination_routing_key,
-                                   json.dumps(msg, ensure_ascii=False),
-                                   properties)
+                                       destination_routing_key,
+                                       json.dumps(msg, ensure_ascii=False),
+                                       properties)
         except (pika.exceptions.AMQPConnectionError,
                 pika.exceptions.AMQPChannelError) as exc:
             raise Unreachable(errno.EHOSTUNREACH, "Connection to RabbitMQ is lost",
@@ -378,6 +380,7 @@ class RMQRouterConnection(RMQConnection):
     """
     RabbitMQ message bus connection class for Router module
     """
+
     def __init__(self, url, identity, instance_name, reconnect_delay=30, vc_url=None):
         super(RMQRouterConnection, self).__init__(url, identity, instance_name, reconnect_delay=reconnect_delay)
         _log.debug("ROUTER URL: {}".format(url))
@@ -407,15 +410,15 @@ class RMQRouterConnection(RMQConnection):
         self.channel = channel
         self.add_on_channel_close_callback()
         self.channel.queue_declare(queue=self._vip_queue_name,
-                                    durable=self._queue_properties['durable'],
-                                    exclusive=self._queue_properties['exclusive'],
-                                    auto_delete=self._queue_properties['auto_delete'],
-                                    callback=self.on_queue_declare_ok,
+                                   durable=self._queue_properties['durable'],
+                                   exclusive=self._queue_properties['exclusive'],
+                                   auto_delete=self._queue_properties['auto_delete'],
+                                   callback=self.on_queue_declare_ok,
                                    )
         self.channel.queue_declare(queue=self._alternate_queue,
                                    durable=False,
                                    exclusive=True,
-                                   auto_delete= True,
+                                   auto_delete=True,
                                    callback=self.on_alternate_queue_declare_ok)
 
     def on_alternate_queue_declare_ok(self, method_frame):
@@ -487,7 +490,7 @@ class RMQRouterConnection(RMQConnection):
 
         # The below try/except protects the platform from someone who is not communicating
         # via vip protocol.  If sender is not a string then the channel publish will throw
-        # an AssertionError and it will kill the platform.  
+        # an AssertionError and it will kill the platform.
         try:
             self.channel.basic_publish(self.exchange,
                                        sender,
@@ -495,7 +498,7 @@ class RMQRouterConnection(RMQConnection):
                                        props)
         except AssertionError:
             pass
-        
+
     def loop(self):
         """
         Connect to RabbiMQ broker and run infinite loop to listen to incoming messages

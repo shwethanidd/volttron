@@ -17,6 +17,7 @@ def test_fixture_returns_correct_number_of_instances(get_volttron_instances):
 
 
 @pytest.mark.wrapper
+@pytest.mark.skip("Not integrated with RabbitMQ message bus")
 def test_fixture_starts_platforms(get_volttron_instances):
     num_instances = 5
     wrappers = get_volttron_instances(num_instances)
