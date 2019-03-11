@@ -45,7 +45,7 @@ def create_rmq_volttron_setup(vhome=None, ssl_auth=False):
 
     rabbitmq_config['ssl'] = str(ssl_auth)
     vhome = get_home()
-    instance_setup._install_config_file()
+    instance_setup._update_config_file()
     vhome_config = os.path.join(vhome, 'rabbitmq_config.yml')
 
     if not os.path.isfile(vhome_config):
@@ -57,7 +57,8 @@ def create_rmq_volttron_setup(vhome=None, ssl_auth=False):
 
     setup_rabbitmq_volttron('single',
                             verbose=False,
-                            prompt=False)
+                            prompt=False,
+                            instance_name=VOLTTRON_INSTANCE_NAME)
 
 
 def cleanup_rmq_volttron_setup(vhome=None, ssl_auth=False):
