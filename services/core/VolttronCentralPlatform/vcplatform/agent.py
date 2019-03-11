@@ -224,8 +224,8 @@ class VolttronCentralPlatform(Agent):
         _log.debug("VCP: Before Discovery Info: {}")
         info = DiscoveryInfo.request_discovery_info(discovery_address)
         _log.debug("VCP: Discovery Info: {}".format(info))
-        if self._message_bus == 'rmq' and info.vc_rmq_address:
-            info.vip_address = info.vc_rmq_address
+        if self._message_bus == 'rmq' and info.rmq_address:
+            info.vip_address = info.rmq_address
         return info.vip_address, info.serverkey
 
     def _configure(self, config_name, action, contents):

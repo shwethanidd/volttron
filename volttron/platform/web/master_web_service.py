@@ -346,7 +346,7 @@ class MasterWebService(Agent):
             else:
                 rmq_address = "amqp://{host}:{port}/{vhost}".format(host=config.hostname, port=config.amqp_port,
                                                                      vhost=config.virtual_host)
-            return_dict['vc-rmq-address'] = rmq_address
+            return_dict['rmq-address'] = rmq_address
             return_dict['rmq-ca-cert'] = self._certs.cert(self._certs.root_ca_name).public_bytes(serialization.Encoding.PEM)
         return Response(jsonapi.dumps(return_dict), content_type="application/json")
 

@@ -815,6 +815,7 @@ class RabbitMQMgmt(object):
         ssl_auth = ssl_auth if ssl_auth is not None else self.is_ssl
 
         _, virtual_host = parsed_addr.path.split('/')
+
         try:
             if ssl_auth:
                 certfile = self.certs.cert_file(rmq_user, True)
