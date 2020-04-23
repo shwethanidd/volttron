@@ -574,6 +574,7 @@ class BaseHistorianAgent(Agent):
                 for topic in topic_list:
                     custom_topics_list.append((True, topic, self._capture_record_data))
 
+        _log.info('_update_subscriptions: {}'.format(config))
         self._update_subscriptions(bool(config.get("capture_device_data", True)),
                                    bool(config.get("capture_log_data", True)),
                                    bool(config.get("capture_analysis_data", True)),
@@ -594,6 +595,10 @@ class BaseHistorianAgent(Agent):
                                     capture_analysis_data,
                                     capture_record_data,
                                     custom_topics_list):
+        _log.info("_update_subscriptions {}, {}, {}, {}".format(topics.DRIVER_TOPIC_BASE,
+                                                      topics.LOGGER_BASE,
+                                                      topics.ANALYSIS_TOPIC_BASE,
+                                                      topics.RECORD_BASE))
         subscriptions = [
             (capture_device_data, topics.DRIVER_TOPIC_BASE, self._capture_device_data),
             (capture_log_data, topics.LOGGER_BASE, self._capture_log_data),
@@ -601,6 +606,8 @@ class BaseHistorianAgent(Agent):
             (capture_record_data, topics.RECORD_BASE, self._capture_record_data)
         ]
         subscriptions.extend(custom_topics_list)
+        _log.info("_update_subscriptions, subscriptions: {}".format(subscriptions))
+
         for should_sub, prefix, cb in subscriptions:
             if should_sub and not self._readonly:
                 if prefix not in self._current_subscriptions:

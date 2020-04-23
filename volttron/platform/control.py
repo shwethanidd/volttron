@@ -785,6 +785,7 @@ def status_agents(opts):
 
     def get_health(agent):
         try:
+            _stdout.write("control peerlist: {}".format(opts.connection.server.vip.peerlist().get(timeout=4)))
             # TODO Modify this later so that we aren't calling peerlist before we call the status of the agent.
             if agent.vip_identity in opts.connection.server.vip.peerlist().get(timeout=4):
                 return opts.connection.server.vip.rpc.call(agent.vip_identity,

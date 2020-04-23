@@ -571,8 +571,10 @@ class _Socket(object):
         via = frames.pop(0) if state == -1 else None
         # from volttron.utils.frame_serialization import decode_frames
         # decoded = decode_frames(frames)
-
+        #for f in frames:
+        #    _log.info("recv_vip_dict BEFORE FRAMES:{}".format(f))
         myframes = deserialize_frames(frames)
+        _log.info("recv_vip_dict FRAMES:{}".format(myframes))
         dct = dict(zip(('peer', 'user', 'id', 'subsystem', 'args'), myframes))
         if via is not None:
             dct['via'] = via

@@ -61,6 +61,7 @@ def deserialize_frames(frames: List[Frame]) -> List:
         elif isinstance(x, str):
             decoded.append(x)
         elif x is not None:
+            _log.info("Type of x is {}".format(type(x)))
             # _log.debug(f'x is {x}')
             if x == {}:
                 decoded.append(x)
@@ -68,7 +69,7 @@ def deserialize_frames(frames: List[Frame]) -> List:
             try:
                 d = x.bytes.decode('utf-8')
             except UnicodeDecodeError as e:
-                _log.debug(e)
+                _log.info("UnicodeDecodeError: {}".format(e))
                 decoded.append(x)
                 continue
             try:
@@ -84,6 +85,7 @@ def serialize_frames(data: List[Any]) -> List[Frame]:
 
     # _log.debug("Serializing: {}".format(data))
     for x in data:
+        #_log.debug("Serializing x: {}, type of x".format(x, type(x)))
         try:
             if isinstance(x, list) or isinstance(x, dict):
                 frames.append(Frame(jsonapi.dumps(x).encode('utf-8')))

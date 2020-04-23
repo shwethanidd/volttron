@@ -502,7 +502,9 @@ class Router(BaseRouter):
             if sock == self.socket:
                 if sockets[sock] == zmq.POLLIN:
                     frames = sock.recv_multipart(copy=False)
-                    self.route(deserialize_frames(frames))
+                    d_frames = deserialize_frames(frames)
+                    self.route(d_frames)
+                    _log.info("ROUTER: recv_multipart AFTER deserialize_frames:{}".format(d_frames))
             elif sock in self._ext_routing._vip_sockets:
                 if sockets[sock] == zmq.POLLIN:
                     # _log.debug("From Ext Socket: ")

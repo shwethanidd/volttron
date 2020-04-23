@@ -290,6 +290,9 @@ class BaseRouter(object):
                 if op == 'list':
                     frames.append('listing')
                     frames.extend(self._peers)
+                    _log.info("ROUTER received PEERLIST list query: {}, msg_id:{}, typeof: {}".format(self._peers,
+                                                                                                      msg_id,
+                                                                                                      type(msg_id)))
                 else:
                     error = ('unknown' if op else 'missing') + ' operation'
                     frames.extend(['error', error])

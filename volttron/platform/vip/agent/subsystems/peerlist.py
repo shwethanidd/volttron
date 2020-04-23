@@ -47,6 +47,7 @@ from ..results import ResultsDictionary
 from volttron.platform import jsonapi
 from zmq import ZMQError
 from zmq.green import ENOTSOCK
+import struct
 
 __all__ = ['PeerList']
 
@@ -65,7 +66,7 @@ class PeerList(SubsystemBase):
     def list(self):
         connection = self.core().connection
         result = next(self._results)
-
+        _log.info("PEERLIST: list result.ident: {}, type:{}".format(result.ident, type(result.ident)))
         try:
             connection.send_vip('',
                                 'peerlist',
@@ -123,6 +124,7 @@ class PeerList(SubsystemBase):
     __call__ = list
 
     def _handle_subsystem(self, message):
+        _log.info("PEERLIST handle_subsystem: {}".format(message))
         try:
             op = message.args[0]
         except IndexError:
@@ -149,8 +151,29 @@ class PeerList(SubsystemBase):
         elif op == 'listing':
             try:
                 result = self._results.pop(message.id)
-            except KeyError:
+            except KeyError as e:
+                msg_id = struct.unpack('f', message.id.bytes)
+                _log.info("PEERLIST subsystem keyError: {}, after unpack: {}, type:{}, TYPE:{}".format(message.id.bytes,
+                                                                                              msg_id[0],
+                                                                                              type(msg_id[0]),
+                                                                                               self._results))
+                #result = self._results.pop(str(msg_id[0]))
                 return
+                # _log.info("PEERLIST: {}, {}".format(type(self._results[0]), type(msg_id[0])))
+                # try:
+                #
+                #     result = self._results.pop(msg_id[0])
+                # except KeyError as e:
+                #     _log.info("second time")
+                #     return
+                # try:
+                #     msg_id = struct.unpack('f', message.id.bytes)
+                #     _log.info("PEERLIST subsystem keyError: {}, after unpack: {}".format(message.id.bytes,msg_id))
+                #     result = self._results.pop(msg_id[0])
+                # except KeyError as e:
+                #     _log.info("PEERLIST subsystem keyError second time: {}".format(e))
+                #     return
+            _log.info("PEERLIST subsystem: {}, {}, {}".format(message.args, message.id, type(message.id)))
             # The response will have frames, we convert to bytes and then from bytes
             # we decode to strings for the final response.
             result.set([arg for arg in message.args[1:]])
