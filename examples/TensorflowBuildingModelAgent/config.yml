@@ -1,4 +1,4 @@
-main_model_path: /home/niddodi/git/volttron/examples/TensorflowBuildingModelAgent/data/seq2seq_3860/1
-encoder_model_path: /home/niddodi/git/volttron/examples/TensorflowBuildingModelAgent/data/s2s_encoder_3860/1
-decoder_model_path: /home/niddodi/git/volttron/examples/TensorflowBuildingModelAgent/data/s2s_decoder_3860/1
-building_data_path: /home/niddodi/git/volttron/examples/TensorflowBuildingModelAgent/data/LSTM_3860_New_5min.csv
+#main_model_path: /home/nidd494/git/volttron/examples/TensorflowBuildingModelAgent/data/seq2seq_3860/1
+encoder_model_path: /home/nidd494/git/volttron/examples/TensorflowBuildingModelAgent/data/s2s_encoder_3860/1/
+decoder_model_path: /home/nidd494/git/volttron/examples/TensorflowBuildingModelAgent/data/s2s_decoder_3860/1
+building_data_path: /home/nidd494/git/volttron/examples/TensorflowBuildingModelAgent/data/LSTM_Building1_New_5min.csv

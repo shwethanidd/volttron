@@ -73,9 +73,10 @@ class TensorflowBuildingModelAgent(Agent):
         config.update(contents)
         _log.debug("Update agent %s configuration -- config --  %s -- action -- %s", self.core.identity, config, action)
         if action == "NEW" or "UPDATE":
-            self.main_model_path = config.get("main_model_path")
+#            self.main_model_path = config.get("main_model_path")
             self.encoder_model_path = config.get("encoder_model_path")
             self.decoder_model_path = config.get("decoder_model_path")
+            self.building_data_path = config.get("building_data_path")
             self.config_update = True
             prediction = self.prediction_request()
 
@@ -83,81 +84,120 @@ class TensorflowBuildingModelAgent(Agent):
         self.core.spawn_later(5, self.predict_building_power)
 
     def predict_building_power(self):
-        loaded_encoder = tf.saved_model.load(self.encoder_model_path)
-        loaded_decoder = tf.saved_model.load(self.decoder_model_path)
+        _log.debug("Here1")
+        
+        # Data Format Parameters
         input_dim = 6
         output_dim = 1
+
         input_seq_len = 60 * input_dim
         output_seq_len = 60 * output_dim
         Train_size = 0.9
-        df = pd.read_csv(self.main_model_path)
+
+        # Training Paramters
+        total_iteractions = 5
+        batch_size = 64
+        KEEP_RATE = 0.5
+
+        ## LSTM Network Parameters
+        # size of LSTM Cell
+        hidden_dim = 64 *2
+        # num of stacked lstm layers
+        num_stacked_layers = 3 * 2 
+
+
+        df = pd.read_csv(self.building_data_path)
         Data_raw = pd.DataFrame(df)
         Data_raw = Data_raw.set_index(Data_raw.columns[0])
         Data_raw.index = pd.to_datetime(Data_raw.index)
 
         Data = Data_raw
-        Data['hr_sin'] = np.round(np.sin(Data.index.hour * (2. * np.pi / 24)), decimals=2)
-        Data['hr_cos'] = np.round(np.cos(Data.index.hour * (2. * np.pi / 24)), decimals=2)
-        Data['wk_sin'] = np.round(np.sin((Data.index.weekday - 1) * (2. * np.pi / 12)), decimals=2)
-        Data['wk_cos'] = np.round(np.cos((Data.index.weekday - 1) * (2. * np.pi / 12)), decimals=2)
+        Data['hr_sin'] = np.round(np.sin(Data.index.hour*(2.*np.pi/24)),decimals=2)
+        Data['hr_cos'] = np.round(np.cos(Data.index.hour*(2.*np.pi/24)),decimals=2)
+        Data['wk_sin'] = np.round(np.sin((Data.index.weekday-1)*(2.*np.pi/12)),decimals=2)
+        Data['wk_cos'] = np.round(np.cos((Data.index.weekday-1)*(2.*np.pi/12)),decimals=2)
         Data = Data.reset_index()
 
         df = Data
         df = df.drop('Time', 1)
-        df.Power = df.Power.shift(-output_seq_len)
-        df = df.replace('', np.nan, regex=True)
+        df.Power = df.Power .shift(-output_seq_len)
+        df = df.replace('',np.nan, regex=True)
         df = df.dropna()
         df.to_csv('/tmp/BldgRawData.csv', sep=',', float_format='%.2f')
-        _log.debug(df.head())
+        print(df.head())
 
-        Train_index = int(len(df) * (Train_size))
+        Train_index = int(len(df)*(Train_size))
+        df_train = df.iloc[:Train_index, :].copy()
         df_test = df.iloc[Train_index:, :].copy()
+        X_train = df_train.loc[:, df.columns[0:]].values.copy()
         X_test = df_test.loc[:, df.columns[0:]].values.copy()
-        y_test = df_test['Power'].values.copy().reshape(-1, 1)
         y_train = df_train['Power'].values.copy().reshape(-1, 1)
+        y_test = df_test['Power'].values.copy().reshape(-1, 1)
+        print (len(X_train), len(X_test), X_train.shape[1])
+
+        for i in range(X_train.shape[1] - 4):
+            temp_mean = X_train[:, i].mean()
+            temp_std = X_train[:, i].std()
+            X_train[:, i] = (X_train[:, i] - temp_mean) / temp_std
+            X_test[:, i] = (X_test[:, i] - temp_mean) / temp_std
 
         ## z-score transform y
-        self.y_main_model_path = y_train.mean()
-        self.y_std = y_train.std()
+        y_mean = y_train.mean()
+        y_std = y_train.std()
+        y_train = (y_train - y_mean) / y_std
+        y_test = (y_test - y_mean) / y_std
+
+        print("y_mean: {}, y_std: {}".format(y_mean, y_std))
+
+        x, y = generate_train_samples(X_train, y_train, input_seq_len, output_seq_len, batch_size = batch_size)
+        print(x.shape, y.shape)
         test_x, test_y = generate_test_samples(X_test, y_test, input_seq_len, output_seq_len)
-        _log.debug("Loading encoder model")
+
+        test_x2 = test_x.reshape(test_x.shape[0],test_x.shape[1]*test_x.shape[2])
+
+        train_x, train_y = generate_test_samples(X_train, y_train, input_seq_len, output_seq_len)
+        train_x.shape, train_y.shape
+
+        train_input_y = np.zeros(train_y.shape)
+        train_input_y[:,1::,:] = train_y[:,:-1,:]
+        train_input_y.shape
+
+        test_input_y = np.zeros(test_y.shape)
+        test_input_y[:,1::,:] = test_y[:,:-1,:]
+        test_input_y.shape
+        _log.debug("loading saved models")
         loaded_encoder = tf.saved_model.load(self.encoder_model_path)
-        _log.debug("Loading decoder model")
         loaded_decoder = tf.saved_model.load(self.decoder_model_path)
-        _log.debug("Loading model to get power prediction: ")
-        predicted_values = self.decode_sequence(loaded_encoder, loaded_decoder, output_dim,
-                                                test_x[0:2])  # - np.squeeze(test_y[0:1])
-        _log.debug("Predicted values using decode sequence: {}".format(predicted_values))
+
+        predicted_values = self.decode_sequence(loaded_encoder, loaded_decoder, output_dim, test_x[0:2], output_seq_len)
+        predicted_values = predicted_values * y_std + y_mean
+
+        print("Predicted values using decode sequence: {}".format(predicted_values))
 
     def decode_sequence(self, encoder_model, decoder_model, output_dim, input_seq, output_seq_len):
-
+        _log.debug("running encoder model")
         # Encode the input as state vectors.
         states_value = encoder_model(tf.constant(input_seq, dtype=tf.float32))
-
+        _log.debug("after running encoder model")
         # Generate empty target sequence of length 1.
         target_seq = np.zeros((1, 1, output_dim))
-
+ 
         stop_condition = False
-        predicted_values = np.zeros((input_seq.shape[0], output_seq_len))
-        _log.debug("Running decoder sequence model: ")
+        predicted_values = np.zeros((input_seq.shape[0],output_seq_len))
         for i in range(output_seq_len):
-            _log.debug("Running for iteration: {}".format(i))
             output_tokens, h, c = decoder_model(
                 [tf.constant(target_seq, dtype=tf.float32)] + states_value)
 
-            # print(output_tokens)
-            predicted_values[:, i] = output_tokens[0, -1, 0].numpy()
-
+            #print(output_tokens)
+            predicted_values[:,i] = output_tokens[0, -1, 0].numpy()
+            
             # Update the target sequence (of length 1).
             target_seq = np.zeros((1, 1, output_dim))
-            # target_seq[0, 0, sampled_token_index] = 1.
 
             # Update states
             states_value = [h, c]
-            # reverse transform the values
-            predicted_values = predicted_values * self.y_mean + self.y_std
-        return predicted_values
 
+        return predicted_values
 
 def main():
     """Main method called to start the agent."""
