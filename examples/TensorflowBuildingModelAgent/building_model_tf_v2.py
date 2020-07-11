@@ -244,7 +244,10 @@ def decode_sequence(encoder_model, decoder_model, output_dim, input_seq):
         predicted_values[:,i] = output_tokens[0, -1, 0].numpy()
         
         # Update the target sequence (of length 1).
-        target_seq = np.zeros((1, 1, output_dim))
+        #target_seq = np.zeros((1, 1, output_dim))
+
+        target_seq = np.ones((1, 1, output_dim)) * predicted_values[:,i][0]
+
         # target_seq[0, 0, sampled_token_index] = 1.
 
         # Update states
