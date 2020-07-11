@@ -1,4 +1,8 @@
 """
+Agent that runs a previously trained building power prediction model to predict building power.
+The predction model is based on LSTM encoder decoder model.
+Reference:
+https://towardsdatascience.com/how-to-implement-seq2seq-lstm-model-in-keras-shortcutnlp-6f355f3e5639
 """
 
 __docformat__ = 'reStructuredText'
@@ -51,10 +55,10 @@ class TensorflowBuildingModelAgent(Agent):
     def __init__(self, config, hostport, **kwargs):
         super(TensorflowBuildingModelAgent, self).__init__(enable_store=True, **kwargs)
         default_config = {
-            "main_model_path": "model/seq2seq_building1/1/",
-            "encoder_model_path": "model/s2s_encoder_building1/1/",
-            "decoder_model_path": "model/s2s_decoder_building1/1/",
-            "building_data_path": "data/LSTM_3860_New_5min.csv"
+            "main_model_path": "examples/TensorflowBuildingModelAgent/data/seq2seq_3860/1",
+            "encoder_model_path": "examples/TensorflowBuildingModelAgent/data/s2s_encoder_Building1/1/",
+            "decoder_model_path": "examples/TensorflowBuildingModelAgent/data/s2s_decoder_Building1/1/",
+            "building_data_path": "examples/TensorflowBuildingModelAgent/data/LSTM_Building1_New_5min.csv.csv"
         }
         if config:
             default_config.update(config)
@@ -73,7 +77,6 @@ class TensorflowBuildingModelAgent(Agent):
         config.update(contents)
         _log.debug("Update agent %s configuration -- config --  %s -- action -- %s", self.core.identity, config, action)
         if action == "NEW" or "UPDATE":
-#            self.main_model_path = config.get("main_model_path")
             self.encoder_model_path = config.get("encoder_model_path")
             self.decoder_model_path = config.get("decoder_model_path")
             self.building_data_path = config.get("building_data_path")
@@ -105,7 +108,7 @@ class TensorflowBuildingModelAgent(Agent):
         # num of stacked lstm layers
         num_stacked_layers = 3 * 2 
 
-
+        # Read building power and outdoor temperature dataset
         df = pd.read_csv(self.building_data_path)
         Data_raw = pd.DataFrame(df)
         Data_raw = Data_raw.set_index(Data_raw.columns[0])
@@ -118,6 +121,7 @@ class TensorflowBuildingModelAgent(Agent):
         Data['wk_cos'] = np.round(np.cos((Data.index.weekday-1)*(2.*np.pi/12)),decimals=2)
         Data = Data.reset_index()
 
+        # Generate metadata for input dataset
         df = Data
         df = df.drop('Time', 1)
         df.Power = df.Power .shift(-output_seq_len)
@@ -149,6 +153,7 @@ class TensorflowBuildingModelAgent(Agent):
 
         print("y_mean: {}, y_std: {}".format(y_mean, y_std))
 
+        #Generate training and test samples
         x, y = generate_train_samples(X_train, y_train, input_seq_len, output_seq_len, batch_size = batch_size)
         print(x.shape, y.shape)
         test_x, test_y = generate_test_samples(X_test, y_test, input_seq_len, output_seq_len)
@@ -168,7 +173,7 @@ class TensorflowBuildingModelAgent(Agent):
         _log.debug("loading saved models")
         loaded_encoder = tf.saved_model.load(self.encoder_model_path)
         loaded_decoder = tf.saved_model.load(self.decoder_model_path)
-
+        # Run decoder sequence model to get predicted power values
         predicted_values = self.decode_sequence(loaded_encoder, loaded_decoder, output_dim, test_x[0:2], output_seq_len)
         predicted_values = predicted_values * y_std + y_mean
 
