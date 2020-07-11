@@ -1,4 +1,6 @@
-#main_model_path: /home/nidd494/git/volttron/examples/TensorflowBuildingModelAgent/data/seq2seq_3860/1
-encoder_model_path: /home/nidd494/git/volttron/examples/TensorflowBuildingModelAgent/data/s2s_decoder_Building1/1/
-decoder_model_path: /home/nidd494/git/volttron/examples/TensorflowBuildingModelAgent/data/s2s_decoder_Building1/1
-building_data_path: /home/nidd494/git/volttron/examples/TensorflowBuildingModelAgent/data/LSTM_Building1_New_5min.csv
+#LSTM encoder model path
+encoder_model_path: /home/niddodi/git/volttron/examples/TensorflowBuildingModelAgent/data/s2s_encoder_Building1/1/
+#LSTM decoder model path
+decoder_model_path: /home/niddodi/git/volttron/examples/TensorflowBuildingModelAgent/data/s2s_decoder_Building1/1
+#Raw building power and outdoor air temperature dataset
+building_data_path: /home/niddodi/git/volttron/examples/TensorflowBuildingModelAgent/data/LSTM_Building1_New_5min.csv
