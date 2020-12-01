@@ -394,7 +394,6 @@ class PubSub(SubsystemBase):
             if not topics:
                 raise KeyError('no such subscription')
         else:
-            _log.debug(f"BEFORE: {self._my_subscriptions}")
             if platform in self._my_subscriptions:
                 bus_subscriptions = self._my_subscriptions[platform]
                 if bus in bus_subscriptions:
@@ -428,7 +427,6 @@ class PubSub(SubsystemBase):
                         del bus_subscriptions[bus]
                     if not bus_subscriptions:
                         del self._my_subscriptions[platform]
-        _log.debug(f"AFTER: {self._my_subscriptions}")
         return topics
 
     def unsubscribe(self, peer, prefix, callback, bus='', all_platforms=False):
